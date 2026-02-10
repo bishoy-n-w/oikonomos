@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "297923978630",
+    "project_id": "oikonomos-84b69",
+    "storage_bucket": "oikonomos-84b69.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:297923978630:android:f59ebb717819554266b807",
+        "android_client_info": {
+          "package_name": "com.example.oikonomos"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "297923978630-9b625f9f7fuirqlqoavrras6dms58rbe.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDYgMaTDD1sZg14708NPF7dhFKiZSFePwg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "297923978630-9b625f9f7fuirqlqoavrras6dms58rbe.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "297923978630-0vg2mkr1g0ubfqjjq43a5q0jdmvkt6lf.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.oikonomos"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
