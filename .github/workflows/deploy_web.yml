@@ -1,0 +1,45 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+
+# Permissions required for GitHub Pages deployment
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          # flutter-version: '3.19.0' # Optional: pin a version
+
+      - name: Get Dependencies
+        run: flutter pub get
+
+      # KEY STEP: Build with the correct base-href
+      # Replace 'your-repo-name' with your actual repository name (e.g., /my-app/)
+      # Keep the slashes at the start and end.
+      - name: Build Web
+        run: flutter build web --release --base-href "/oikonomos/"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
