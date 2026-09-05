@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/field_spec.dart';
 import '../widgets/crud_collection.dart';
 import '../services/auth_service.dart';
+import '../constants.dart';
 import 'home_visits_tab.dart';
 
 class HomePage extends StatefulWidget {
@@ -37,7 +38,22 @@ class _HomePageState extends State<HomePage> {
       length: _tabs.length,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Sunday School Admin'),
+          title: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Image.asset(
+                  'assets/icon.png',
+                  width: 32,
+                  height: 32,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text('Sunday School Admin'),
+            ],
+          ),
           actions: [
             IconButton(
               icon: const Icon(Icons.logout),
@@ -720,6 +736,32 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                 ],
+              ),
+            ),
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Oikonomos Admin System',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                        fontSize: 10,
+                      ),
+                    ),
+                    Text(
+                      'v$appVersion',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../constants.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -43,17 +44,26 @@ class _LoginScreenState extends State<LoginScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // Logo/Icon Header
-              Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  color: colorScheme.primaryContainer,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.admin_panel_settings,
-                  size: 56,
-                  color: colorScheme.onPrimaryContainer,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: Image.asset(
+                  'assets/icon.png',
+                  width: 100,
+                  height: 100,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.admin_panel_settings,
+                      size: 56,
+                      color: colorScheme.onPrimaryContainer,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -137,9 +147,11 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 48),
               // Footer
               Text(
-                'Oikonomos Database v1.0.0',
+                'Oikonomos Database v$appVersion',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                  fontSize: 10,
+                  letterSpacing: 0.5,
                 ),
               ),
             ],
