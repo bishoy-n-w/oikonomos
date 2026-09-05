@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'firebase_options.dart';
 import 'services/auth_service.dart';
 import 'screens/login_screen.dart';
-import 'screens/home_page.dart';
+import 'screens/main_shell.dart';
 import 'constants.dart';
 
 void main() async {
@@ -93,7 +93,7 @@ class SundaySchoolAuthGate extends StatelessWidget {
             return const LoginScreen();
           }
 
-          return const HomePage();
+          return const MainShell();
         },
       ),
     );
