@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../constants.dart';
 import 'dashboard_screen.dart';
 import 'kids_directory.dart';
 import 'misters_directory.dart';
@@ -138,7 +139,40 @@ class _MainShellState extends State<MainShell> {
           Expanded(
             child: Container(
               color: colorScheme.surface,
-              child: screens[_selectedIndex],
+              child: Column(
+                children: [
+                  Expanded(
+                    child: screens[_selectedIndex],
+                  ),
+                  const Divider(height: 1, thickness: 1),
+                  SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Oikonomos Admin System',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                              fontSize: 10,
+                            ),
+                          ),
+                          Text(
+                            'v${AppVersion.current}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -156,6 +190,12 @@ class _MainShellState extends State<MainShell> {
       child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: _churchesRef.snapshots(),
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Tooltip(
+              message: 'Database Error: ${snapshot.error}',
+              child: const Icon(Icons.error_outline, color: Colors.red, size: 20),
+            );
+          }
           if (!snapshot.hasData) {
             return const SizedBox(
               width: 120,
@@ -221,6 +261,12 @@ class _MainShellState extends State<MainShell> {
             .collection('academicYears')
             .snapshots(),
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Tooltip(
+              message: 'Database Error: ${snapshot.error}',
+              child: const Icon(Icons.error_outline, color: Colors.red, size: 20),
+            );
+          }
           if (!snapshot.hasData) {
             return const SizedBox(
               width: 100,
