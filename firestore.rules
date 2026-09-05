@@ -83,8 +83,8 @@ service cloud.firestore {
         }
       }
       
-      // Families
-      match /families/{familyId} {
+      // Service Groups
+      match /serviceGroups/{serviceGroupId} {
         allow read, write: if isChurchServant(churchId);
         
         match /mistersMemberships/{memId} {

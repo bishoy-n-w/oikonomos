@@ -26,7 +26,7 @@ The architecture is split into three layers:
           |
           +------> [kids] (Children Roster PII) ---> [versions] (History Archive)
           |
-          +------> [families] (Families Directory)
+          +------> [serviceGroups] (Service Groups Directory)
           |
           +------> [classes] (Class Groups)
           |
@@ -114,18 +114,18 @@ The Student Directory containing Personal Identifiable Information (PII).
 
 ---
 
-### Subcollection: `churches/{churchId}/families`
-The Directory of Households/Families in this specific church.
+### Subcollection: `churches/{churchId}/serviceGroups`
+The Directory of Service Groups (ministry departments) responsible for managing specific age group cohorts in this specific church.
 
-#### Document: `{familyId}` (e.g., `FAM_XYZ456`)
+#### Document: `{serviceGroupId}` (e.g., `SG_JUNIOR_HIGH`)
 *   **Fields:**
-    *   `active` (boolean): Family status.
+    *   `active` (boolean): Service Group status.
     *   `current` (map):
-        *   `displayName` (string): Family name (e.g., `The Al-Amin Family`).
+        *   `displayName` (string): Service Group Name (e.g., `Junior High Department`).
         *   `roles` (map/json): Map of Mister UIDs to roles (e.g. `{"UID_123": "admin"}`).
 
-#### Nested Subcollection: `churches/{churchId}/families/{familyId}/mistersMemberships`
-*   Links servants responsible for pastoring this family.
+#### Nested Subcollection: `churches/{churchId}/serviceGroups/{serviceGroupId}/mistersMemberships`
+*   Links servants assigned to collaborate and pastor within this Service Group (department).
 *   **Fields:**
     *   `misterId` (string/reference): FK pointing to `churches/{churchId}/misters/{misterId}`.
     *   `role` (string): `'viewer'` or `'admin'`.
@@ -142,7 +142,7 @@ The Directory of Class Groups (Grade groups) defined in this church.
     *   `active` (boolean): Status of the class group.
     *   `createdAt` (server timestamp): Class creation date.
     *   `current` (map):
-        *   `name` (string): Name of the class (e.g., `Grade 5 Boys`).
+        *   `name` (string): Name of the class (e.g., `Grade 5 Boys Class`).
         *   `currentKidIds` (array of strings): Enrolled children IDs list.
         *   `currentMisters` (map/json): Assigned teachers' roles map.
 
@@ -163,12 +163,12 @@ Defines the timeline metadata of Sunday School terms.
 ---
 
 ### Subcollection: `churches/{churchId}/academicYears/{yearId}/classInstances`
-Maps and binds a **Class Group** to a **Family Household** and **Grade Level** specifically for this Academic Year term.
+Maps and binds a **Class Group** to an active **Service Group (Department)** and a specific **Grade Level** for this Academic Year term.
 
 #### Document: `{instanceId}` (e.g., `CI_G5_2026`)
 *   **Fields:**
     *   `classId` (string/reference): FK pointing to `churches/{churchId}/classes/{classId}`.
-    *   `familyId` (string/reference): FK pointing to `churches/{churchId}/families/{familyId}`.
+    *   `serviceGroupId` (string/reference): FK pointing to `churches/{churchId}/serviceGroups/{serviceGroupId}`.
     *   `gradeId` (string/option): Grade levels: `'KG', 'G1', ..., 'G12'`.
 
 ---
@@ -217,11 +217,11 @@ This table maps how the relational dropdown selects resolve database identifiers
 
 | Source Collection | Form Field Path | Target Firestore Collection Path | UI Display Path |
 | :--- | :--- | :--- | :--- |
-| `families/{familyId}/mistersMemberships` | `misterId` | `churches/{churchId}/misters` | `displayName` |
+| `serviceGroups/{serviceGroupId}/mistersMemberships` | `misterId` | `churches/{churchId}/misters` | `displayName` |
 | `classes/{classId}/mistersMemberships` | `misterId` | `churches/{churchId}/misters` | `displayName` |
 | `classes/{classId}/kidsMemberships` | `kidId` | `churches/{churchId}/kids` | `current.fullName` |
 | `classInstances` | `classId` | `churches/{churchId}/classes` | `current.name` |
-| `classInstances` | `familyId` | `churches/{churchId}/families` | `current.displayName` |
+| `classInstances` | `serviceGroupId` | `churches/{churchId}/serviceGroups` | `current.displayName` |
 | `attendanceEvents` | `createdBy` | `churches/{churchId}/misters` | `displayName` |
 | `attendanceEvents` | `takenBy` | `churches/{churchId}/misters` | `displayName` |
 | `visits` (Home Visits) | `kidId` | `churches/{churchId}/kids` | `current.fullName` |

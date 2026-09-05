@@ -21,7 +21,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   static const _settingsTabs = <Tab>[
     Tab(text: 'Classes'),
-    Tab(text: 'Families'),
+    Tab(text: 'Service Groups'),
     Tab(text: 'Academic Years'),
     Tab(text: 'Class Assignments'),
     Tab(text: 'Home Visits Log'),
@@ -172,23 +172,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
 
-                // 2. Families Config
+                // 2. Service Groups Config
                 Padding(
                   padding: const EdgeInsets.all(24.0),
                   child: CrudCollectionPage(
-                    title: 'Families Database',
+                    title: 'Service Groups Directory',
                     collection: _churchesRef
                         .doc(widget.churchId)
-                        .collection('families'),
+                        .collection('serviceGroups'),
                     fields: const [
                       FieldSpec(
                         path: 'active',
-                        label: 'Active Family',
+                        label: 'Active Service Group',
                         type: FieldType.boolValue,
                       ),
                       FieldSpec(
                         path: 'current.displayName',
-                        label: 'Family Display Name',
+                        label: 'Service Group Name',
                         type: FieldType.text,
                         required: true,
                       ),
@@ -205,10 +205,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     childActions: [
                       ChildCollectionAction(
                         label: 'Mister Memberships',
-                        title: 'Family Mister Memberships',
+                        title: 'Service Group Servant Assignments',
                         collectionFactory: (parentId, _) => _churchesRef
                             .doc(widget.churchId)
-                            .collection('families')
+                            .collection('serviceGroups')
                             .doc(parentId)
                             .collection('mistersMemberships'),
                         fields: [
@@ -307,11 +307,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               referenceDisplayPath: 'current.name',
                             ),
                             FieldSpec(
-                              path: 'familyId',
-                              label: 'Family Group',
+                              path: 'serviceGroupId',
+                              label: 'Service Group (Department)',
                               type: FieldType.reference,
                               required: true,
-                              referenceCollectionPath: 'churches/${widget.churchId}/families',
+                              referenceCollectionPath: 'churches/${widget.churchId}/serviceGroups',
                               referenceDisplayPath: 'current.displayName',
                             ),
                             const FieldSpec(
@@ -323,7 +323,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ],
                           createDefaults: const {'gradeId': 'G1'},
                           titlePath: 'classId',
-                          subtitlePaths: const ['familyId', 'gradeId'],
+                          subtitlePaths: const ['serviceGroupId', 'gradeId'],
                         ),
                       ),
 
