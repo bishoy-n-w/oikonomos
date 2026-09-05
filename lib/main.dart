@@ -5,9 +5,11 @@ import 'firebase_options.dart';
 import 'services/auth_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_page.dart';
+import 'constants.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppVersion.initialize();
   runApp(const FirebaseBootstrapApp());
 }
 

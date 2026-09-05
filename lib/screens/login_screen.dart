@@ -147,7 +147,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 48),
               // Footer
               Text(
-                'Oikonomos Database v$appVersion',
+                'Oikonomos Database v${AppVersion.current}',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                   fontSize: 10,

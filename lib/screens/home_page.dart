@@ -753,8 +753,8 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     Text(
-                      'v$appVersion',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                     'v${AppVersion.current}',
+                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
