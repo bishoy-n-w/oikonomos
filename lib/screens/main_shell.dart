@@ -96,6 +96,7 @@ class _MainShellState extends State<MainShell> {
               ),
               MistersDirectoryScreen(
                 churchId: _selectedChurchId,
+                userRole: isGlobalAdmin ? 'Admin' : (misterData?['churchRole'] ?? 'Teacher'),
               ),
               AttendanceTrackerScreen(
                 churchId: _selectedChurchId,

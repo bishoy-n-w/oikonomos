@@ -6,6 +6,7 @@ import 'package:oikonomos/services/app_settings.dart';
 import 'package:oikonomos/services/translations.dart';
 import 'package:oikonomos/services/storage_service.dart';
 import 'package:oikonomos/services/file_service.dart';
+import 'package:oikonomos/widgets/phone_field.dart';
 
 void main() {
   setUpAll(() {
@@ -155,6 +156,36 @@ void main() {
       // 3. Promote Teacher to Admin (Coordinator role toggle)
       approvedServantPayload['churchRole'] = 'Admin';
       expect(approvedServantPayload['churchRole'], 'Admin');
+    });
+  });
+
+  group('Oikonomos Resilient International Phone Normalization Tests', () {
+    test('Should strip leading zero and prefix Egypt code for Egypt local inputs', () {
+      expect(OikonomosPhoneField.parseImportedPhone('01099441171'), '+201099441171');
+      expect(OikonomosPhoneField.parseImportedPhone(' 010-9944-1171 '), '+201099441171');
+    });
+
+    test('Should default to Egypt and prefix code if local input lacks leading zero and country prefix', () {
+      expect(OikonomosPhoneField.parseImportedPhone('1099441171'), '+201099441171');
+    });
+
+    test('Should handle Egyptian inputs already containing the dial prefix securely', () {
+      expect(OikonomosPhoneField.parseImportedPhone('201099441171'), '+201099441171');
+      expect(OikonomosPhoneField.parseImportedPhone('+20 10 9944 1171'), '+201099441171');
+    });
+
+    test('Should default to USA +1 if input is exactly 10 digits and not Egyptian prefix', () {
+      expect(OikonomosPhoneField.parseImportedPhone('4376338888'), '+14376338888');
+      expect(OikonomosPhoneField.parseImportedPhone(' (437) 633-8888 '), '+14376338888');
+    });
+
+    test('Should handle USA inputs already prefixed with dial code securely', () {
+      expect(OikonomosPhoneField.parseImportedPhone('14376338888'), '+14376338888');
+      expect(OikonomosPhoneField.parseImportedPhone('+1 437-633-8888'), '+14376338888');
+    });
+
+    test('Should default to Egypt prefix for general non-matching custom inputs', () {
+      expect(OikonomosPhoneField.parseImportedPhone('12345'), '+2012345');
     });
   });
 }

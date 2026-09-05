@@ -1,14 +1,20 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:excel/excel.dart';
 import 'package:flutter/material.dart';
+import '../widgets/phone_field.dart';
 import '../services/app_settings.dart';
 import '../services/translations.dart';
 import '../services/file_service.dart';
 
 class MistersDirectoryScreen extends StatefulWidget {
-  const MistersDirectoryScreen({required this.churchId, super.key});
+  const MistersDirectoryScreen({
+    required this.churchId,
+    required this.userRole,
+    super.key,
+  });
 
   final String churchId;
+  final String userRole;
 
   @override
   State<MistersDirectoryScreen> createState() => _MistersDirectoryScreenState();
@@ -63,6 +69,7 @@ class _MistersDirectoryScreenState extends State<MistersDirectoryScreen> {
           }).toList();
 
           final selectedCount = _selectedRows.values.where((v) => v).length;
+          final isAdmin = widget.userRole == 'Admin';
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -96,6 +103,9 @@ class _MistersDirectoryScreenState extends State<MistersDirectoryScreen> {
                 ],
               ),
               const SizedBox(height: 24),
+
+              // Pending Join Requests Panel
+              if (isAdmin) _buildJoinRequestsPanel(context, theme, colorScheme),
 
               // 2. Search & Bulk Actions Bar
               Card(
@@ -290,20 +300,25 @@ class _MistersDirectoryScreenState extends State<MistersDirectoryScreen> {
   void _exportSelectedToCsv(List<DocumentSnapshot<Map<String, dynamic>>> docs) {
     try {
       final List<String> csvLines = [];
-      // CSV Headers
-      csvLines.add('Full Name,Email,Mobile,Country Code,Role,Active');
+      // CSV Headers (Unified Mobile column, no Country Code!)
+      csvLines.add('Full Name,Email,Mobile,Role,Active');
 
       for (final doc in docs) {
         if (_selectedRows[doc.id] == true) {
           final data = doc.data()!;
           final email = doc.id;
           final name = data['displayName'] ?? '';
-          final mobile = data['phone'] ?? data['mobile'] ?? '';
-          final countryCode = data['countryCode'] ?? '';
-          final role = data['churchRole'] ?? 'viewer';
+          
+          final rawMobile = data['mobile'] ?? data['phone'] ?? '';
+          // Prefix with tab '\t' inside the CSV to force Excel/Sheets to preserve the leading '+'
+          final String mobile = rawMobile.toString().startsWith('+')
+              ? '\t$rawMobile'
+              : '\t+$rawMobile';
+
+          final role = data['churchRole'] ?? 'Teacher';
           final active = data['active'] ?? true;
 
-          csvLines.add('"$name","$email","$mobile","$countryCode","$role","$active"');
+          csvLines.add('"$name","$email","$mobile","$role","$active"');
         }
       }
 
@@ -400,13 +415,16 @@ class _MistersDirectoryScreenState extends State<MistersDirectoryScreen> {
 
     final nameController = TextEditingController(text: data?['displayName']);
     final emailController = TextEditingController(text: doc?.id);
-    final mobileController = TextEditingController(text: data?['phone'] ?? data?['mobile']);
+    
+    final String initialMobile = (data?['mobile'] != null && data!['mobile'].toString().isNotEmpty)
+        ? data['mobile'].toString()
+        : (data?['phone'] ?? '').toString();
+    final mobileController = TextEditingController(text: initialMobile);
 
-    String selectedRole = data?['churchRole'] ?? 'viewer';
+    String selectedRole = data?['churchRole'] ?? 'Teacher';
     String selectedCountryCode = data?['countryCode'] ?? '+1';
     bool isActive = data?['active'] ?? true;
 
-    final List<String> codes = ['+1', '+20', '+44', '+61', '+961', '+965', '+971'];
     final formKey = GlobalKey<FormState>();
 
     final confirmed = await showDialog<bool>(
@@ -458,49 +476,15 @@ class _MistersDirectoryScreenState extends State<MistersDirectoryScreen> {
                       },
                     ),
                     const SizedBox(height: 12),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          width: 100,
-                          child: DropdownButtonFormField<String>(
-                            initialValue: selectedCountryCode,
-                            decoration: const InputDecoration(
-                              labelText: 'Code',
-                              border: OutlineInputBorder(),
-                            ),
-                            items: codes
-                                .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                                .toList(),
-                            onChanged: (val) {
-                              if (val != null) {
-                                  setModalState(() => selectedCountryCode = val);
-                              }
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextFormField(
-                            controller: mobileController,
-                            keyboardType: TextInputType.phone,
-                            decoration: const InputDecoration(
-                              labelText: 'Mobile Number *',
-                              border: OutlineInputBorder(),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Mobile number is required';
-                              }
-                              final digits = value.replaceAll(RegExp(r'\D'), '');
-                              if (digits.length < 7 || digits.length > 15) {
-                                return 'Must be 7-15 digits';
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
-                      ],
+                    OikonomosPhoneField(
+                      initialValue: mobileController.text,
+                      labelText: 'Mobile Number *',
+                      required: true,
+                      onChanged: (e164Value) {
+                        setModalState(() {
+                          mobileController.text = e164Value;
+                        });
+                      },
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
@@ -552,13 +536,11 @@ class _MistersDirectoryScreenState extends State<MistersDirectoryScreen> {
     if (confirmed == true) {
       final name = nameController.text.trim();
       final email = emailController.text.trim().toLowerCase();
-      final mobile = mobileController.text.trim().replaceAll(RegExp(r'\D'), ''); // Strip non-digits
+      final mobile = mobileController.text.trim(); // Complete E.164 string!
 
       final payload = {
         'displayName': name,
         'mobile': mobile,
-        'phone': mobile, // Rename compatibility
-        'countryCode': selectedCountryCode,
         'churchRole': selectedRole,
         'active': isActive,
         'authUid': email, // Binds key
@@ -832,7 +814,7 @@ class _MistersDirectoryScreenState extends State<MistersDirectoryScreen> {
 
         final name = row[mappedNameIdx!].trim();
         final email = row[mappedEmailIdx!].trim().toLowerCase();
-        final mobile = row[mappedMobileIdx!].trim().replaceAll(RegExp(r'\D'), '');
+        final mobile = OikonomosPhoneField.parseImportedPhone(row[mappedMobileIdx!]);
 
         // Validation filter
         if (name.isEmpty || email.isEmpty || !email.contains('@') || mobile.isEmpty) {
@@ -843,9 +825,7 @@ class _MistersDirectoryScreenState extends State<MistersDirectoryScreen> {
         final payload = {
           'displayName': name,
           'mobile': mobile,
-          'phone': mobile,
-          'countryCode': '+1', // Default country code during bulk import
-          'churchRole': 'viewer',
+          'churchRole': 'Teacher',
           'active': true,
           'authUid': email,
           'createdAt': FieldValue.serverTimestamp(),
@@ -862,6 +842,155 @@ class _MistersDirectoryScreenState extends State<MistersDirectoryScreen> {
         _showSnack('Bulk import transaction failed: $e');
       }
     }
+  }
+
+  // --- SUB-VIEW: Pending Join Requests Panel ---
+  Widget _buildJoinRequestsPanel(BuildContext context, ThemeData theme, ColorScheme colorScheme) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('churches')
+          .doc(widget.churchId)
+          .collection('joinRequests')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const SizedBox.shrink(); // No pending requests, hide completely!
+        }
+
+        final docs = snapshot.data!.docs;
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 24),
+          color: Colors.orange.shade50,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: Colors.orange.shade200, width: 1.5),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.notification_important, color: Colors.orange),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Pending Servant Join Requests (${docs.length})',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orange.shade900,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: docs.length,
+                  separatorBuilder: (_, __) => const Divider(height: 16),
+                  itemBuilder: (context, index) {
+                    final doc = docs[index];
+                    final rData = doc.data();
+                    final applicantName = rData['displayName'] ?? 'New Servant';
+                    final applicantEmail = doc.id; // Email key
+
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              applicantName,
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              applicantEmail,
+                              style: theme.textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            FilledButton.tonal(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Colors.green.shade100,
+                                foregroundColor: Colors.green.shade900,
+                              ),
+                              onPressed: () => _approveJoinRequest(context, applicantName, applicantEmail),
+                              child: const Text('Approve', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            ),
+                            const SizedBox(width: 8),
+                            TextButton(
+                              style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
+                              onPressed: () => _rejectJoinRequest(applicantEmail),
+                              child: const Text('Reject', style: TextStyle(fontSize: 12)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // --- ACTIONS: APPROVE & REJECT JOIN REQUESTS ---
+
+  Future<void> _approveJoinRequest(BuildContext context, String name, String email) async {
+    try {
+      final firestore = FirebaseFirestore.instance;
+      final batch = firestore.batch();
+
+      // 1. Create a Teacher (Servant) record under misters keyed by verified Email (No Country Code, No Phone Redundancy!)
+      final misterRef = firestore
+          .collection('churches')
+          .doc(widget.churchId)
+          .collection('misters')
+          .doc(email);
+
+      batch.set(misterRef, {
+        'displayName': name,
+        'mobile': '',
+        'churchRole': 'Teacher', // Teacher by default
+        'active': true, // Auto-active upon approval!
+        'authUid': email,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      // 2. Delete their joinRequest document
+      final requestRef = firestore
+          .collection('churches')
+          .doc(widget.churchId)
+          .collection('joinRequests')
+          .doc(email);
+
+      batch.delete(requestRef);
+
+      await batch.commit();
+
+      _showSnack('$name approved successfully!');
+    } catch (e) {
+      _showSnack('Approval failed: $e');
+    }
+  }
+
+  Future<void> _rejectJoinRequest(String email) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('churches')
+          .doc(widget.churchId)
+          .collection('joinRequests')
+          .doc(email)
+          .delete();
+    } catch (_) {}
   }
 
   void _showSnack(String message) {

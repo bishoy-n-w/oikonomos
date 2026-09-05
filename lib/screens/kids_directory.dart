@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:excel/excel.dart';
 import 'package:flutter/material.dart';
+import '../widgets/phone_field.dart';
 import '../services/app_settings.dart';
 import '../services/translations.dart';
 import '../services/file_service.dart';
@@ -310,8 +311,15 @@ class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
           final apt = current['addressApartment'] ?? '';
           final area = current['addressArea'] ?? '';
           final homeTel = current['homeTele'] ?? '';
-          final fMobile = current['fatherMobile'] ?? '';
-          final mMobile = current['motherMobile'] ?? '';
+          final rawFMobile = current['fatherMobile'] ?? '';
+          final String fMobile = rawFMobile.toString().isNotEmpty
+              ? (rawFMobile.toString().startsWith('+') ? '\t$rawFMobile' : '\t+$rawFMobile')
+              : '';
+
+          final rawMMobile = current['motherMobile'] ?? '';
+          final String mMobile = rawMMobile.toString().isNotEmpty
+              ? (rawMMobile.toString().startsWith('+') ? '\t$rawMMobile' : '\t+$rawMMobile')
+              : '';
 
           final dobVal = current['dob'];
           DateTime? dob;
@@ -444,7 +452,6 @@ class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
     String fatherCode = current['fatherMobileCode'] ?? '+1';
     String motherCode = current['motherMobileCode'] ?? '+1';
 
-    final List<String> codes = ['+1', '+20', '+44', '+61', '+961', '+965', '+971'];
     final formKey = GlobalKey<FormState>();
 
     final confirmed = await showDialog<bool>(
@@ -684,32 +691,14 @@ class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
                                 },
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            SizedBox(
-                              width: 80,
-                              child: DropdownButtonFormField<String>(
-                                initialValue: kidCode,
-                                decoration: const InputDecoration(border: OutlineInputBorder()),
-                                items: codes.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                                onChanged: (val) => setModalState(() => kidCode = val!),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
                             Expanded(
-                              child: TextFormField(
-                                controller: kidMobileController,
-                                keyboardType: TextInputType.phone,
-                                decoration: const InputDecoration(
-                                  labelText: 'Kid Mobile',
-                                  border: OutlineInputBorder(),
-                                ),
-                                validator: (value) {
-                                  if (value == null || value.trim().isEmpty) return null;
-                                  final digits = value.replaceAll(RegExp(r'\D'), '');
-                                  if (digits.length < 7 || digits.length > 15) {
-                                    return 'Must be 7-15 digits';
-                                  }
-                                  return null;
+                              child: OikonomosPhoneField(
+                                initialValue: kidMobileController.text,
+                                labelText: 'Kid Mobile',
+                                onChanged: (e164Value) {
+                                  setModalState(() {
+                                    kidMobileController.text = e164Value;
+                                  });
                                 },
                               ),
                             ),
@@ -743,31 +732,14 @@ class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
                         const SizedBox(height: 12),
                         Row(
                           children: [
-                            SizedBox(
-                              width: 90,
-                              child: DropdownButtonFormField<String>(
-                                initialValue: fatherCode,
-                                decoration: const InputDecoration(labelText: 'Code', border: OutlineInputBorder()),
-                                items: codes.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                                onChanged: (val) => setModalState(() => fatherCode = val!),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
                             Expanded(
-                              child: TextFormField(
-                                controller: fMobileController,
-                                keyboardType: TextInputType.phone,
-                                decoration: const InputDecoration(
-                                  labelText: 'Father Mobile',
-                                  border: OutlineInputBorder(),
-                                ),
-                                validator: (value) {
-                                  if (value == null || value.trim().isEmpty) return null;
-                                  final digits = value.replaceAll(RegExp(r'\D'), '');
-                                  if (digits.length < 7 || digits.length > 15) {
-                                    return 'Must be 7-15 digits';
-                                  }
-                                  return null;
+                              child: OikonomosPhoneField(
+                                initialValue: fMobileController.text,
+                                labelText: 'Father Mobile',
+                                onChanged: (e164Value) {
+                                  setModalState(() {
+                                    fMobileController.text = e164Value;
+                                  });
                                 },
                               ),
                             ),
@@ -801,31 +773,14 @@ class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
                         const SizedBox(height: 12),
                         Row(
                           children: [
-                            SizedBox(
-                              width: 90,
-                              child: DropdownButtonFormField<String>(
-                                initialValue: motherCode,
-                                decoration: const InputDecoration(labelText: 'Code', border: OutlineInputBorder()),
-                                items: codes.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                                onChanged: (val) => setModalState(() => motherCode = val!),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
                             Expanded(
-                              child: TextFormField(
-                                controller: mMobileController,
-                                keyboardType: TextInputType.phone,
-                                decoration: const InputDecoration(
-                                  labelText: 'Mother Mobile',
-                                  border: OutlineInputBorder(),
-                                ),
-                                validator: (value) {
-                                  if (value == null || value.trim().isEmpty) return null;
-                                  final digits = value.replaceAll(RegExp(r'\D'), '');
-                                  if (digits.length < 7 || digits.length > 15) {
-                                    return 'Must be 7-15 digits';
-                                  }
-                                  return null;
+                              child: OikonomosPhoneField(
+                                initialValue: mMobileController.text,
+                                labelText: 'Mother Mobile',
+                                onChanged: (e164Value) {
+                                  setModalState(() {
+                                    mMobileController.text = e164Value;
+                                  });
                                 },
                               ),
                             ),
@@ -1226,7 +1181,7 @@ class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
         // Optional Parent Mobile resolution
         String mobile = '';
         if (mappedMobileIdx != null && row.length > mappedMobileIdx!) {
-          mobile = row[mappedMobileIdx!].trim().replaceAll(RegExp(r'\D'), '');
+          mobile = OikonomosPhoneField.parseImportedPhone(row[mappedMobileIdx!]);
         }
 
         final currentMap = {
