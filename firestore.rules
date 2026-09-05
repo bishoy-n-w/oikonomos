@@ -11,8 +11,12 @@ service cloud.firestore {
 
     // --- SELF-LOCKING BOOTSTRAP GATE ---
     match /global_admins/{adminId} {
-      // Any authenticated user can read their own registration document
-      allow read: if request.auth != null && (adminId == request.auth.uid || exists(/databases/$(database)/documents/global_admins/$(request.auth.uid)));
+      // 1. Any logged-in user is allowed to read the static '_lock' document to check if the database is initialized.
+      // 2. Users can only read their own registration document, or existing global admins can read any document.
+      allow read: if request.auth != null && 
+                    (adminId == '_lock' || 
+                     adminId == request.auth.uid || 
+                     exists(/databases/$(database)/documents/global_admins/$(request.auth.uid)));
       
       // Write/Create is allowed IF:
       // 1. The lock document '_lock' does NOT exist (meaning the database is brand new and in Setup Mode).
@@ -53,7 +57,10 @@ service cloud.firestore {
     match /churches/{churchId} {
       // Allow read if they are a servant. Only global admins can create/delete churches.
       allow read: if isChurchServant(churchId);
-      allow write: if false; // Managed manually on Firebase console
+      
+      // Allow write if the database is in Setup Mode (no lock), or if the user is a Global Owner.
+      allow write: if (request.auth != null && !exists(/databases/$(database)/documents/global_admins/_lock)) ||
+                    (request.auth != null && exists(/databases/$(database)/documents/global_admins/$(request.auth.uid)));
 
       // --- SUBCOLLECTIONS ---
       
@@ -61,7 +68,10 @@ service cloud.firestore {
       match /misters/{misterId} {
         // A servant can read other servants. Only church admins can write.
         allow read: if isChurchServant(churchId);
-        allow write: if isChurchAdmin(churchId);
+        
+        // Allow write if the database is in Setup Mode (no lock), or if the user is a Church Admin.
+        allow write: if (request.auth != null && !exists(/databases/$(database)/documents/global_admins/_lock)) ||
+                      isChurchAdmin(churchId);
       }
       
       // Kids Directory (PII)
@@ -79,24 +89,28 @@ service cloud.firestore {
         
         match /mistersMemberships/{memId} {
           allow read: if isChurchServant(churchId);
-          allow write: if isChurchAdmin(churchId);
+          allow write: if (request.auth != null && !exists(/databases/$(database)/documents/global_admins/_lock)) ||
+                        isChurchAdmin(churchId);
         }
       }
 
       // Classes
       match /classes/{classId} {
         allow read: if isChurchServant(churchId);
-        allow write: if isChurchAdmin(churchId);
+        allow write: if (request.auth != null && !exists(/databases/$(database)/documents/global_admins/_lock)) ||
+                      isChurchAdmin(churchId);
       }
 
       // --- ACADEMIC YEAR SCOPED DATA ---
       match /academicYears/{yearId} {
         allow read: if isChurchServant(churchId);
-        allow write: if isChurchAdmin(churchId);
+        allow write: if (request.auth != null && !exists(/databases/$(database)/documents/global_admins/_lock)) ||
+                      isChurchAdmin(churchId);
 
         match /classInstances/{instanceId} {
           allow read: if isChurchServant(churchId);
-          allow write: if isChurchAdmin(churchId);
+          allow write: if (request.auth != null && !exists(/databases/$(database)/documents/global_admins/_lock)) ||
+                        isChurchAdmin(churchId);
         }
 
         match /attendanceEvents/{eventId} {

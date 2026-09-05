@@ -152,51 +152,12 @@ class _BootstrapGuardState extends State<BootstrapGuard> {
           'createdAt': FieldValue.serverTimestamp(),
         });
 
-        // 3. Create default Church CHC_ABC123
-        batch.set(firestore.collection('churches').doc('CHC_ABC123'), {
-          'displayName': 'My Sunday School',
-          'active': true,
-          'activeAcademicYearId': 'AY_2026',
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-
-        // 4. Create Church Mister profile as admin
-        batch.set(
-          firestore
-              .collection('churches')
-              .doc('CHC_ABC123')
-              .collection('misters')
-              .doc(widget.user.uid),
-          {
-            'authUid': widget.user.uid,
-            'displayName': widget.user.displayName ?? 'Church Administrator',
-            'churchRole': 'admin',
-            'active': true,
-            'createdAt': FieldValue.serverTimestamp(),
-          },
-        );
-
-        // 5. Create default Academic Year AY_2026
-        batch.set(
-          firestore
-              .collection('churches')
-              .doc('CHC_ABC123')
-              .collection('academicYears')
-              .doc('AY_2026'),
-          {
-            'displayName': 'Academic Year 2026',
-            'active': true,
-            'startDate': Timestamp.fromDate(DateTime(2026, 1, 1)),
-            'endDate': Timestamp.fromDate(DateTime(2026, 12, 31)),
-          },
-        );
-
         await batch.commit();
       }
-    } catch (_) {
-      // Permission-denied errors are expected and completely normal for subsequent users
-      // who do not have permissions to read/write to the 'global_admins' collection.
-      // We gracefully catch it and proceed to let them use the app within their church roles.
+    } catch (e, stackTrace) {
+      // Print the exact error so it is visible in the F12 browser console
+      debugPrint('Oikonomos Bootstrap Guard Error: $e');
+      debugPrint('$stackTrace');
     } finally {
       if (mounted) {
         setState(() {
