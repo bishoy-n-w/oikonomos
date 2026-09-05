@@ -46,212 +46,227 @@ class _MainShellState extends State<MainShell> {
     }
 
     // --- ACCESS CONTROL GUARD GATE ---
-    // We listen to the user's specific servant profile document (keyed by their verified Email)
+    // 1. First, check if the logged-in user is registered as a Global Owner in the root collection
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: _churchesRef
-          .doc(_selectedChurchId)
-          .collection('misters')
-          .doc(email)
+      stream: FirebaseFirestore.instance
+          .collection('global_admins')
+          .doc(user.uid)
           .snapshots(),
-      builder: (context, authSnapshot) {
-        final isCheckingAuth = authSnapshot.connectionState == ConnectionState.waiting;
+      builder: (context, globalAdminSnapshot) {
+        final isGlobalAdmin = globalAdminSnapshot.hasData && globalAdminSnapshot.data!.exists;
 
-        // Check if they are registered and active inside this specific church
-        final misterData = authSnapshot.data?.data();
-        final isAuthorized = (authSnapshot.hasData && authSnapshot.data!.exists && (misterData?['active'] ?? false) == true);
+        // 2. Second, listen to their church-specific servant profile document (keyed by verified Email)
+        return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          stream: _churchesRef
+              .doc(_selectedChurchId)
+              .collection('misters')
+              .doc(email)
+              .snapshots(),
+          builder: (context, authSnapshot) {
+            final isCheckingAuth = authSnapshot.connectionState == ConnectionState.waiting ||
+                globalAdminSnapshot.connectionState == ConnectionState.waiting;
 
-        // If we are waiting for connection, show a clean indicator
-        if (isCheckingAuth) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
+            // They are authorized if they are a Database Global Owner OR if they are registered as active locally!
+            final misterData = authSnapshot.data?.data();
+            final isAuthorized = isGlobalAdmin || 
+                (authSnapshot.hasData && authSnapshot.data!.exists && (misterData?['active'] ?? false) == true);
 
-        // If the user is NOT authorized (unapproved / new sign-in), show the Join Request Wizard
-        if (!isAuthorized) {
-          return _buildJoinRequestShell(context, user, email, theme, colorScheme, lang, isRtl);
-        }
+            // If we are waiting for connection, show a clean indicator
+            if (isCheckingAuth) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
 
-        // --- AUTHORIZED DASHBOARD VIEW ---
-        final List<Widget> screens = [
-          DashboardScreen(
-            churchId: _selectedChurchId,
-            academicYearId: _selectedAcademicYearId,
-            userEmail: email,
-            userRole: misterData?['churchRole'] ?? 'Teacher',
-          ),
-          KidsDirectoryScreen(
-            churchId: _selectedChurchId,
-          ),
-          MistersDirectoryScreen(
-            churchId: _selectedChurchId,
-          ),
-          AttendanceTrackerScreen(
-            churchId: _selectedChurchId,
-            academicYearId: _selectedAcademicYearId,
-          ),
-          ClassesScreen(
-            churchId: _selectedChurchId,
-          ),
-          ServiceGroupsScreen(
-            churchId: _selectedChurchId,
-          ),
-          ClassAssignmentsScreen(
-            churchId: _selectedChurchId,
-            academicYearId: _selectedAcademicYearId,
-          ),
-          Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: HomeVisitsTab(
-              churchId: _selectedChurchId,
-              academicYearId: _selectedAcademicYearId,
-            ),
-          ),
-          const ChurchesScreen(),
-        ];
+            // If the user is NOT authorized (unapproved / new sign-in), show the Join Request Wizard
+            if (!isAuthorized) {
+              return _buildJoinRequestShell(context, user, email, theme, colorScheme, lang, isRtl);
+            }
 
-        return Scaffold(
-          appBar: AppBar(
-            titleSpacing: 0,
-            title: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
-                    child: Image.asset(
-                      'assets/icon.png',
-                      width: 36,
-                      height: 32,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Icon(Icons.admin_panel_settings, size: 32),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Oikonomos',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.primary,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
+            // --- AUTHORIZED DASHBOARD VIEW ---
+            final List<Widget> screens = [
+              DashboardScreen(
+                churchId: _selectedChurchId,
+                academicYearId: _selectedAcademicYearId,
+                userEmail: email,
+                userRole: isGlobalAdmin ? 'Admin' : (misterData?['churchRole'] ?? 'Teacher'),
               ),
-            ),
-            actions: [
-              _buildChurchDropdown(colorScheme),
-              const SizedBox(width: 8),
-              _buildAcademicYearDropdown(colorScheme),
-              const SizedBox(width: 16),
-              _buildProfileMenu(colorScheme, theme.textTheme, lang),
-              const SizedBox(width: 16),
-            ],
-          ),
-          body: Row(
-            textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
-            children: [
-              NavigationRail(
-                selectedIndex: _selectedIndex,
-                labelType: NavigationRailLabelType.all,
-                backgroundColor: colorScheme.surfaceContainerLow,
-                indicatorColor: colorScheme.primaryContainer,
-                onDestinationSelected: (int index) {
-                  setState(() {
-                    _selectedIndex = index;
-                  });
-                },
-                destinations: [
-                  NavigationRailDestination(
-                    icon: const Icon(Icons.dashboard_outlined),
-                    selectedIcon: const Icon(Icons.dashboard),
-                    label: Text(AppTranslation.translate('dashboard', lang)),
-                  ),
-                  NavigationRailDestination(
-                    icon: const Icon(Icons.child_care_outlined),
-                    selectedIcon: const Icon(Icons.child_care),
-                    label: Text(AppTranslation.translate('kids', lang)),
-                  ),
-                  NavigationRailDestination(
-                    icon: const Icon(Icons.people_outline),
-                    selectedIcon: const Icon(Icons.people),
-                    label: Text(AppTranslation.translate('servants', lang)),
-                  ),
-                  NavigationRailDestination(
-                    icon: const Icon(Icons.co_present_outlined),
-                    selectedIcon: const Icon(Icons.co_present),
-                    label: Text(AppTranslation.translate('attendance', lang)),
-                  ),
-                  NavigationRailDestination(
-                    icon: const Icon(Icons.class_outlined),
-                    selectedIcon: const Icon(Icons.class_),
-                    label: Text(AppTranslation.translate('classes', lang)),
-                  ),
-                  NavigationRailDestination(
-                    icon: const Icon(Icons.group_work_outlined),
-                    selectedIcon: const Icon(Icons.group_work),
-                    label: Text(AppTranslation.translate('service_groups', lang)),
-                  ),
-                  NavigationRailDestination(
-                    icon: const Icon(Icons.assignment_outlined),
-                    selectedIcon: const Icon(Icons.assignment),
-                    label: Text(AppTranslation.translate('class_assignments', lang)),
-                  ),
-                  NavigationRailDestination(
-                    icon: const Icon(Icons.home_outlined),
-                    selectedIcon: const Icon(Icons.home),
-                    label: Text(AppTranslation.translate('home_visits', lang)),
-                  ),
-                  NavigationRailDestination(
-                    icon: const Icon(Icons.church_outlined),
-                    selectedIcon: const Icon(Icons.church),
-                    label: Text(AppTranslation.translate('churches_config', lang)),
-                  ),
-                ],
+              KidsDirectoryScreen(
+                churchId: _selectedChurchId,
               ),
-              const VerticalDivider(thickness: 1, width: 1),
-              Expanded(
-                child: Container(
-                  color: colorScheme.surface,
-                  child: Column(
+              MistersDirectoryScreen(
+                churchId: _selectedChurchId,
+              ),
+              AttendanceTrackerScreen(
+                churchId: _selectedChurchId,
+                academicYearId: _selectedAcademicYearId,
+              ),
+              ClassesScreen(
+                churchId: _selectedChurchId,
+              ),
+              ServiceGroupsScreen(
+                churchId: _selectedChurchId,
+              ),
+              ClassAssignmentsScreen(
+                churchId: _selectedChurchId,
+                academicYearId: _selectedAcademicYearId,
+              ),
+              Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: HomeVisitsTab(
+                  churchId: _selectedChurchId,
+                  academicYearId: _selectedAcademicYearId,
+                ),
+              ),
+              const ChurchesScreen(),
+            ];
+
+            return Scaffold(
+              appBar: AppBar(
+                titleSpacing: 0,
+                title: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
                     children: [
-                      Expanded(
-                        child: screens[_selectedIndex],
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: Image.asset(
+                          'assets/icon.png',
+                          width: 36,
+                          height: 32,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Icon(Icons.admin_panel_settings, size: 32),
+                        ),
                       ),
-                      const Divider(height: 1, thickness: 1),
-                      SafeArea(
-                        top: false,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Oikonomos Admin System',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                                  fontSize: 10,
-                                ),
-                              ),
-                              Text(
-                                'v${AppVersion.current}',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Oikonomos',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.primary,
+                          letterSpacing: 0.5,
                         ),
                       ),
                     ],
                   ),
                 ),
+                actions: [
+                  _buildChurchDropdown(colorScheme),
+                  const SizedBox(width: 8),
+                  _buildAcademicYearDropdown(colorScheme),
+                  const SizedBox(width: 16),
+                  _buildProfileMenu(colorScheme, theme.textTheme, lang),
+                  const SizedBox(width: 16),
+                ],
               ),
-            ],
-          ),
+              body: Row(
+                textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+                children: [
+                  // Sidebar Navigation
+                  NavigationRail(
+                    selectedIndex: _selectedIndex,
+                    labelType: NavigationRailLabelType.all,
+                    backgroundColor: colorScheme.surfaceContainerLow,
+                    indicatorColor: colorScheme.primaryContainer,
+                    onDestinationSelected: (int index) {
+                      setState(() {
+                        _selectedIndex = index;
+                      });
+                    },
+                    destinations: [
+                      NavigationRailDestination(
+                        icon: const Icon(Icons.dashboard_outlined),
+                        selectedIcon: const Icon(Icons.dashboard),
+                        label: Text(AppTranslation.translate('dashboard', lang)),
+                      ),
+                      NavigationRailDestination(
+                        icon: const Icon(Icons.child_care_outlined),
+                        selectedIcon: const Icon(Icons.child_care),
+                        label: Text(AppTranslation.translate('kids', lang)),
+                      ),
+                      NavigationRailDestination(
+                        icon: const Icon(Icons.people_outline),
+                        selectedIcon: const Icon(Icons.people),
+                        label: Text(AppTranslation.translate('servants', lang)),
+                      ),
+                      NavigationRailDestination(
+                        icon: const Icon(Icons.co_present_outlined),
+                        selectedIcon: const Icon(Icons.co_present),
+                        label: Text(AppTranslation.translate('attendance', lang)),
+                      ),
+                      NavigationRailDestination(
+                        icon: const Icon(Icons.class_outlined),
+                        selectedIcon: const Icon(Icons.class_),
+                        label: Text(AppTranslation.translate('classes', lang)),
+                      ),
+                      NavigationRailDestination(
+                        icon: const Icon(Icons.group_work_outlined),
+                        selectedIcon: const Icon(Icons.group_work),
+                        label: Text(AppTranslation.translate('service_groups', lang)),
+                      ),
+                      NavigationRailDestination(
+                        icon: const Icon(Icons.assignment_outlined),
+                        selectedIcon: const Icon(Icons.assignment),
+                        label: Text(AppTranslation.translate('class_assignments', lang)),
+                      ),
+                      NavigationRailDestination(
+                        icon: const Icon(Icons.home_outlined),
+                        selectedIcon: const Icon(Icons.home),
+                        label: Text(AppTranslation.translate('home_visits', lang)),
+                      ),
+                      NavigationRailDestination(
+                        icon: const Icon(Icons.church_outlined),
+                        selectedIcon: const Icon(Icons.church),
+                        label: Text(AppTranslation.translate('churches_config', lang)),
+                      ),
+                    ],
+                  ),
+                  const VerticalDivider(thickness: 1, width: 1),
+                  // Main Body Screen
+                  Expanded(
+                    child: Container(
+                      color: colorScheme.surface,
+                      child: Column(
+                        children: [
+                          Expanded(
+                            child: screens[_selectedIndex],
+                          ),
+                          const Divider(height: 1, thickness: 1),
+                          SafeArea(
+                            top: false,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Oikonomos Admin System',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                  Text(
+                                    'v${AppVersion.current}',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
     );
