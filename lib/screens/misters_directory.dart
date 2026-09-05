@@ -408,7 +408,6 @@ class _MistersDirectoryScreenState extends State<MistersDirectoryScreen> {
     DocumentSnapshot<Map<String, dynamic>>? doc,
   ) async {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
 
     final isEdit = doc != null;
     final data = doc?.data();
@@ -422,7 +421,6 @@ class _MistersDirectoryScreenState extends State<MistersDirectoryScreen> {
     final mobileController = TextEditingController(text: initialMobile);
 
     String selectedRole = data?['churchRole'] ?? 'Teacher';
-    String selectedCountryCode = data?['countryCode'] ?? '+1';
     bool isActive = data?['active'] ?? true;
 
     final formKey = GlobalKey<FormState>();

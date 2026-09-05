@@ -100,9 +100,10 @@ class SundaySchoolAuthGate extends StatelessWidget {
               ),
               home: Directionality(
                 textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
-                child: StreamBuilder<User?>(
-                  stream: AuthService.instance.authStateChanges,
-                  builder: (context, snapshot) {
+                child: SelectionArea(
+                  child: StreamBuilder<User?>(
+                    stream: AuthService.instance.authStateChanges,
+                    builder: (context, snapshot) {
                     // If connection is active, let's look at the data.
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Scaffold(
@@ -123,6 +124,7 @@ class SundaySchoolAuthGate extends StatelessWidget {
                     );
                   },
                 ),
+              ),
               ),
             );
           },

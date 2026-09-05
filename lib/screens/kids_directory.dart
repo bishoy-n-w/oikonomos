@@ -19,6 +19,7 @@ class KidsDirectoryScreen extends StatefulWidget {
 class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
   final Map<String, bool> _selectedRows = {};
   String _searchQuery = '';
+  bool _selectAll = false;
 
   final CollectionReference<Map<String, dynamic>> _churchesRef =
       FirebaseFirestore.instance.collection('churches');
@@ -186,17 +187,35 @@ class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
                               child: Directionality(
                                 textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
                                 child: DataTable(
-                                  columns: const [
-                                    DataColumn(label: Text('Select')),
-                                    DataColumn(label: Text('Photo')),
-                                    DataColumn(label: Text('Full Name (Key)')),
-                                    DataColumn(label: Text('Gender')),
-                                    DataColumn(label: Text('Birthday')),
-                                    DataColumn(label: Text('Father of Confession')),
-                                    DataColumn(label: Text('Father Mobile')),
-                                    DataColumn(label: Text('Mother Mobile')),
-                                    DataColumn(label: Text('Area')),
-                                    DataColumn(label: Text('Actions')),
+                                  columns: [
+                                    DataColumn(
+                                      label: Row(
+                                        children: [
+                                          Checkbox(
+                                            value: _selectAll,
+                                            onChanged: (val) {
+                                              setState(() {
+                                                _selectAll = val ?? false;
+                                                for (final doc in filteredDocs) {
+                                                  _selectedRows[doc.id] = _selectAll;
+                                                }
+                                              });
+                                            },
+                                          ),
+                                          const SizedBox(width: 8),
+                                          const Text('Select All', style: TextStyle(fontWeight: FontWeight.bold)),
+                                        ],
+                                      ),
+                                    ),
+                                    const DataColumn(label: Text('Photo')),
+                                    const DataColumn(label: Text('Full Name (Key)')),
+                                    const DataColumn(label: Text('Gender')),
+                                    const DataColumn(label: Text('Birthday')),
+                                    const DataColumn(label: Text('Father of Confession')),
+                                    const DataColumn(label: Text('Father Mobile')),
+                                    const DataColumn(label: Text('Mother Mobile')),
+                                    const DataColumn(label: Text('Area')),
+                                    const DataColumn(label: Text('Actions')),
                                   ],
                                   rows: filteredDocs.map((doc) {
                                     final data = doc.data();
@@ -249,7 +268,20 @@ class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
                                                 : null,
                                           ),
                                         ),
-                                        DataCell(Text(kidNameId, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                        DataCell(
+                                          InkWell(
+                                            onTap: () => _showStudentDetailsDialog(context, doc),
+                                            hoverColor: Colors.transparent,
+                                            child: Text(
+                                              kidNameId,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                color: colorScheme.primary,
+                                                decoration: TextDecoration.underline,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
                                         DataCell(Text(gender)),
                                         DataCell(Text(dob != null ? dob.toLocal().toString().substring(0, 10) : 'N/A')),
                                         DataCell(Text(confession)),
@@ -294,8 +326,8 @@ class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
   void _exportSelectedToCsv(List<DocumentSnapshot<Map<String, dynamic>>> docs) {
     try {
       final List<String> csvLines = [];
-      // CSV Headers
-      csvLines.add('Full Name,Gender,Birthday,School,Father of Confession,Street,Building,Floor,Apartment,Area,Home Tele,Father Mobile,Mother Mobile');
+      // CSV Headers - Exhaustive list of all 21 fields!
+      csvLines.add('Full Name,Gender,Birthday,School,Father of Confession,Street,Building,Floor,Apartment,Area,Home Tele,Kid Mobile,Father Name,Father Mobile,Father Job,Mother Name,Mother Mobile,Mother Job,Other Mobiles,Notes,Active');
 
       for (final doc in docs) {
         if (_selectedRows[doc.id] == true) {
@@ -311,22 +343,40 @@ class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
           final apt = current['addressApartment'] ?? '';
           final area = current['addressArea'] ?? '';
           final homeTel = current['homeTele'] ?? '';
+          
+          final rawKidMobile = current['kidMobile'] ?? '';
+          final String kidMobile = rawKidMobile.toString().isNotEmpty
+              ? (rawKidMobile.toString().startsWith('+') ? '\t$rawKidMobile' : '\t+$rawKidMobile')
+              : '';
+
+          final fatherName = current['fatherName'] ?? '';
           final rawFMobile = current['fatherMobile'] ?? '';
           final String fMobile = rawFMobile.toString().isNotEmpty
               ? (rawFMobile.toString().startsWith('+') ? '\t$rawFMobile' : '\t+$rawFMobile')
               : '';
+          final fatherJob = current['fatherJob'] ?? '';
 
+          final motherName = current['motherName'] ?? '';
           final rawMMobile = current['motherMobile'] ?? '';
           final String mMobile = rawMMobile.toString().isNotEmpty
               ? (rawMMobile.toString().startsWith('+') ? '\t$rawMMobile' : '\t+$rawMMobile')
               : '';
+          final motherJob = current['motherJob'] ?? '';
+
+          final otherMobilesList = current['otherMobiles'] is List
+              ? (current['otherMobiles'] as List).join('; ')
+              : '';
+          final otherMobiles = otherMobilesList.isNotEmpty ? '\t$otherMobilesList' : '';
+
+          final notes = (current['notes'] ?? '').toString().replaceAll('\n', ' ');
+          final active = data['active'] ?? true;
 
           final dobVal = current['dob'];
           DateTime? dob;
           if (dobVal is Timestamp) dob = dobVal.toDate();
           final dobStr = dob != null ? dob.toLocal().toString().substring(0, 10) : '';
 
-          csvLines.add('"$name","$gender","$dobStr","$school","$confession","$street","$bld","$flr","$apt","$area","$homeTel","$fMobile","$mMobile"');
+          csvLines.add('"$name","$gender","$dobStr","$school","$confession","$street","$bld","$flr","$apt","$area","$homeTel","$kidMobile","$fatherName","$fMobile","$fatherJob","$motherName","$mMobile","$motherJob","$otherMobiles","$notes","$active"');
         }
       }
 
@@ -410,8 +460,7 @@ class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
     BuildContext context,
     DocumentSnapshot<Map<String, dynamic>>? doc,
   ) async {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     final isEdit = doc != null;
     final current = doc?.data()?['current'] ?? {};
@@ -1227,6 +1276,195 @@ class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
         _showSnack('Bulk import transaction failed: $e');
       }
     }
+  }
+
+  Future<void> _showStudentDetailsDialog(
+    BuildContext context,
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) async {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final current = doc.data()?['current'] ?? {};
+    final name = doc.id;
+    final gender = current['gender'] ?? 'M';
+    final school = current['school'] ?? 'N/A';
+    final confession = current['confessionFather'] ?? 'N/A';
+    final street = current['addressStreet'] ?? '';
+    final bld = current['addressBuilding'] ?? '';
+    final flr = current['addressFloor'] ?? '';
+    final apt = current['addressApartment'] ?? '';
+    final area = current['addressArea'] ?? '';
+    final notes = current['notes'] ?? 'N/A';
+    final photoBase64 = current['photoBase64']?.toString() ?? '';
+
+    final dobVal = current['dob'];
+    DateTime? dob;
+    if (dobVal is Timestamp) dob = dobVal.toDate();
+    final dobStr = dob != null ? dob.toLocal().toString().substring(0, 10) : 'N/A';
+
+    final homeTel = current['homeTele'] ?? 'N/A';
+    final kidMobile = current['kidMobile'] ?? 'N/A';
+    final fatherName = current['fatherName'] ?? 'N/A';
+    final fMobile = current['fatherMobile'] ?? 'N/A';
+    final fatherJob = current['fatherJob'] ?? 'N/A';
+    final motherName = current['motherName'] ?? 'N/A';
+    final mMobile = current['motherMobile'] ?? 'N/A';
+    final motherJob = current['motherJob'] ?? 'N/A';
+    final otherMobList = current['otherMobiles'] is List ? (current['otherMobiles'] as List).join(', ') : 'N/A';
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            CircleAvatar(
+              backgroundImage: photoBase64.isNotEmpty
+                  ? MemoryImage(const Base64Decoder().convert(photoBase64.split(',').last))
+                  : null,
+              backgroundColor: gender == 'F' ? Colors.pink.shade50 : Colors.blue.shade50,
+              child: photoBase64.isEmpty
+                  ? Icon(gender == 'F' ? Icons.girl : Icons.boy, color: gender == 'F' ? Colors.pink : Colors.blue)
+                  : null,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text('Gender: ${gender == 'F' ? 'Female' : 'Male'}', style: theme.textTheme.bodySmall),
+                ],
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 500,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildDetailSection(
+                  title: 'General Profile',
+                  icon: Icons.person_outline,
+                  colorScheme: colorScheme,
+                  children: [
+                    _buildDetailRow('Birthday', dobStr),
+                    _buildDetailRow('School', school),
+                    _buildDetailRow('Confession Father', confession),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _buildDetailSection(
+                  title: 'Home Address',
+                  icon: Icons.home_outlined,
+                  colorScheme: colorScheme,
+                  children: [
+                    _buildDetailRow('Street Name', street.isEmpty ? 'N/A' : street),
+                    _buildDetailRow('Building Name/No', bld.isEmpty ? 'N/A' : bld),
+                    _buildDetailRow('Floor', flr.isEmpty ? 'N/A' : flr),
+                    _buildDetailRow('Apartment', apt.isEmpty ? 'N/A' : apt),
+                    _buildDetailRow('Area / City', area.isEmpty ? 'N/A' : area),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _buildDetailSection(
+                  title: 'Pastoral & Family Contacts',
+                  icon: Icons.contacts_outlined,
+                  colorScheme: colorScheme,
+                  children: [
+                    _buildDetailRow('Home Telephone', homeTel.isEmpty ? 'N/A' : homeTel),
+                    _buildDetailRow('Kid Mobile', kidMobile.isEmpty ? 'N/A' : kidMobile),
+                    _buildDetailRow('Father Name', fatherName.isEmpty ? 'N/A' : fatherName),
+                    _buildDetailRow('Father Mobile', fMobile.isEmpty ? 'N/A' : fMobile),
+                    _buildDetailRow('Father Profession', fatherJob.isEmpty ? 'N/A' : fatherJob),
+                    _buildDetailRow('Mother Name', motherName.isEmpty ? 'N/A' : motherName),
+                    _buildDetailRow('Mother Mobile', mMobile.isEmpty ? 'N/A' : mMobile),
+                    _buildDetailRow('Mother Profession', motherJob.isEmpty ? 'N/A' : motherJob),
+                    _buildDetailRow('Other Mobiles', otherMobList.isEmpty ? 'N/A' : otherMobList),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _buildDetailSection(
+                  title: 'Pastoral Notes',
+                  icon: Icons.notes_outlined,
+                  colorScheme: colorScheme,
+                  children: [
+                    Text(notes.isEmpty ? 'N/A' : notes, style: theme.textTheme.bodyMedium),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.pop(context); // Close details
+              _showAddEditDialog(context, doc); // Open edit dialog immediately!
+            },
+            icon: const Icon(Icons.edit_outlined, size: 16),
+            label: const Text('Edit Profile'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailSection({
+    required String title,
+    required IconData icon,
+    required ColorScheme colorScheme,
+    required List<Widget> children,
+  }) {
+    return Card(
+      elevation: 0,
+      color: colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 18, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.primary)),
+              ],
+            ),
+            const Divider(height: 16),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 3,
+            child: Text(label, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13, color: Colors.grey)),
+          ),
+          Expanded(
+            flex: 5,
+            child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showSnack(String message) {
