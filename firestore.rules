@@ -1,0 +1,89 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper: Is the user authenticated?
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper: Fetch the current user's document inside a specific church
+    function getMisterData(churchId) {
+      return get(/databases/$(database)/documents/churches/{churchId}/misters/$(request.auth.uid)).data;
+    }
+    
+    // Helper: Does the user have admin rights in this church?
+    function isChurchAdmin(churchId) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/churches/{churchId}/misters/$(request.auth.uid)) &&
+             getMisterData(churchId).churchRole == 'admin';
+    }
+
+    // Helper: Is the user a registered servant in this church?
+    function isChurchServant(churchId) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/churches/{churchId}/misters/$(request.auth.uid)) &&
+             getMisterData(churchId).active == true;
+    }
+
+    // --- CHURCHES COLLECTION ---
+    match /churches/{churchId} {
+      // Allow read if they are a servant. Only global admins can create/delete churches.
+      allow read: if isChurchServant(churchId);
+      allow write: if false; // Managed manually on Firebase console
+
+      // --- SUBCOLLECTIONS ---
+      
+      // Misters (Teachers/Servants)
+      match /misters/{misterId} {
+        // A servant can read other servants. Only church admins can write.
+        allow read: if isChurchServant(churchId);
+        allow write: if isChurchAdmin(churchId);
+      }
+      
+      // Kids Directory (PII)
+      match /kids/{kidId} {
+        allow read, write: if isChurchServant(churchId);
+        
+        match /versions/{versionId} {
+          allow read, write: if isChurchServant(churchId);
+        }
+      }
+      
+      // Families
+      match /families/{familyId} {
+        allow read, write: if isChurchServant(churchId);
+        
+        match /mistersMemberships/{memId} {
+          allow read: if isChurchServant(churchId);
+          allow write: if isChurchAdmin(churchId);
+        }
+      }
+
+      // Classes
+      match /classes/{classId} {
+        allow read: if isChurchServant(churchId);
+        allow write: if isChurchAdmin(churchId);
+      }
+
+      // --- ACADEMIC YEAR SCOPED DATA ---
+      match /academicYears/{yearId} {
+        allow read: if isChurchServant(churchId);
+        allow write: if isChurchAdmin(churchId);
+
+        match /classInstances/{instanceId} {
+          allow read: if isChurchServant(churchId);
+          allow write: if isChurchAdmin(churchId);
+        }
+
+        match /attendanceEvents/{eventId} {
+          allow read, write: if isChurchServant(churchId);
+        }
+
+        match /homeVisitsByClassInstance/{instanceId}/visits/{visitId} {
+          allow read, write: if isChurchServant(churchId);
+        }
+      }
+    }
+  }
+}

@@ -1,1 +1,26 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"oikonomos-84b69","appId":"1:297923978630:android:f59ebb717819554266b807","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"oikonomos-84b69","configurations":{"android":"1:297923978630:android:f59ebb717819554266b807","ios":"1:297923978630:ios:4763eedfb5e52dfc66b807","web":"1:297923978630:web:8a7660f4c86a9f3666b807"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "oikonomos-84b69",
+          "appId": "1:297923978630:android:f59ebb717819554266b807",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "oikonomos-84b69",
+          "configurations": {
+            "android": "1:297923978630:android:f59ebb717819554266b807",
+            "ios": "1:297923978630:ios:4763eedfb5e52dfc66b807",
+            "web": "1:297923978630:web:8a7660f4c86a9f3666b807"
+          }
+        }
+      }
+    }
+  }
+}
