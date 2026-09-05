@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../models/field_spec.dart';
+import 'google_drive_share_field.dart';
 
 class CrudCollectionScreen extends StatelessWidget {
   const CrudCollectionScreen({
@@ -211,7 +212,6 @@ class CrudCollectionPage extends StatelessWidget {
         title: 'Add $title',
         fields: fields,
         initialData: createDefaults,
-        allowCustomDocumentId: true,
       ),
     );
     if (result == null) return;
@@ -301,7 +301,6 @@ class DocumentFormDialog extends StatefulWidget {
     required this.title,
     required this.fields,
     required this.initialData,
-    this.allowCustomDocumentId = false,
     this.existingDocumentId,
     super.key,
   });
@@ -309,7 +308,7 @@ class DocumentFormDialog extends StatefulWidget {
   final String title;
   final List<FieldSpec> fields;
   final Map<String, dynamic> initialData;
-  final bool allowCustomDocumentId;
+  static const bool allowCustomDocumentId = false;
   final String? existingDocumentId;
 
   @override
@@ -322,6 +321,8 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
   final Map<String, bool> _boolValues = {};
   final Map<String, String?> _optionValues = {};
   final Map<String, String?> _referenceValues = {};
+  final Map<String, List<String>> _emailChipValues = {};
+  final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
@@ -343,6 +344,19 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
           break;
         case FieldType.reference:
           _referenceValues[field.path] = initial?.toString();
+          break;
+        case FieldType.emailChips:
+          if (initial is List) {
+            _emailChipValues[field.path] = List<String>.from(initial);
+          } else if (initial is String) {
+            _emailChipValues[field.path] = initial
+                .split(',')
+                .map((e) => e.trim())
+                .where((e) => e.isNotEmpty)
+                .toList();
+          } else {
+            _emailChipValues[field.path] = [];
+          }
           break;
         case FieldType.text:
         case FieldType.multiline:
@@ -372,24 +386,17 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
       title: Text(widget.title),
       content: SizedBox(
         width: 560,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (widget.allowCustomDocumentId) ...[
-                TextField(
-                  controller: _docIdController,
-                  decoration: const InputDecoration(
-                    labelText: 'Document ID (optional)',
-                    border: OutlineInputBorder(),
-                    hintText: 'Leave empty to auto-generate ID',
-                  ),
-                ),
-                const SizedBox(height: 12),
+        child: Form(
+          key: _formKey,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ...widget.fields.map(_buildField),
               ],
-              ...widget.fields.map(_buildField),
-            ],
+            ),
           ),
         ),
       ),
@@ -467,6 +474,12 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
                 .map((e) => DropdownMenuItem<String>(value: e, child: Text(e)))
                 .toList(),
             onChanged: (value) => setState(() => _optionValues[field.path] = value),
+            validator: (value) {
+              if (field.required && (value == null || value.trim().isEmpty)) {
+                return 'This field is required';
+              }
+              return null;
+            },
           ),
         );
       case FieldType.reference:
@@ -513,7 +526,35 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
                     _referenceValues[field.path] = value;
                   });
                 },
+                validator: (value) {
+                  if (field.required && (value == null || value.trim().isEmpty)) {
+                    return 'This field is required';
+                  }
+                  return null;
+                },
               );
+            },
+          ),
+        );
+      case FieldType.emailChips:
+        String resolvedChurchId = '';
+        if (field.referenceCollectionPath != null) {
+          final parts = field.referenceCollectionPath!.split('/');
+          if (parts.length >= 2 && parts[0] == 'churches') {
+            resolvedChurchId = parts[1];
+          }
+        }
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: GoogleDriveShareField(
+            churchId: resolvedChurchId,
+            label: label,
+            hint: field.hint ?? 'Add emails...',
+            initialEmails: _emailChipValues[field.path] ?? [],
+            onChanged: (emails) {
+              setState(() {
+                _emailChipValues[field.path] = emails;
+              });
             },
           ),
         );
@@ -521,7 +562,7 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
         final controller = _textControllers[field.path]!;
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
-          child: TextField(
+          child: TextFormField(
             controller: controller,
             readOnly: true,
             onTap: () => _pickDateTime(context, field.path, controller),
@@ -534,6 +575,12 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
                 onPressed: () => _pickDateTime(context, field.path, controller),
               ),
             ),
+            validator: (value) {
+              if (field.required && (value == null || value.trim().isEmpty)) {
+                return 'This field is required';
+              }
+              return null;
+            },
           ),
         );
       case FieldType.text:
@@ -543,7 +590,7 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
         final controller = _textControllers[field.path]!;
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
-          child: TextField(
+          child: TextFormField(
             controller: controller,
             maxLines: field.type == FieldType.multiline ||
                     field.type == FieldType.jsonMap
@@ -554,12 +601,29 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
               labelText: label,
               hintText: field.hint,
             ),
+            validator: (value) {
+              if (field.required && (value == null || value.trim().isEmpty)) {
+                return 'This field is required';
+              }
+              if (field.type == FieldType.jsonMap && value != null && value.trim().isNotEmpty) {
+                try {
+                  jsonDecode(value);
+                } catch (_) {
+                  return 'Invalid JSON object format';
+                }
+              }
+              return null;
+            },
           ),
         );
     }
   }
 
   void _submit() {
+    if (!_formKey.currentState!.validate()) {
+      return; // Keep modal open and show validation errors on the spot!
+    }
+
     final output = <String, dynamic>{};
 
     for (final field in widget.fields) {
@@ -593,6 +657,14 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
             return;
           }
           parsed = raw.isEmpty ? null : raw;
+          break;
+        case FieldType.emailChips:
+          final list = _emailChipValues[field.path] ?? [];
+          if (field.required && list.isEmpty) {
+            _showSnack(context, '${field.label} is required.');
+            return;
+          }
+          parsed = list;
           break;
         case FieldType.dateTime:
           final raw = _textControllers[field.path]!.text.trim();
@@ -740,6 +812,7 @@ String _editableText(FieldType type, dynamic value) {
     case FieldType.boolValue:
     case FieldType.option:
     case FieldType.reference:
+    case FieldType.emailChips:
       return value.toString();
   }
 }

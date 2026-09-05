@@ -11,8 +11,13 @@ class AuthService {
 
   User? get currentUser => _auth.currentUser;
 
-  Future<UserCredential> signInWithGoogle() async {
+  Future<UserCredential> signInWithGoogle({bool forceSelect = false}) async {
     final googleProvider = GoogleAuthProvider();
+    
+    if (forceSelect) {
+      // Force Google to show the Account Chooser popup
+      googleProvider.setCustomParameters({'prompt': 'select_account'});
+    }
     
     if (kIsWeb) {
       // Use standard popup for web

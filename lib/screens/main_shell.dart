@@ -1,12 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
-import '../constants.dart';
+import '../services/app_settings.dart';
+import '../services/translations.dart';
 import 'dashboard_screen.dart';
 import 'kids_directory.dart';
 import 'misters_directory.dart';
 import 'attendance_tracker.dart';
-import 'settings_screen.dart';
+import 'classes_screen.dart';
+import 'service_groups_screen.dart';
+import 'class_assignments_screen.dart';
+import 'home_visits_tab.dart';
+import 'churches_screen.dart';
+import '../constants.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -27,8 +33,10 @@ class _MainShellState extends State<MainShell> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final lang = AppSettings.language.value;
+    final isRtl = AppSettings.isRtl();
 
-    // Destructural navigation body routing
+    // Responsive navigation body routing
     final List<Widget> screens = [
       DashboardScreen(
         churchId: _selectedChurchId,
@@ -44,17 +52,31 @@ class _MainShellState extends State<MainShell> {
         churchId: _selectedChurchId,
         academicYearId: _selectedAcademicYearId,
       ),
-      SettingsScreen(
+      ClassesScreen(
+        churchId: _selectedChurchId,
+      ),
+      ServiceGroupsScreen(
+        churchId: _selectedChurchId,
+      ),
+      ClassAssignmentsScreen(
         churchId: _selectedChurchId,
         academicYearId: _selectedAcademicYearId,
       ),
+      Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: HomeVisitsTab(
+          churchId: _selectedChurchId,
+          academicYearId: _selectedAcademicYearId,
+        ),
+      ),
+      const ChurchesScreen(),
     ];
 
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
         title: Padding(
-          padding: const EdgeInsets.only(left: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             children: [
               ClipRRect(
@@ -85,15 +107,13 @@ class _MainShellState extends State<MainShell> {
           const SizedBox(width: 8),
           _buildAcademicYearDropdown(colorScheme),
           const SizedBox(width: 16),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Sign Out',
-            onPressed: _handleSignOut,
-          ),
-          const SizedBox(width: 8),
+          // Unified dynamic profile menu (Google-style switcher, language, theme, logout)
+          _buildProfileMenu(colorScheme, theme.textTheme, lang),
+          const SizedBox(width: 16),
         ],
       ),
       body: Row(
+        textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
         children: [
           // Sidebar Navigation
           NavigationRail(
@@ -106,31 +126,51 @@ class _MainShellState extends State<MainShell> {
                 _selectedIndex = index;
               });
             },
-            destinations: const [
+            destinations: [
               NavigationRailDestination(
-                icon: Icon(Icons.dashboard_outlined),
-                selectedIcon: Icon(Icons.dashboard),
-                label: Text('Dashboard'),
+                icon: const Icon(Icons.dashboard_outlined),
+                selectedIcon: const Icon(Icons.dashboard),
+                label: Text(AppTranslation.translate('dashboard', lang)),
               ),
               NavigationRailDestination(
-                icon: Icon(Icons.child_care_outlined),
-                selectedIcon: Icon(Icons.child_care),
-                label: Text('Kids'),
+                icon: const Icon(Icons.child_care_outlined),
+                selectedIcon: const Icon(Icons.child_care),
+                label: Text(AppTranslation.translate('kids', lang)),
               ),
               NavigationRailDestination(
-                icon: Icon(Icons.people_outline),
-                selectedIcon: Icon(Icons.people),
-                label: Text('Servants'),
+                icon: const Icon(Icons.people_outline),
+                selectedIcon: const Icon(Icons.people),
+                label: Text(AppTranslation.translate('servants', lang)),
               ),
               NavigationRailDestination(
-                icon: Icon(Icons.co_present_outlined),
-                selectedIcon: Icon(Icons.co_present),
-                label: Text('Attendance'),
+                icon: const Icon(Icons.co_present_outlined),
+                selectedIcon: const Icon(Icons.co_present),
+                label: Text(AppTranslation.translate('attendance', lang)),
               ),
               NavigationRailDestination(
-                icon: Icon(Icons.settings_outlined),
-                selectedIcon: Icon(Icons.settings),
-                label: Text('Settings'),
+                icon: const Icon(Icons.class_outlined),
+                selectedIcon: const Icon(Icons.class_),
+                label: Text(AppTranslation.translate('classes', lang)),
+              ),
+              NavigationRailDestination(
+                icon: const Icon(Icons.group_work_outlined),
+                selectedIcon: const Icon(Icons.group_work),
+                label: Text(AppTranslation.translate('service_groups', lang)),
+              ),
+              NavigationRailDestination(
+                icon: const Icon(Icons.assignment_outlined),
+                selectedIcon: const Icon(Icons.assignment),
+                label: Text(AppTranslation.translate('class_assignments', lang)),
+              ),
+              NavigationRailDestination(
+                icon: const Icon(Icons.home_outlined),
+                selectedIcon: const Icon(Icons.home),
+                label: Text(AppTranslation.translate('home_visits', lang)),
+              ),
+              NavigationRailDestination(
+                icon: const Icon(Icons.church_outlined),
+                selectedIcon: const Icon(Icons.church),
+                label: Text(AppTranslation.translate('churches_config', lang)),
               ),
             ],
           ),
@@ -177,6 +217,134 @@ class _MainShellState extends State<MainShell> {
           ),
         ],
       ),
+    );
+  }
+
+  // --- SUB-VIEW: Sleek Google-style Profile Menu Dropdown ---
+  Widget _buildProfileMenu(ColorScheme colorScheme, TextTheme textTheme, String lang) {
+    final user = AuthService.instance.currentUser;
+    final displayName = user?.displayName ?? 'Church Servant';
+    final email = user?.email ?? '';
+    final photoUrl = user?.photoURL;
+    final isDark = AppSettings.themeMode.value == ThemeMode.dark;
+
+    return PopupMenuButton<int>(
+      offset: const Offset(0, 56),
+      icon: CircleAvatar(
+        backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+        radius: 18,
+        child: photoUrl == null
+            ? Text(displayName.isNotEmpty ? displayName[0].toUpperCase() : '?')
+            : null,
+      ),
+      itemBuilder: (context) => [
+        // User details header card
+        PopupMenuItem<int>(
+          enabled: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
+                  radius: 24,
+                  child: photoUrl == null
+                      ? Text(displayName.isNotEmpty ? displayName[0].toUpperCase() : '?')
+                      : null,
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayName,
+                      style: textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    Text(
+                      email,
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const PopupMenuDivider(),
+        // Theme Toggle Action
+        PopupMenuItem<int>(
+          value: 1,
+          child: ListTile(
+            leading: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
+            title: Text(AppTranslation.translate(
+              isDark ? 'theme_light' : 'theme_dark',
+              lang,
+            )),
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+          ),
+        ),
+        // Language Toggle Action
+        PopupMenuItem<int>(
+          value: 2,
+          child: ListTile(
+            leading: const Icon(Icons.language),
+            title: Text('${AppTranslation.translate('language', lang)}: ${lang == 'en' ? 'العربية' : 'English'}'),
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+          ),
+        ),
+        // Google-style Switch Account Action (Select Account Prompt)
+        PopupMenuItem<int>(
+          value: 3,
+          child: ListTile(
+            leading: const Icon(Icons.switch_account_outlined),
+            title: Text(AppTranslation.translate('switch_account', lang)),
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+          ),
+        ),
+        const PopupMenuDivider(),
+        // Logout Action
+        PopupMenuItem<int>(
+          value: 4,
+          child: ListTile(
+            leading: Icon(Icons.logout, color: colorScheme.error),
+            title: Text(
+              AppTranslation.translate('sign_out', lang),
+              style: TextStyle(color: colorScheme.error, fontWeight: FontWeight.bold),
+            ),
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+          ),
+        ),
+      ],
+      onSelected: (value) async {
+        switch (value) {
+          case 1:
+            AppSettings.toggleTheme();
+            break;
+          case 2:
+            AppSettings.setLanguage(lang == 'en' ? 'ar' : 'en');
+            break;
+          case 3:
+            try {
+              // Trigger rapid account swapper popup
+              await AuthService.instance.signInWithGoogle(forceSelect: true);
+            } catch (_) {}
+            break;
+          case 4:
+            _handleSignOut();
+            break;
+        }
+      },
     );
   }
 

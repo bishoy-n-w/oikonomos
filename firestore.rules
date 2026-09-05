@@ -43,7 +43,7 @@ service cloud.firestore {
     function isChurchAdmin(churchId) {
       return isAuthenticated() && 
              exists(/databases/$(database)/documents/churches/{churchId}/misters/$(request.auth.uid)) &&
-             getMisterData(churchId).churchRole == 'admin';
+             getMisterData(churchId).churchRole == 'Admin';
     }
 
     // Helper: Is the user a registered servant in this church?

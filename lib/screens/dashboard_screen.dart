@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../services/app_settings.dart';
+import '../services/translations.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({
@@ -15,6 +17,7 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final lang = AppSettings.language.value;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
@@ -28,7 +31,7 @@ class DashboardScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Welcome to Oikonomos',
+                    AppTranslation.translate('welcome', lang),
                     style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: colorScheme.onSurface,
@@ -36,7 +39,7 @@ class DashboardScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Managing Sunday School with stewardship, order, and care.',
+                    AppTranslation.translate('subtitle', lang),
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
@@ -58,7 +61,7 @@ class DashboardScreen extends StatelessWidget {
             children: [
               _buildStatCard(
                 context,
-                title: 'Total Enrolled Kids',
+                title: AppTranslation.translate('total_kids', lang),
                 stream: FirebaseFirestore.instance
                     .collection('churches')
                     .doc(churchId)
@@ -70,7 +73,7 @@ class DashboardScreen extends StatelessWidget {
               ),
               _buildStatCard(
                 context,
-                title: 'Active Servants',
+                title: AppTranslation.translate('active_servants', lang),
                 stream: FirebaseFirestore.instance
                     .collection('churches')
                     .doc(churchId)
@@ -82,7 +85,7 @@ class DashboardScreen extends StatelessWidget {
               ),
               _buildStatCard(
                 context,
-                title: 'Class Groups',
+                title: AppTranslation.translate('class_groups', lang),
                 stream: FirebaseFirestore.instance
                     .collection('churches')
                     .doc(churchId)
@@ -98,7 +101,7 @@ class DashboardScreen extends StatelessWidget {
 
           // Action Shortcuts Section
           Text(
-            'Quick Tasks',
+            AppTranslation.translate('quick_tasks', lang),
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.bold,
             ),
@@ -109,8 +112,8 @@ class DashboardScreen extends StatelessWidget {
               Expanded(
                 child: _buildActionCard(
                   context,
-                  title: 'Take Attendance',
-                  subtitle: 'Log student attendance for active classes',
+                  title: AppTranslation.translate('take_attendance', lang),
+                  subtitle: AppTranslation.translate('log_attendance_desc', lang),
                   icon: Icons.co_present,
                   color: colorScheme.primary,
                 ),
@@ -119,8 +122,8 @@ class DashboardScreen extends StatelessWidget {
               Expanded(
                 child: _buildActionCard(
                   context,
-                  title: 'Log Home Visit',
-                  subtitle: 'Record student pastoral home visits',
+                  title: AppTranslation.translate('log_visit', lang),
+                  subtitle: AppTranslation.translate('log_visit_desc', lang),
                   icon: Icons.home,
                   color: colorScheme.secondary,
                 ),

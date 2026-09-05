@@ -9,6 +9,7 @@ enum FieldType {
   csv,
   jsonMap,
   reference, // New type for relational dropdown lookups
+  emailChips, // Google Drive-style tokenized emails with dynamic autocomplete
 }
 
 class FieldSpec {
