@@ -5,10 +5,24 @@ service cloud.firestore {
     // --- GLOBAL MASTER BYPASS ---
     // If the authenticated user's UID exists in the root 'global_admins' collection,
     // they bypass all restriction blocks and have unrestricted read/write access to the entire database.
-    // Since only project owners with Firebase Console access can manually write to this root collection,
-    // this acts as a highly secure, dynamic, zero-hardcoded super-admin tier.
     match /{document=**} {
       allow read, write: if request.auth != null && exists(/databases/$(database)/documents/global_admins/$(request.auth.uid));
+    }
+
+    // --- SELF-LOCKING BOOTSTRAP GATE ---
+    match /global_admins/{adminId} {
+      // Any authenticated user can read their own registration document
+      allow read: if request.auth != null && (adminId == request.auth.uid || exists(/databases/$(database)/documents/global_admins/$(request.auth.uid)));
+      
+      // Write/Create is allowed IF:
+      // 1. The lock document '_lock' does NOT exist (meaning the database is brand new and in Setup Mode).
+      // 2. Or, if the caller is already a registered Global Owner, they can add/edit other global owners.
+      allow create, update: if request.auth != null && 
+                              (!exists(/databases/$(database)/documents/global_admins/_lock) || 
+                               exists(/databases/$(database)/documents/global_admins/$(request.auth.uid)));
+                               
+      // Only existing Global Owners can delete administrative entries
+      allow delete: if request.auth != null && exists(/databases/$(database)/documents/global_admins/$(request.auth.uid));
     }
 
     // Helper: Is the user authenticated?
