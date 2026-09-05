@@ -27,8 +27,10 @@ jobs:
         run: flutter pub get
 
       - name: Create firebase_options.dart from GitHub Secret
+        env:
+          FIREBASE_OPTIONS_DART: ${{ secrets.FIREBASE_OPTIONS_DART }}
         run: |
-          echo "${{ secrets.FIREBASE_OPTIONS_DART }}" > lib/firebase_options.dart
+          printf "%s\n" "$FIREBASE_OPTIONS_DART" > lib/firebase_options.dart
         shell: bash
 
       # KEY STEP: Build with the correct base-href
