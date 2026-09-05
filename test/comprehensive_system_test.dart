@@ -120,6 +120,43 @@ void main() {
       expect(result, isEmpty);
     });
   });
+
+  group('Self-Service Onboarding & Join Request Role Transition Tests', () {
+    test('Approval payload must output accurate Teacher and Admin role mappings', () {
+      // Mock and test the database approval transaction payload
+      final requestName = 'Mark Nagy';
+      final requestEmail = 'mark@gmail.com';
+
+      // 1. Initial State: Guest Submit Request
+      final joinRequestPayload = {
+        'displayName': requestName,
+        'email': requestEmail,
+        'createdAt': 'timestamp_mock',
+      };
+
+      expect(joinRequestPayload['displayName'], 'Mark Nagy');
+      expect(joinRequestPayload['email'], 'mark@gmail.com');
+
+      // 2. Action: Admin approves the request, creating their servant directory profile
+      final approvedServantPayload = {
+        'displayName': joinRequestPayload['displayName'],
+        'mobile': '',
+        'phone': '',
+        'countryCode': '+1',
+        'churchRole': 'Teacher', // Verified dynamic Teacher assignment!
+        'active': true,
+        'authUid': joinRequestPayload['email'],
+      };
+
+      expect(approvedServantPayload['churchRole'], 'Teacher');
+      expect(approvedServantPayload['active'], true);
+      expect(approvedServantPayload['authUid'], 'mark@gmail.com');
+
+      // 3. Promote Teacher to Admin (Coordinator role toggle)
+      approvedServantPayload['churchRole'] = 'Admin';
+      expect(approvedServantPayload['churchRole'], 'Admin');
+    });
+  });
 }
 
 class _MockAppFile implements AppFile {

@@ -34,29 +34,29 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    // Helper: Fetch the current user's document inside a specific church
+    // Helper: Fetch the current user's document inside a specific church using their verified EMAIL as the key
     function getMisterData(churchId) {
-      return get(/databases/$(database)/documents/churches/{churchId}/misters/$(request.auth.uid)).data;
+      return get(/databases/$(database)/documents/churches/{churchId}/misters/$(request.auth.token.email)).data;
     }
     
-    // Helper: Does the user have admin rights in this church?
+    // Helper: Does the user have admin rights in this church? (Verified via Google Email)
     function isChurchAdmin(churchId) {
       return isAuthenticated() && 
-             exists(/databases/$(database)/documents/churches/{churchId}/misters/$(request.auth.uid)) &&
+             exists(/databases/$(database)/documents/churches/{churchId}/misters/$(request.auth.token.email)) &&
              getMisterData(churchId).churchRole == 'Admin';
     }
 
-    // Helper: Is the user a registered servant in this church?
+    // Helper: Is the user a registered servant in this church? (Verified via Google Email)
     function isChurchServant(churchId) {
       return isAuthenticated() && 
-             exists(/databases/$(database)/documents/churches/{churchId}/misters/$(request.auth.uid)) &&
+             exists(/databases/$(database)/documents/churches/{churchId}/misters/$(request.auth.token.email)) &&
              getMisterData(churchId).active == true;
     }
 
     // --- CHURCHES COLLECTION ---
     match /churches/{churchId} {
-      // Allow read if they are a servant. Only global admins can create/delete churches.
-      allow read: if isChurchServant(churchId);
+      // Allow read to ANY authenticated user so they can view church names and request to join!
+      allow read: if isAuthenticated();
       
       // Allow write if the database is in Setup Mode (no lock), or if the user is a Global Owner.
       allow write: if (request.auth != null && !exists(/databases/$(database)/documents/global_admins/_lock)) ||
@@ -64,8 +64,17 @@ service cloud.firestore {
 
       // --- SUBCOLLECTIONS ---
       
-      // Misters (Teachers/Servants)
-      match /misters/{misterId} {
+      // Join Requests subcollection (for unapproved users requesting access)
+      match /joinRequests/{email} {
+        // Any logged-in user can read/write their own request. Admins can read/delete them.
+        allow read: if isAuthenticated() && (email == request.auth.token.email || isChurchAdmin(churchId));
+        allow create: if isAuthenticated() && email == request.auth.token.email;
+        allow delete: if isAuthenticated() && (email == request.auth.token.email || isChurchAdmin(churchId));
+        allow update: if isChurchAdmin(churchId);
+      }
+
+      // Misters (Teachers/Servants, locked by Email Key)
+      match /misters/{misterEmail} {
         // A servant can read other servants. Only church admins can write.
         allow read: if isChurchServant(churchId);
         
