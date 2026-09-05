@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class AuthService {
   AuthService._privateConstructor();
@@ -12,8 +13,14 @@ class AuthService {
 
   Future<UserCredential> signInWithGoogle() async {
     final googleProvider = GoogleAuthProvider();
-    // On web, this will open a Google Sign-In popup. On mobile, it will fall back to a web-based popup if native Google Sign-In is not configured.
-    return await _auth.signInWithProvider(googleProvider);
+    
+    if (kIsWeb) {
+      // Use standard popup for web
+      return await _auth.signInWithPopup(googleProvider);
+    } else {
+      // Fallback for native mobile/desktop platforms
+      return await _auth.signInWithProvider(googleProvider);
+    }
   }
 
   Future<void> signOut() async {
