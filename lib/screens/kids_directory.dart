@@ -1,3 +1,4 @@
+// ignore_for_file: unnecessary_underscores, deprecated_member_use, use_build_context_synchronously
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:excel/excel.dart';
@@ -1073,9 +1074,6 @@ class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
   }
 
   Future<void> _launchMappingWizard(String fileName, List<List<String>> rows) async {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     int headerRowIndex = 0; // Default Row 1 (0-based index)
     
     // Choose headers list

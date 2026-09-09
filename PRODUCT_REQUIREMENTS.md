@@ -30,18 +30,22 @@ This document serves as the absolute architectural blueprint and behavioral spec
     *   **Switch Account:** Invokes Google's native Account Chooser popup with `prompt: 'select_account'` parameters. This allows users to switch between signed-in browser accounts or click *"Use another account"* in one click, matching Google Drive exactly.
     *   **Sign Out:** Log out of the current Google Firebase session (with a safety confirmation dialog).
 
-### ⚙️ E. Sidebar Promotion (Settings Tab Removal)
+### ⚙️ E. Sidebar Promotion & Settings Tab Removal
 *   **Behavior:** The legacy, cluttered "Settings" tab has been completely removed.
 *   **Flat Architecture:** All individual administrative and configurations directories are promoted directly to the primary sidebar `NavigationRail` as top-level options, creating a spacious and direct administrative workflow:
     1.  **Dashboard** (Quick tasks, metric counters, and admin notifications)
-    2.  **Kids Directory** ( Tabular CRM student roster)
+    2.  **Kids Directory** (Tabular CRM student roster)
     3.  **Servants Directory** (Tabular servant management console)
     4.  **Attendance Tracker** (Lesson logs)
-    5.  **Class Groups** (Generic list of classes)
+    5.  **Classes** (Kanban Classroom Board)
     6.  **Service Groups** (Pastoral departments)
     7.  **Class Assignments** (Academic term class instances)
     8.  **Home Visits** (Pastoral visitation logs)
     9.  **Churches & Years** (Church timeline visualizer)
+
+### 📋 F. Global Text Selection & Copying
+*   **Behavior:** All text fields, data rows, metrics, and profiles on the website are fully selectable and copyable by administrators.
+*   **Implementation:** The entire authenticated homepage tree is wrapped inside a Flutter **`SelectionArea`** widget, allowing coordinators to highlight and copy student names, parent emails, addresses, or dashboard metrics with native system convenience.
 
 ---
 
@@ -50,28 +54,27 @@ This document serves as the absolute architectural blueprint and behavioral spec
 ### 🧑‍🏫 A. Servants (Misters) Directory
 *   **Primary Key:** The servant's verified Google Email address is the primary Firestore Document ID Key (e.g. `/misters/bishoy@gmail.com`). 
 *   **Roster DataTable:** Displays servants in a responsive checkbox grid with columns for *Full Name*, *Email (Key)*, *Mobile*, *Access Role*, *Active Status*, and *Actions*.
-*   **Access Role Terminology:** The directory uses the explicit organizational levels **`Teacher`** (previously `'viewer'`) and **`Admin`** (previously `'admin'`).
-*   **Phone Validation:** Mobile entries use our custom, smart-stripping input field.
+*   **Access Role Terminology:** The directory uses the explicit organizational levels **`Teacher`** and **`Admin`**.
 *   **Roster Export:** Supports multi-checking checkboxes. Checking rows opens a bulk action bar allowing the Admin to **Export selected to CSV** or **Bulk Delete** (with safety confirmation checks).
 *   **Spreadsheet Safe Formats:** CSV exports exclude separate country codes, formatting the phone number as a single unit cell prefixed with a tab `\t` separator to **force Excel/Sheets to preserve the leading plus sign** (`+201099441171`) instead of stripping it as a formula.
-*   **Future Proof:** The document schema is open to accepting future personal and profiling sub-properties under `'profile'` safely.
+*   **Unified Firestore Key:** Eliminates duplicate fields (such as `'phone'`), saving the complete E.164 string strictly under the `'mobile'` document key.
 
 ---
 
 ### 🧒 B. Kids Directory CRM
 *   **Primary Key:** The child's Full Name is the primary Firestore Document ID Key (e.g. `/kids/Mark Nagy`).
-*   **Roster DataTable:** Displays children in a tabular checkbox grid with columns for *Photo*, *Full Name (Key)*, *Gender*, *Birthday*, *Father of Confession*, *Father Mobile*, *Mother Mobile*, *Area*, and *Actions*.
+*   **Roster DataTable:** Displays children in a tabular grid with checkbox rows for **Select All** bulk checks.
+*   **Clickable Profiles:** Clicking on a student's underlined name triggers a beautiful, read-only **CRM Student Details Popover Card**. It categories all 21 fields (general info, family contacts, address, pastoral notes) neatly into structured panels. Clicking the **"Edit Profile"** button at the bottom cleanly pops the popover and launches the full Edit Form!
 *   **Only Name is Mandatory:** Only the student's name is required to onboard a child; all other 15+ fields are optional.
 *   **Collapsible Form Categories:** Add/Edit forms break down the extensive CRM information sheet into clean, expandable visual sections:
     1.  **General Profile:** Name, Gender, Birthday (visual calendar picker), School, and Confession Father.
     2.  **Home Address:** Street Name, Building Name/No, Floor, Apartment, and Area.
     3.  **Family Contacts:** Home Tele, Kid Mobile, Father Name, Father Mobile, Father Job, Mother Name, Mother Mobile, Mother Job, and Other Mobiles (dynamic comma-separated list).
     4.  **Pastoral Notes:** Special warnings, conditions, or visitation remarks.
-*   **E.164 Normalization:** All contact inputs (Kid, Father, Mother) use our unified phone field to validate and format E.164 strings.
-*   **Bulk Actions:** Supports multi-checking rows for bulk deletion or bulk CSV exports (with tab `\t` leading-plus preservation).
+*   **Bulk Actions:** Supports multi-checking rows for bulk deletion or bulk CSV exports containing all 21 fields (with tab `\t` leading-plus preservation).
 *   **Hardware Client-Side Profile Photo Compressor:**
     *   **Behavior:** When an image is uploaded, the browser uses HTML5 Canvas to scale and compress the photo down to an optimized JPEG thumbnail (max 150px) at 70% quality in milliseconds.
-    *   **The Benefit:** It encodes the thumbnail into a compact `base64` string and saves it directly inside the child's Firestore document. This loads instantly on attendance sheets on all devices with **zero Firebase Storage server bills!**
+    *   **The Benefit:** It encodes the thumbnail into a compact `base64` string and saves it directly inside the child's Firestore document under `'photoBase64'`. This loads instantly on attendance sheets on all devices with **zero Firebase Storage server bills!**
 
 ---
 
@@ -95,7 +98,23 @@ Every phone input in the application shares the same exact Google-style widget:
 
 ---
 
-## 4. Church Onboarding & Year Timelines
+## 4. Kanban Classroom Board ("Classes" Tab)
+
+The Classes tab has been redesigned into an interactive, visual **Classroom Hub**:
+*   **Card Grid Layout:** Displays classes as beautifully elevated cards, showing active student enrollment counts and assigned teacher chips.
+*   **Admin-Only Write Access:** Only global owners or church Admins can create classes, edit assigned rosters, delete classes, or move students. Teachers have secure, read-only views of their classes.
+*   **Single-Class Constraint:** A child can only belong to **one active class at a time**. During search or roster selection, any child already assigned to another active class is strictly filtered out and cannot be selected.
+*   **Instant Search Clearance (Zero Friction):** The moment a coordinator clicks a student or servant from the Autocomplete search box, the search text field **instantly goes back to completely empty**, letting them type the next search query immediately with no backspacing required.
+*   **Kids Roster Selector Dialog (With Multi-Select & Current Assignment):** Clicking a list icon launches a gorgeous sub-window showing all Kids in the church database, displaying their Name, Gender, Area, and **Current Class Assignment** (or *Unassigned*). It features:
+    *   *Real-time search bar* filtering by name.
+    *   *A filter dropdown* (e.g., Show Unassigned, Show All).
+    *   *Multi-select checkboxes* to bulk-add all checked students straight into the class chip list in 1 click.
+*   **Servants Roster Selector Dialog (With Multi-Select & Current Assignments):** A similar sub-window displaying all Servants, their Mobile, Access Role, and a **List of currently assigned Classes** (since servants are allowed to teach multiple classes). It includes search, filters, and multi-select checkboxes for high-speed bulk teacher assignments.
+*   **Dynamic 2-Click Student Swapper ("Move to Class"):** Next to each kid's name inside a class card, a swapper icon is rendered. Clicking it launches a compact dropdown listing all other classes. Clicking a class instantly triggers an atomic batch write to **remove the student from their current class and enroll them in the target class in under 10 milliseconds!**
+
+---
+
+## 5. Church Onboarding & Year Timelines
 
 ### ⛪ A. Churches & Years timeline Visual
 *   **Behavior:** Academic Years are removed as a separate sidebar tab and merged directly under the Churches configuration panel.
@@ -111,7 +130,7 @@ Every phone input in the application shares the same exact Google-style widget:
 
 ---
 
-## 5. Secure Self-Service Onboarding
+## 6. Secure Self-Service Onboarding
 
 ### 🔐 A. Multi-Tier Security Guard
 The application utilizes a double-nested frontend StreamBuilder to verify user authorizations securely:
@@ -124,16 +143,16 @@ The application utilizes a double-nested frontend StreamBuilder to verify user a
 *   **Request database:** Clicking it commits a join request under `/churches/{churchId}/joinRequests/{email}` with their display name, email, and timestamp.
 *   **Stateful UI:** Once submitted, the card dynamically transitions to a friendly *"Pending Approval"* state, allowing them to cancel the request if needed.
 
-### 🔔 C. Admins Dashboard Approval Panel
+### 🔔 C. Roster Approval Panels (Dashboard & Servants Directory)
 *   **Behavior:** When an authorized **`Admin`** logs into Oikonomos, the system checks for any pending join requests under `/churches/{churchId}/joinRequests` in real-time.
-*   **Notification Alert:** If requests exist, a beautiful orange notification card slides open at the very top of their dashboard listing applicants' names and emails.
+*   **Double-Tab Promotion:** The pending requests list is displayed prominently at the top of the **Dashboard** AND the **Servants Directory** tab!
 *   **Action Buttons:**
-    *   **Approve:** Runs an atomic transaction that registers them as an active **`Teacher`** under `/churches/{churchId}/misters/{email}`, then deletes their pending request document. The approved user's screen automatically refreshes and logs them straight into the Sunday School Dashboard!
+    *   **Approve:** Runs an atomic transaction that registers them as an active **`Teacher`** under `/churches/{churchId}/misters/{email}` with an empty `'mobile': ''` string (no separate country code or duplicate `'phone'` keys are created), then deletes their pending request document. The approved user's screen automatically refreshes and logs them straight into the Sunday School Dashboard!
     *   **Reject:** Deletes the pending join request document safely.
 
 ---
 
-## 6. Resilient Spreadsheet Importer Normalizer
+## 7. Resilient Spreadsheet Importer Normalizer
 
 When administrators import servant or student rosters from `.xlsx`, `.xls`, or `.csv` files:
 1.  They select the file Sheet (tab).
@@ -150,7 +169,7 @@ When administrators import servant or student rosters from `.xlsx`, `.xls`, or `
 
 ---
 
-## 7. Soft Deletion Lifecycle: The "Active" Field Functionality
+## 8. Soft Deletion Lifecycle: The "Active" Field Functionality
 
 To preserve relational history and database integrity, no records are physically deleted from day-to-day administrative tables. Setting `active: false` archives the object:
 
@@ -165,7 +184,7 @@ To preserve relational history and database integrity, no records are physically
 
 ---
 
-## 8. Automated Testing Validation Guidelines
+## 9. Automated Testing Validation Guidelines
 
 The platform enforces a mandatory automated validation policy. Every core mechanism must possess a corresponding unit or widget test verified on the native VM runner before shipping:
 

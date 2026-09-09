@@ -1,3 +1,4 @@
+// ignore_for_file: unnecessary_underscores, deprecated_member_use, use_build_context_synchronously
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../services/app_settings.dart';

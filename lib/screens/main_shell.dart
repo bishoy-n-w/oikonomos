@@ -1,3 +1,4 @@
+// ignore_for_file: unnecessary_underscores, deprecated_member_use, use_build_context_synchronously
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -104,6 +105,7 @@ class _MainShellState extends State<MainShell> {
               ),
               ClassesScreen(
                 churchId: _selectedChurchId,
+                userRole: isGlobalAdmin ? 'Admin' : (misterData?['churchRole'] ?? 'Teacher'),
               ),
               ServiceGroupsScreen(
                 churchId: _selectedChurchId,

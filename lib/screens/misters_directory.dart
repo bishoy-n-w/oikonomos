@@ -1,3 +1,4 @@
+// ignore_for_file: unnecessary_underscores, deprecated_member_use, use_build_context_synchronously
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:excel/excel.dart';
 import 'package:flutter/material.dart';
@@ -407,8 +408,6 @@ class _MistersDirectoryScreenState extends State<MistersDirectoryScreen> {
     BuildContext context,
     DocumentSnapshot<Map<String, dynamic>>? doc,
   ) async {
-    final theme = Theme.of(context);
-
     final isEdit = doc != null;
     final data = doc?.data();
 
@@ -668,9 +667,6 @@ class _MistersDirectoryScreenState extends State<MistersDirectoryScreen> {
   }
 
   Future<void> _launchMappingWizard(String fileName, List<List<String>> rows) async {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     int headerRowIndex = 0; // Default Row 1 (0-based index)
     
     // Choose headers list
@@ -887,7 +883,7 @@ class _MistersDirectoryScreenState extends State<MistersDirectoryScreen> {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: docs.length,
-                  separatorBuilder: (_, __) => const Divider(height: 16),
+                  separatorBuilder: (context, index) => const Divider(height: 16),
                   itemBuilder: (context, index) {
                     final doc = docs[index];
                     final rData = doc.data();
