@@ -27,6 +27,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _selectedIndex = 0;
   late final GlobalFilterController _filterController;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   CollectionReference<Map<String, dynamic>> get _churchesRef =>
       FirebaseFirestore.instance.collection('churches');
@@ -59,7 +60,6 @@ class _MainShellState extends State<MainShell> {
     }
 
     // --- ACCESS CONTROL GUARD GATE ---
-    // 1. First, check if the logged-in user is registered as a Global Owner in the root collection
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance
           .collection('global_admins')
@@ -68,7 +68,6 @@ class _MainShellState extends State<MainShell> {
       builder: (context, globalAdminSnapshot) {
         final isGlobalAdmin = globalAdminSnapshot.hasData && globalAdminSnapshot.data!.exists;
 
-        // Ensure we don't try to query misters collection if no church is selected yet by the filter controller
         return AnimatedBuilder(
           animation: _filterController,
           builder: (context, _) {
@@ -78,14 +77,12 @@ class _MainShellState extends State<MainShell> {
 
             final churchId = _filterController.selectedChurchId;
             if (churchId == null) {
-              // No churches exist in the database or none active
               if (isGlobalAdmin) {
                  return _buildAuthorizedView(context, isGlobalAdmin, 'owner', theme, colorScheme, lang, isRtl);
               }
               return const Scaffold(body: Center(child: Text('No active churches found.')));
             }
 
-            // 2. Second, listen to their church-specific servant profile document (keyed by verified Email)
             return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
               stream: _churchesRef
                   .doc(churchId)
@@ -96,7 +93,6 @@ class _MainShellState extends State<MainShell> {
                 final isCheckingAuth = authSnapshot.connectionState == ConnectionState.waiting ||
                     globalAdminSnapshot.connectionState == ConnectionState.waiting;
 
-                // They are authorized if they are a Database Global Owner OR if they are registered as active locally!
                 final misterData = authSnapshot.data?.data();
                 final isAuthorized = isGlobalAdmin ||
                     (authSnapshot.hasData && authSnapshot.data!.exists && (misterData?['active'] ?? false) == true);       
@@ -107,7 +103,6 @@ class _MainShellState extends State<MainShell> {
                   );
                 }
 
-                // If the user is NOT authorized (unapproved / new sign-in), show the Join Request Wizard
                 if (!isAuthorized) {
                   return _buildJoinRequestShell(context, user, email, theme, colorScheme, lang, isRtl, churchId);
                 }
@@ -136,6 +131,7 @@ class _MainShellState extends State<MainShell> {
       final email = user.email!;
       final churchId = _filterController.selectedChurchId ?? '';
       final yearId = _filterController.selectedAcademicYearId ?? '';
+      final isMobile = MediaQuery.of(context).size.width < 950;
       
       final List<Widget> screens = [
         DashboardScreen(
@@ -183,25 +179,83 @@ class _MainShellState extends State<MainShell> {
         const ChurchesScreen(),
       ];
 
+      final sidebarDestinations = [
+        _NavigationItem(Icons.dashboard_outlined, Icons.dashboard, AppTranslation.translate('dashboard', lang)),
+        _NavigationItem(Icons.child_care_outlined, Icons.child_care, AppTranslation.translate('kids', lang)),
+        _NavigationItem(Icons.people_outline, Icons.people, AppTranslation.translate('servants', lang)),
+        _NavigationItem(Icons.co_present_outlined, Icons.co_present, AppTranslation.translate('attendance', lang)),
+        _NavigationItem(Icons.class_outlined, Icons.class_, AppTranslation.translate('classes', lang)),
+        _NavigationItem(Icons.group_work_outlined, Icons.group_work, AppTranslation.translate('service_groups', lang)),
+        _NavigationItem(Icons.assignment_outlined, Icons.assignment, AppTranslation.translate('class_assignments', lang)),
+        _NavigationItem(Icons.home_outlined, Icons.home, AppTranslation.translate('home_visits', lang)),
+        _NavigationItem(Icons.church_outlined, Icons.church, AppTranslation.translate('churches_config', lang)),
+      ];
+
       return Scaffold(
+        key: _scaffoldKey,
+        drawer: isMobile ? Drawer(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              DrawerHeader(
+                decoration: BoxDecoration(color: colorScheme.primaryContainer),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      'Oikonomos',
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        color: colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text('Sunday School Administration', style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onPrimaryContainer.withOpacity(0.8))),
+                  ],
+                ),
+              ),
+              ...List.generate(sidebarDestinations.length, (idx) {
+                final item = sidebarDestinations[idx];
+                final isSelected = _selectedIndex == idx;
+                return ListTile(
+                  leading: Icon(isSelected ? item.selectedIcon : item.icon, color: isSelected ? colorScheme.primary : null),
+                  title: Text(item.label, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : null)),
+                  selected: isSelected,
+                  selectedColor: colorScheme.primary,
+                  onTap: () {
+                    setState(() => _selectedIndex = idx);
+                    Navigator.pop(context); // Close Drawer
+                  },
+                );
+              }),
+            ],
+          ),
+        ) : null,
         appBar: AppBar(
           titleSpacing: 0,
+          leading: isMobile ? IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+          ) : null,
           title: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: Image.asset(
-                    'assets/icon.png',
-                    width: 36,
-                    height: 32,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        const Icon(Icons.admin_panel_settings, size: 32),
+                if (!isMobile) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Image.asset(
+                      'assets/icon.png',
+                      width: 36,
+                      height: 32,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Icon(Icons.admin_panel_settings, size: 32),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
+                  const SizedBox(width: 12),
+                ],
                 Text(
                   'Oikonomos',
                   style: theme.textTheme.titleLarge?.copyWith(
@@ -214,7 +268,14 @@ class _MainShellState extends State<MainShell> {
             ),
           ),
           actions: [
-            _buildGlobalFilters(colorScheme),
+            if (isMobile) 
+              IconButton(
+                icon: const Icon(Icons.filter_list_outlined),
+                tooltip: 'Filters',
+                onPressed: () => _showMobileFiltersBottomSheet(context, colorScheme),
+              )
+            else 
+              _buildGlobalFilters(colorScheme),
             const SizedBox(width: 16),
             _buildProfileMenu(colorScheme, theme.textTheme, lang),
             const SizedBox(width: 16),
@@ -223,66 +284,28 @@ class _MainShellState extends State<MainShell> {
         body: Row(
           textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
           children: [
-            // Sidebar Navigation
-            NavigationRail(
-              selectedIndex: _selectedIndex,
-              labelType: NavigationRailLabelType.all,
-              backgroundColor: colorScheme.surfaceContainerLow,
-              indicatorColor: colorScheme.primaryContainer,
-              onDestinationSelected: (int index) {
-                setState(() {
-                  _selectedIndex = index;
-                });
-              },
-              destinations: [
-                NavigationRailDestination(
-                  icon: const Icon(Icons.dashboard_outlined),
-                  selectedIcon: const Icon(Icons.dashboard),
-                  label: Text(AppTranslation.translate('dashboard', lang)),
-                ),
-                NavigationRailDestination(
-                  icon: const Icon(Icons.child_care_outlined),
-                  selectedIcon: const Icon(Icons.child_care),
-                  label: Text(AppTranslation.translate('kids', lang)),
-                ),
-                NavigationRailDestination(
-                  icon: const Icon(Icons.people_outline),
-                  selectedIcon: const Icon(Icons.people),
-                  label: Text(AppTranslation.translate('servants', lang)),
-                ),
-                NavigationRailDestination(
-                  icon: const Icon(Icons.co_present_outlined),
-                  selectedIcon: const Icon(Icons.co_present),
-                  label: Text(AppTranslation.translate('attendance', lang)),
-                ),
-                NavigationRailDestination(
-                  icon: const Icon(Icons.class_outlined),
-                  selectedIcon: const Icon(Icons.class_),
-                  label: Text(AppTranslation.translate('classes', lang)),
-                ),
-                NavigationRailDestination(
-                  icon: const Icon(Icons.group_work_outlined),
-                  selectedIcon: const Icon(Icons.group_work),
-                  label: Text(AppTranslation.translate('service_groups', lang)),
-                ),
-                NavigationRailDestination(
-                  icon: const Icon(Icons.assignment_outlined),
-                  selectedIcon: const Icon(Icons.assignment),
-                  label: Text(AppTranslation.translate('class_assignments', lang)),
-                ),
-                NavigationRailDestination(
-                  icon: const Icon(Icons.home_outlined),
-                  selectedIcon: const Icon(Icons.home),
-                  label: Text(AppTranslation.translate('home_visits', lang)),
-                ),
-                NavigationRailDestination(
-                  icon: const Icon(Icons.church_outlined),
-                  selectedIcon: const Icon(Icons.church),
-                  label: Text(AppTranslation.translate('churches_config', lang)),
-                ),
-              ],
-            ),
-            const VerticalDivider(thickness: 1, width: 1),
+            // Sidebar Navigation (Desktop only)
+            if (!isMobile) ...[
+              NavigationRail(
+                selectedIndex: _selectedIndex,
+                labelType: NavigationRailLabelType.all,
+                backgroundColor: colorScheme.surfaceContainerLow,
+                indicatorColor: colorScheme.primaryContainer,
+                onDestinationSelected: (int index) {
+                  setState(() {
+                    _selectedIndex = index;
+                  });
+                },
+                destinations: sidebarDestinations.map((d) {
+                  return NavigationRailDestination(
+                    icon: Icon(d.icon),
+                    selectedIcon: Icon(d.selectedIcon),
+                    label: Text(d.label),
+                  );
+                }).toList(),
+              ),
+              const VerticalDivider(thickness: 1, width: 1),
+            ],
             // Main Body Screen
             Expanded(
               child: Container(
@@ -339,7 +362,6 @@ class _MainShellState extends State<MainShell> {
     bool isRtl,
     String fallbackChurchId,
   ) {
-    // Local state for the UI dropdown since they don't have access to the main shell
     String reqChurchId = _filterController.selectedChurchId ?? fallbackChurchId;
 
     return Scaffold(
@@ -570,7 +592,7 @@ class _MainShellState extends State<MainShell> {
           value: 2,
           child: ListTile(
             leading: const Icon(Icons.language),
-            title: Text('${AppTranslation.translate('language', lang)}: ${lang == 'en' ? 'Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©' : 'English'}'),
+            title: Text('${AppTranslation.translate('language', lang)}: ${lang == 'en' ? 'العربية' : 'English'}'),
             contentPadding: EdgeInsets.zero,
             dense: true,
           ),
@@ -676,7 +698,7 @@ class _MainShellState extends State<MainShell> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.3),
+        color: color.withOpacity(0.3),
         borderRadius: BorderRadius.circular(20),
       ),
       child: DropdownButtonHideUnderline(
@@ -684,7 +706,7 @@ class _MainShellState extends State<MainShell> {
           value: value,
           icon: Padding(
             padding: const EdgeInsets.only(left: 8.0),
-            child: Icon(icon, size: 16, color: onColor.withValues(alpha: 0.8)),
+            child: Icon(icon, size: 16, color: onColor.withOpacity(0.8)),
           ),
           style: TextStyle(
             color: onColor,
@@ -692,7 +714,6 @@ class _MainShellState extends State<MainShell> {
             fontSize: 13,
           ),
           items: [
-            // Add an "All" option if there's more than one item
             if (items.length > 1) 
               const DropdownMenuItem<String?>(
                 value: null,
@@ -708,6 +729,72 @@ class _MainShellState extends State<MainShell> {
           onChanged: onChanged,
         ),
       ),
+    );
+  }
+
+  // --- SUB-VIEW: Mobile Filters Bottom Sheet ---
+  void _showMobileFiltersBottomSheet(BuildContext context, ColorScheme colorScheme) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return AnimatedBuilder(
+          animation: _filterController,
+          builder: (context, _) {
+            return Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Filter Records Scope',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildMobileField('Church', Icons.church, _filterController.selectedChurchId, _filterController.churches, _filterController.setChurch),
+                  const SizedBox(height: 12),
+                  _buildMobileField('Academic Year', Icons.calendar_today, _filterController.selectedAcademicYearId, _filterController.academicYears, _filterController.setAcademicYear),
+                  const SizedBox(height: 12),
+                  _buildMobileField('Service Group', Icons.group_work, _filterController.selectedServiceGroupId, _filterController.serviceGroups, _filterController.setServiceGroup),
+                  const SizedBox(height: 12),
+                  _buildMobileField('Class', Icons.class_, _filterController.selectedClassId, _filterController.classes, _filterController.setClass),
+                ],
+              ),
+            );
+          }
+        );
+      },
+    );
+  }
+
+  Widget _buildMobileField(String label, IconData icon, String? value, List<DropdownItem> items, void Function(String?) onChanged) {
+    if (items.isEmpty) return const SizedBox.shrink();
+    return DropdownButtonFormField<String?>(
+      value: value,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        border: const OutlineInputBorder(),
+      ),
+      items: [
+        if (items.length > 1) 
+          const DropdownMenuItem<String?>(
+            value: null,
+            child: Text('All'),
+          ),
+        ...items.map((item) {
+          return DropdownMenuItem<String?>(
+            value: item.id,
+            child: Text(item.displayName),
+          );
+        }),
+      ],
+      onChanged: (val) {
+        onChanged(val);
+      },
     );
   }
 
@@ -735,4 +822,12 @@ class _MainShellState extends State<MainShell> {
       await AuthService.instance.signOut();
     }
   }
+}
+
+class _NavigationItem {
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
+
+  _NavigationItem(this.icon, this.selectedIcon, this.label);
 }
