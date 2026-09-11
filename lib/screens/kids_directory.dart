@@ -9,9 +9,22 @@ import '../services/translations.dart';
 import '../services/file_service.dart';
 
 class KidsDirectoryScreen extends StatefulWidget {
-  const KidsDirectoryScreen({required this.churchId, super.key});
+  const KidsDirectoryScreen({
+    required this.churchId, 
+    required this.academicYearId,
+    required this.serviceGroupId,
+    required this.classId,
+    required this.userUid,
+    required this.userRole,
+    super.key
+  });
 
   final String churchId;
+  final String academicYearId;
+  final String serviceGroupId;
+  final String classId;
+  final String userUid;
+  final String userRole;
 
   @override
   State<KidsDirectoryScreen> createState() => _KidsDirectoryScreenState();
@@ -54,11 +67,23 @@ class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
           }
 
           final docs = snapshot.data!.docs;
-          // Filter student list by search query
+          // Filter student list by search query and global dropdowns
           final filteredDocs = docs.where((doc) {
             final data = doc.data();
+            final activeAssign = data['activeAssignment'] as Map<String, dynamic>? ?? {};
+
+            // View Scoping based on Global Filters
+            if (widget.academicYearId.isNotEmpty && activeAssign['academicYearId'] != widget.academicYearId) {
+              return false;
+            }
+            if (widget.serviceGroupId.isNotEmpty && activeAssign['serviceGroupId'] != widget.serviceGroupId) {
+              return false;
+            }
+            if (widget.classId.isNotEmpty && activeAssign['classId'] != widget.classId) {
+              return false;
+            }
+
             final current = data['current'] ?? {};
-            
             final name = doc.id.toLowerCase(); // Full Name is the Document ID!
             final school = (current['school'] ?? '').toString().toLowerCase();
             final address = (current['addressArea'] ?? '').toString().toLowerCase();

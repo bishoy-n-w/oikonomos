@@ -146,6 +146,11 @@ class _MainShellState extends State<MainShell> {
         ),
         KidsDirectoryScreen(
           churchId: churchId,
+          academicYearId: yearId,
+          serviceGroupId: _filterController.selectedServiceGroupId ?? '',
+          classId: _filterController.selectedClassId ?? '',
+          userUid: user.uid,
+          userRole: userRole,
         ),
         MistersDirectoryScreen(
           churchId: churchId,
