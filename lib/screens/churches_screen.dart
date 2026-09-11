@@ -126,6 +126,8 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
                               ],
                             ),
                             const Divider(height: 24),
+                            _buildGradesConfig(context, churchId, data['grades'] as Map<String, dynamic>? ?? {}),
+                            const Divider(height: 24),
                             // Expanded Academic Years Timeline section
                             _buildAcademicYearsTimeline(context, churchId, activeYearId),
                           ],
@@ -139,6 +141,51 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // --- SUB-VIEW: Academic Years Timeline Layout ---
+  Widget _buildGradesConfig(BuildContext context, String churchId, Map<String, dynamic> grades) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Church Grades Configuration',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: grades.entries.map((e) {
+                  return Chip(
+                    label: Text(': '),
+                    backgroundColor: colorScheme.surfaceContainerHighest,
+                    deleteIcon: const Icon(Icons.close, size: 14),
+                    onDeleted: () {
+                      _removeGrade(churchId, e.key, grades);
+                    },
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        ),
+        TextButton.icon(
+          onPressed: () => _showAddGradeDialog(context, churchId, grades),
+          icon: const Icon(Icons.add, size: 16),
+          label: const Text('Add Grade'),
+        ),
+      ],
     );
   }
 
@@ -627,6 +674,61 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
 
       await batch.commit();
     } catch (_) {}
+  }
+
+  Future<void> _showAddGradeDialog(BuildContext context, String churchId, Map<String, dynamic> currentGrades) async {
+    final idController = TextEditingController();
+    final nameController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Grade Level'),
+        content: Form(
+          key: formKey,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: idController,
+                decoration: const InputDecoration(labelText: 'Grade ID (Integer) *', hintText: 'e.g. 1'),
+                keyboardType: TextInputType.number,
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) return 'Required';
+                  if (int.tryParse(val.trim()) == null) return 'Must be an integer';
+                  if (currentGrades.containsKey(val.trim())) return 'ID already exists';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Display Name *', hintText: 'e.g. Grade 1'),
+                validator: (val) => val == null || val.trim().isEmpty ? 'Required' : null,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () { if (formKey.currentState!.validate()) Navigator.pop(context, true); }, child: const Text('Add')),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final newGrades = Map<String, dynamic>.from(currentGrades);
+      newGrades[idController.text.trim()] = nameController.text.trim();
+      await _churchesRef.doc(churchId).update({'grades': newGrades});
+    }
+  }
+
+  Future<void> _removeGrade(String churchId, String gradeId, Map<String, dynamic> currentGrades) async {
+    final newGrades = Map<String, dynamic>.from(currentGrades);
+    newGrades.remove(gradeId);
+    await _churchesRef.doc(churchId).update({'grades': newGrades});
   }
 
   Future<void> _deleteChurch(BuildContext context, String churchId) async {

@@ -162,6 +162,8 @@ class _MainShellState extends State<MainShell> {
         ),
         ClassesScreen(
           churchId: churchId,
+          academicYearId: yearId,
+          serviceGroupId: _filterController.selectedServiceGroupId ?? '',
           userRole: userRole,
         ),
         ServiceGroupsScreen(

@@ -7,11 +7,15 @@ import '../services/translations.dart';
 class ClassesScreen extends StatefulWidget {
   const ClassesScreen({
     required this.churchId,
+    required this.academicYearId,
+    required this.serviceGroupId,
     required this.userRole,
     super.key,
   });
 
   final String churchId;
+  final String academicYearId;
+  final String serviceGroupId;
   final String userRole;
 
   @override
@@ -331,25 +335,28 @@ class _ClassesScreenState extends State<ClassesScreen> {
     final servantsSnap = await _churchesRef.doc(widget.churchId).collection('misters').get();
     final classesSnap = await _ref.get();
 
-    // Map: Map each Kid's Name to their current Class Name (if any)
+    // Map: Map each Kid's Name to their current Class Name (if any) IN THE CURRENT ACADEMIC YEAR
     final Map<String, String> kidToClassMap = {};
-    for (final doc in classesSnap.docs) {
-      if (doc.id == classId) continue; // Exclude the current class we are editing!
-      final cName = doc.data()['current']?['name'] ?? doc.id;
-      final List<dynamic> kIds = doc.data()['current']?['currentKidIds'] ?? [];
-      for (final kidName in kIds) {
-        kidToClassMap[kidName.toString()] = cName.toString();
-      }
-    }
-
-    // Map: Map each Servant's Email to their current List of Class Names (since they can teach multiple!)
     final Map<String, List<String>> servantToClassesMap = {};
     for (final doc in classesSnap.docs) {
-      final cName = doc.data()['current']?['name'] ?? doc.id;
-      final List<dynamic> sEmails = doc.data()['current']?['servantEmails'] ?? [];
-      for (final email in sEmails) {
-        final emailStr = email.toString();
-        servantToClassesMap.putIfAbsent(emailStr, () => []).add(cName.toString());
+      final cYears = doc.data()['academicYears'] as Map<String, dynamic>? ?? {};
+      if (!cYears.containsKey(widget.academicYearId)) continue;
+      
+      final cYearData = cYears[widget.academicYearId] as Map<String, dynamic>;
+      final cName = cYearData['name'] ?? doc.id;
+      
+      // Map Kids (excluding current class)
+      if (doc.id != classId) {
+        final List<dynamic> kIds = cYearData['KidIds'] ?? [];
+        for (final kidName in kIds) {
+          kidToClassMap[kidName.toString()] = cName.toString();
+        }
+      }
+      
+      // Map Servants (including current class so we know their full load)
+      final Map<String, dynamic> cMisters = cYearData['Misters'] ?? {};
+      for (final email in cMisters.keys) {
+        servantToClassesMap.putIfAbsent(email, () => []).add(cName.toString());
       }
     }
 
