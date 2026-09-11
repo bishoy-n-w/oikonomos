@@ -28,32 +28,17 @@ class ServiceGroupsScreen extends StatelessWidget {
             .collection('churches')
             .doc(churchId)
             .collection('serviceGroups'),
-        fields: [
+        fields: const [
           FieldSpec(
-            path: 'active',
-            label: AppTranslation.translate('active', lang),
-            type: FieldType.boolValue,
-          ),
-          const FieldSpec(
-            path: 'current.displayName',
+            path: 'displayName',
             label: 'Service Group Name',
             type: FieldType.text,
             required: true,
           ),
-          FieldSpec(
-            path: 'current.servantEmails',
-            label: AppTranslation.translate('add_account', lang), // "Assigned Servant Emails (Share)"
-            type: FieldType.emailChips,
-            referenceCollectionPath: 'churches/$churchId/misters',
-            hint: 'Type name or email to share...',
-          ),
         ],
-        createDefaults: const {'active': true},
-        titlePath: 'current.displayName',
-        subtitlePaths: const [
-          'active',
-          'current.servantEmails',
-        ],
+        createDefaults: const {},
+        titlePath: 'displayName',
+        subtitlePaths: const [],
         beforeSave: _withCreatedAt,
       ),
     );
