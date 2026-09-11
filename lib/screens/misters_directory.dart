@@ -339,6 +339,31 @@ class _MistersDirectoryScreenState extends State<MistersDirectoryScreen> {
     }
   }
 
+  Future<void> _showAssignmentDialog(
+    BuildContext context,
+    DocumentSnapshot<Map<String, dynamic>> servantDoc,
+  ) async {
+    final servantId = servantDoc.id;
+    final servantName = servantDoc.data()?['displayName'] ?? servantId;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => _ServantAssignmentDialog(
+        churchId: widget.churchId,
+        servantId: servantId,
+        servantName: servantName,
+      ),
+    );
+    
+    if (confirmed == true) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Roles updated successfully.')),
+        );
+      }
+    }
+  }
+
   Future<void> _deleteSingle(BuildContext context, String emailId) async {
     final confirmed = await showDialog<bool>(
           context: context,
@@ -991,6 +1016,150 @@ class _MistersDirectoryScreenState extends State<MistersDirectoryScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
+    );
+  }
+}
+
+// =============================================================================
+// SUB-DIALOG: ServantAssignmentDialog (Group Roles)
+// =============================================================================
+class _ServantAssignmentDialog extends StatefulWidget {
+  const _ServantAssignmentDialog({
+    required this.churchId,
+    required this.servantId,
+    required this.servantName,
+  });
+
+  final String churchId;
+  final String servantId;
+  final String servantName;
+
+  @override
+  State<_ServantAssignmentDialog> createState() => _ServantAssignmentDialogState();
+}
+
+class _ServantAssignmentDialogState extends State<_ServantAssignmentDialog> {
+  bool _isLoading = true;
+
+  // Maps group ID to role ('admin' or 'servant')
+  final Map<String, String> _groupRoles = {};
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> _allGroups = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCurrentAssignments();
+  }
+
+  Future<void> _fetchCurrentAssignments() async {
+    final firestore = FirebaseFirestore.instance;
+    final db = firestore.collection('churches').doc(widget.churchId);
+
+    final groupsSnap = await db.collection('serviceGroups').get();
+    _allGroups = groupsSnap.docs;
+
+    for (final doc in _allGroups) {
+      final rolesMap = doc.data()['roles'] as Map<String, dynamic>? ?? {};
+      if (rolesMap.containsKey(widget.servantId)) {
+        _groupRoles[doc.id] = rolesMap[widget.servantId];
+      }
+    }
+
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _saveAssignments() async {
+    setState(() => _isLoading = true);
+    final firestore = FirebaseFirestore.instance;
+    final batch = firestore.batch();
+    final db = firestore.collection('churches').doc(widget.churchId);
+
+    for (final doc in _allGroups) {
+      final ref = doc.reference;
+      if (_groupRoles.containsKey(doc.id)) {
+        batch.update(ref, {
+          'roles.${widget.servantId}': _groupRoles[doc.id],
+        });
+      } else {
+        batch.update(ref, {
+          'roles.${widget.servantId}': FieldValue.delete(),
+        });
+      }
+    }
+
+    await batch.commit();
+    if (mounted) {
+      Navigator.pop(context, true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return AlertDialog(
+      title: Text('Manage Roles: ${widget.servantName}'),
+      content: SizedBox(
+        width: 600,
+        height: 400,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Service Groups & Department Roles', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(side: BorderSide(color: colorScheme.outlineVariant)),
+                      child: ListView.separated(
+                        itemCount: _allGroups.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final doc = _allGroups[index];
+                          final name = doc.data()['displayName'] ?? doc.id;
+                          final currentRole = _groupRoles[doc.id];
+                          final isAssigned = currentRole != null;
+
+                          return ListTile(
+                            title: Text(name),
+                            subtitle: isAssigned
+                                ? Text('Assigned as: ${currentRole.toUpperCase()}', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold))
+                                : const Text('Unassigned', style: TextStyle(color: Colors.grey)),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (isAssigned) ...[
+                                  TextButton(
+                                    onPressed: () => setState(() => _groupRoles[doc.id] = currentRole == 'admin' ? 'servant' : 'admin'),
+                                    child: const Text('Toggle Role'),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                                    onPressed: () => setState(() => _groupRoles.remove(doc.id)),
+                                  ),
+                                ] else
+                                  FilledButton.tonal(
+                                    onPressed: () => setState(() => _groupRoles[doc.id] = 'servant'),
+                                    child: const Text('Assign'),
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+        FilledButton(onPressed: _isLoading ? null : _saveAssignments, child: const Text('Save Roles')),
+      ],
     );
   }
 }
