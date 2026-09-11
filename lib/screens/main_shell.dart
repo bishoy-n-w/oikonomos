@@ -12,7 +12,6 @@ import 'misters_directory.dart';
 import 'attendance_tracker.dart';
 import 'classes_screen.dart';
 import 'service_groups_screen.dart';
-import 'class_assignments_screen.dart';
 import 'home_visits_tab.dart';
 import 'churches_screen.dart';
 import '../constants.dart';
@@ -155,6 +154,8 @@ class _MainShellState extends State<MainShell> {
         AttendanceTrackerScreen(
           churchId: churchId,
           academicYearId: yearId,
+          classId: _filterController.selectedClassId ?? '',
+          serviceGroupId: _filterController.selectedServiceGroupId ?? '',
         ),
         ClassesScreen(
           churchId: churchId,
@@ -165,31 +166,27 @@ class _MainShellState extends State<MainShell> {
         ServiceGroupsScreen(
           churchId: churchId,
         ),
-        ClassAssignmentsScreen(
-          churchId: churchId,
-          academicYearId: yearId,
-        ),
         Padding(
           padding: const EdgeInsets.all(24.0),
           child: HomeVisitsTab(
             churchId: churchId,
             academicYearId: yearId,
+            classId: _filterController.selectedClassId ?? '',
           ),
         ),
         const ChurchesScreen(),
-      ];
+        ];
 
-      final sidebarDestinations = [
-        _NavigationItem(Icons.dashboard_outlined, Icons.dashboard, AppTranslation.translate('dashboard', lang)),
+        final sidebarDestinations = [
+        _NavigationItem(Icons.dashboard_outlined, Icons.dashboard, AppTranslation.translate('dashboard', lang)),       
         _NavigationItem(Icons.child_care_outlined, Icons.child_care, AppTranslation.translate('kids', lang)),
         _NavigationItem(Icons.people_outline, Icons.people, AppTranslation.translate('servants', lang)),
-        _NavigationItem(Icons.co_present_outlined, Icons.co_present, AppTranslation.translate('attendance', lang)),
+        _NavigationItem(Icons.co_present_outlined, Icons.co_present, AppTranslation.translate('attendance', lang)),    
         _NavigationItem(Icons.class_outlined, Icons.class_, AppTranslation.translate('classes', lang)),
         _NavigationItem(Icons.group_work_outlined, Icons.group_work, AppTranslation.translate('service_groups', lang)),
-        _NavigationItem(Icons.assignment_outlined, Icons.assignment, AppTranslation.translate('class_assignments', lang)),
         _NavigationItem(Icons.home_outlined, Icons.home, AppTranslation.translate('home_visits', lang)),
-        _NavigationItem(Icons.church_outlined, Icons.church, AppTranslation.translate('churches_config', lang)),
-      ];
+        _NavigationItem(Icons.church_outlined, Icons.church, AppTranslation.translate('churches_config', lang)),       
+        ];
 
       return Scaffold(
         key: _scaffoldKey,

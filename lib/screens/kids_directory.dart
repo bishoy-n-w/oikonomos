@@ -533,9 +533,9 @@ class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => AlertDialog(
-          title: Text(isEdit ? 'Edit Student Profile' : 'Onboard New Student'),
-          content: SizedBox(
-            width: 580,
+          title: Text(isEdit ? 'Edit Student CRM Profile' : 'Register New Student'),
+          content: Container(
+            constraints: const BoxConstraints(maxWidth: 580),
             child: Form(
               key: formKey,
               autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -1361,8 +1361,8 @@ class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
             ),
           ],
         ),
-        content: SizedBox(
-          width: 500,
+        content: Container(
+          constraints: const BoxConstraints(maxWidth: 500),
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

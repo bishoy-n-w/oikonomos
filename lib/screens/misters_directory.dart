@@ -269,11 +269,20 @@ class _MistersDirectoryScreenState extends State<MistersDirectoryScreen> {
                                             children: [
                                               IconButton(
                                                 icon: const Icon(Icons.edit_outlined, size: 18),
+                                                tooltip: 'Edit Servant',
                                                 onPressed: () => _showAddEditDialog(context, doc),
                                               ),
+                                              if (isAdmin)
+                                                IconButton(
+                                                  icon: const Icon(Icons.assignment_ind_outlined, size: 18),
+                                                  color: colorScheme.primary,
+                                                  tooltip: 'Manage Roles & Assignments',
+                                                  onPressed: () => _showAssignmentDialog(context, doc),
+                                                ),
                                               IconButton(
                                                 icon: const Icon(Icons.delete_outline, size: 18),
                                                 color: colorScheme.error,
+                                                tooltip: 'Delete Servant',
                                                 onPressed: () => _deleteSingle(context, emailId),
                                               ),
                                             ],
@@ -454,8 +463,8 @@ class _MistersDirectoryScreenState extends State<MistersDirectoryScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => AlertDialog(
           title: Text(isEdit ? 'Edit Servant Profile' : 'Register New Servant'),
-          content: SizedBox(
-            width: 420,
+          content: Container(
+            constraints: const BoxConstraints(maxWidth: 420),
             child: Form(
               key: formKey,
               autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -1074,7 +1083,6 @@ class _ServantAssignmentDialogState extends State<_ServantAssignmentDialog> {
     setState(() => _isLoading = true);
     final firestore = FirebaseFirestore.instance;
     final batch = firestore.batch();
-    final db = firestore.collection('churches').doc(widget.churchId);
 
     for (final doc in _allGroups) {
       final ref = doc.reference;

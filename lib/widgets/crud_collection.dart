@@ -52,6 +52,7 @@ class CrudCollectionPage extends StatelessWidget {
     required this.title,
     required this.collection,
     required this.fields,
+    this.query,
     this.createDefaults = const {},
     this.titlePath,
     this.subtitlePaths = const [],
@@ -63,6 +64,7 @@ class CrudCollectionPage extends StatelessWidget {
 
   final String title;
   final CollectionReference<Map<String, dynamic>> collection;
+  final Query<Map<String, dynamic>>? query;
   final List<FieldSpec> fields;
   final Map<String, dynamic> createDefaults;
   final String? titlePath;
@@ -93,7 +95,7 @@ class CrudCollectionPage extends StatelessWidget {
         const SizedBox(height: 12),
         Expanded(
           child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: collection.snapshots(),
+            stream: (query ?? collection).snapshots(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 return Center(child: Text('Error: ${snapshot.error}'));
