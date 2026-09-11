@@ -12,32 +12,113 @@ The architecture is split into three layers:
 ## 🗺️ Architectural Entity-Relationship Diagram (ERD)
 
 ```text
-+-------------------+
-|   global_admins   | <--- Root-level system locks & master bypasses
-+-------------------+
-          |
-          | manages
-          v
-+-------------------+
-|     churches      | <--- Multi-tenant church documents
-+-------------------+
-          |
-          +------> [misters] (Servants/Teachers Directory)
-          |
-          +------> [kids] (Children Roster PII) ---> [versions] (History Archive)
-          |
-          +------> [serviceGroups] (Service Groups Directory)
-          |
-          +------> [classes] (Class Groups)
-          |
-          +------> [academicYears] (Academic Years Metadata)
-                         |
-                         +---> [classInstances] (Roster Enrollment Mapping)
-                         |
-                         +---> [attendanceEvents] (Pastoral Roster Logs)
-                         |
-                         +---> [homeVisitsByClassInstance] (Pastoral Visit logs)
+=========================================================================================
+                            ROOT COLLECTION: global_admins
+=========================================================================================
+  {User_UID}
+  - email (string)
+  - role (string)
+  - createdAt (timestamp)
+  
+  _lock
+  - initialized (boolean)
+  - initializedBy (string)
+
+                                     |
+                                     V
+=========================================================================================
+                            TENANT COLLECTION: churches
+=========================================================================================
+  {churchId}
+  - displayName (string)
+  - active (boolean)
+  - activeAcademicYearId (string/FK)
+  - grades (map) -> { "1": "Grade 1", "2": "Grade 2" }
+  - createdAt (timestamp)
+
+     |
+     |--▶ [misters] (Subcollection)
+     |      {Mister_User_UID}
+     |      - authUid (string)
+     |      - displayName (string)
+     |      - phone (string)
+     |      - churchRole (string) -> 'viewer'|'admin'
+     |      - active (boolean)
+     |
+     |--▶ [serviceGroups] (Subcollection)
+     |      {serviceGroupId}
+     |      - displayName (string)
+     |      - roles (map) -> { misterId: 'admin'|'servant' }
+     |      - grades (array) -> [ 1, 2, 3 ]
+     |
+     |--▶ [academicYears] (Subcollection)
+     |      {yearId}
+     |      - displayName (string)
+     |      - startDate (timestamp)
+     |      - endDate (timestamp/optional)
+     |      - active (boolean)
+     |
+     |--▶ [kids] (Subcollection)
+     |      {kidId}
+     |      - active (boolean)
+     |      - createdAt (timestamp)
+     |      - activeAssignment (map) -> { academicYearId, serviceGroupId, classId }
+     |      - current (map)
+     |          - fullName, gender, dob, school, address, phone, notes
+     |        |
+     |        `--▶ [versions] (Nested Subcollection)
+     |               {versionId}
+     |               - at (timestamp)
+     |               - changes (map)
+     |
+     `--▶ [classes] (Subcollection)
+            {classId}
+            - active (boolean)
+            - createdAt (timestamp)
+            - academicYears (map) 
+                `-- {yearId} 
+                    - serviceGroupId (string/FK)
+                    - gradeId (integer/FK)
+                    - name (string)
+                    - KidIds (array of strings)
+                    - Misters (map) -> { misterId: 'servant' }
+              |
+              |--▶ [attendanceEvents] (Nested Subcollection)
+              |      {eventId}
+              |      - academicYearId, title, type, eventDate
+              |      - takenAt, takenBy
+              |      - statuses (map) -> { kidId: 'present'|'absent'|'excused' }
+              |      - notesByKid (map) -> { kidId: 'note text' }
+              |
+              `--▶ [visits] (Nested Subcollection)
+                     {visitId}
+                     - academicYearId
+                     - kidId, visitDateTime
+                     - visitorMisterIds (array of strings)
+                     - notes, createdBy, createdAt, updatedAt
+=========================================================================================
 ```
+
+---
+
+## 🛡️ Security & Role-Based Access Control (RBAC)
+
+Oikonomos implements strict data isolation and role-based permissions at the Firestore Rules level.
+
+| Database Entity | Database Admin | Church Admin | Church Servants | Group Admin | Group Servants | Class Servants |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **`global_admins`** | Read / Write | No Access | No Access | No Access | No Access | No Access |
+| **`churches`** (incl. `grades`) | Read / Write | Read / Write | Read Only | Read Only | Read Only | Read Only |
+| **`churches/*/academicYears`** | Read / Write | Read / Write | Read Only | Read Only | Read Only | Read Only |
+| **`churches/*/misters`** | Read / Write | Read / Write | Read Only | Read / Write** | Read Only | Read Only |
+| **`churches/*/kids`** | Read / Write | Read / Write | No Access | Read/Write (Active)* | Read (Active) | Read/Write (Active)* |
+| **`churches/*/serviceGroups`**| Read / Write | Read / Write | Read Only | Read / Write** | Read Only | Read Only |
+| **`churches/*/classes`** | Read / Write | Read / Write | No Access | Read / Write** | Read Only** | Read Only** |
+| **`classes/*/attendanceEvents`**| Read / Write | Read / Write | No Access | Read / Write** | Read / Write** | Read / Write** |
+| **`classes/*/visits`** | Read / Write | Read / Write | No Access | Read / Write** | Read / Write** | Read / Write** |
+
+*\* **Kids Edit Rule (`activeAssignment`)**: To allow secure, scalable edits without breaching Firestore Rule `get()` limits, Group Admins and Class Servants are granted **Write/Edit** access to a Kid's document **only if** the Kid's `activeAssignment` fields point to the current Active Academic Year AND point to a class/group where the Servant is actively assigned. If the assignment is historical (inactive academic year), they are demoted to **Read Only**.*
+*\*\* **Group/Class scoping**: Group Admins/Servants only have access to misters/classes/events/visits mapped to their specific `serviceGroupId`. Class Servants only have access to data for their assigned `classId`.*
 
 ---
 
@@ -72,6 +153,9 @@ Contains the core registry of churches.
     *   `displayName` (string): Public name of the church (e.g., `Saint George Sunday School`).
     *   `active` (boolean): Whether this church is active in the database.
     *   `activeAcademicYearId` (string): Foreign key pointing to the active `academicYears` document ID.
+    *   `grades` (map): Key-value pair defining available grades in the church. 
+        *   `Key` (string): Integer represented as string (e.g., `'1'`, `'2'`, `'3'`).
+        *   `Value` (string): UI Display Name, e.g., `'Grade 1'`, `'Grade 2'`.
     *   `createdAt` (server timestamp): Creation date.
 
 ---
@@ -97,6 +181,10 @@ The Student Directory containing Personal Identifiable Information (PII).
 *   **Fields:**
     *   `active` (boolean): Status of the child.
     *   `createdAt` (server timestamp): Roster enrollment date.
+    *   `activeAssignment` (map/optional): Denormalized pointers to active location (Used strictly by Firestore Rules for RBAC evaluation).
+        *   `academicYearId` (string/reference): FK to the active year they are assigned in.
+        *   `serviceGroupId` (string/reference): FK to their current service group.
+        *   `classId` (string/reference): FK to their current class.
     *   `current` (map): Active profile details:
         *   `fullName` (string): Child's full name.
         *   `gender` (string): `'M'` or `'F'`.
@@ -119,18 +207,11 @@ The Directory of Service Groups (ministry departments) responsible for managing 
 
 #### Document: `{serviceGroupId}` (e.g., `SG_JUNIOR_HIGH`)
 *   **Fields:**
-    *   `active` (boolean): Service Group status.
-    *   `current` (map):
-        *   `displayName` (string): Service Group Name (e.g., `Junior High Department`).
-        *   `roles` (map/json): Map of Mister UIDs to roles (e.g. `{"UID_123": "admin"}`).
-
-#### Nested Subcollection: `churches/{churchId}/serviceGroups/{serviceGroupId}/mistersMemberships`
-*   Links servants assigned to collaborate and pastor within this Service Group (department).
-*   **Fields:**
-    *   `misterId` (string/reference): FK pointing to `churches/{churchId}/misters/{misterId}`.
-    *   `role` (string): `'viewer'` or `'admin'`.
-    *   `startAt` (timestamp): Assignment start date.
-    *   `endAt` (timestamp): Assignment end date (optional).
+    *   `displayName` (string): Service Group Name (e.g., `Junior High Department`).
+    *   `roles` (map): Map of assigned misters and their group-level roles.
+        *   `Key` (string): `misterId`
+        *   `Value` (string): `'admin'` (Group Admin) or `'servant'` (Group Servant).
+    *   `grades` (array of integers): List of grade IDs managed by this service group (e.g., `[7, 8, 9]`).
 
 ---
 
@@ -141,43 +222,20 @@ The Directory of Class Groups (Grade groups) defined in this church.
 *   **Fields:**
     *   `active` (boolean): Status of the class group.
     *   `createdAt` (server timestamp): Class creation date.
-    *   `current` (map):
-        *   `name` (string): Name of the class (e.g., `Grade 5 Boys Class`).
-        *   `currentKidIds` (array of strings): Enrolled children IDs list.
-        *   `currentMisters` (map/json): Assigned teachers' roles map.
+    *   `academicYears` (map): 
+        *   `{yearId}` (e.g., `AY_2026`): Map of class data for a specific academic year.
+            *   `serviceGroupId` (string/reference): FK pointing to `churches/{churchId}/serviceGroups/{serviceGroupId}`.
+            *   `gradeId` (integer): Grade level ID pointing to the integer key in the church's `grades` map.
+            *   `name` (string): Name of the class (e.g., `Grade 5 Boys Class`).
+            *   `KidIds` (array of strings): Enrolled children IDs list.
+            *   `Misters` (map/json): Assigned teachers' roles map (`misterId`: `'servant'`).
 
----
-
-## 📂 3. Academic Year Layer (Scoped Data)
-
-### Subcollection: `churches/{churchId}/academicYears`
-Defines the timeline metadata of Sunday School terms.
-
-#### Document: `{yearId}` (e.g., `AY_2026`)
-*   **Fields:**
-    *   `displayName` (string): The term name (e.g., `Academic Year 2026/2027`).
-    *   `startDate` (timestamp): School year start date.
-    *   `endDate` (timestamp): School year end date.
-    *   `active` (boolean): Active year toggle.
-
----
-
-### Subcollection: `churches/{churchId}/academicYears/{yearId}/classInstances`
-Maps and binds a **Class Group** to an active **Service Group (Department)** and a specific **Grade Level** for this Academic Year term.
-
-#### Document: `{instanceId}` (e.g., `CI_G5_2026`)
-*   **Fields:**
-    *   `classId` (string/reference): FK pointing to `churches/{churchId}/classes/{classId}`.
-    *   `serviceGroupId` (string/reference): FK pointing to `churches/{churchId}/serviceGroups/{serviceGroupId}`.
-    *   `gradeId` (string/option): Grade levels: `'KG', 'G1', ..., 'G12'`.
-
----
-
-### Subcollection: `churches/{churchId}/academicYears/{yearId}/attendanceEvents`
+#### Nested Subcollection: `churches/{churchId}/classes/{classId}/attendanceEvents`
 Attendance Logs of classrooms taken on lesson dates.
 
-#### Document: `{eventId}`
+*   **Document:** `{eventId}`
 *   **Fields:**
+    *   `academicYearId` (string/reference): FK pointing to the academic year.
     *   `title` (string): Title of the event (e.g. `Sunday School Lesson 1`).
     *   `type` (string): Event category (e.g. `'Sunday School'`, `'Bible Study'`).
     *   `eventDate` (timestamp): Visual calendar date when the event occurred.
@@ -192,15 +250,12 @@ Attendance Logs of classrooms taken on lesson dates.
     *   `createdAt` (server timestamp): Date of creation.
     *   `updatedAt` (server timestamp): Date of last edit.
 
----
-
-### Subcollection: `churches/{churchId}/academicYears/{yearId}/homeVisitsByClassInstance`
+#### Nested Subcollection: `churches/{churchId}/classes/{classId}/visits`
 Logs pastoral home visits made by servants to kids enrolled in a class.
 
-#### Document: `{instanceId}` (Class Instance ID)
-##### Nested Collection: `churches/{churchId}/academicYears/{yearId}/homeVisitsByClassInstance/{instanceId}/visits`
-###### Document: `{visitId}`
+*   **Document:** `{visitId}`
 *   **Fields:**
+    *   `academicYearId` (string/reference): FK pointing to the academic year.
     *   `kidId` (string/reference): FK pointing to `churches/{churchId}/kids/{kidId}` (displays the kid's full name in the UI dropdown).
     *   `visitDateTime` (timestamp): Visual calendar date/time of the pastoral home visit.
     *   `visitorMisterIds` (array of strings): FK list pointing to the servants who performed the visit.
@@ -211,17 +266,32 @@ Logs pastoral home visits made by servants to kids enrolled in a class.
 
 ---
 
+## 📂 3. Academic Year Layer (Scoped Data)
+
+### Subcollection: `churches/{churchId}/academicYears`
+Defines the timeline metadata of Sunday School terms.
+
+#### Document: `{yearId}` (e.g., `AY_2026`)
+*   **Fields:**
+    *   `displayName` (string): The term name (e.g., `Academic Year 2026/2027`).
+    *   `startDate` (timestamp): School year start date.
+    *   `endDate` (timestamp): School year end date (optional).
+    *   `active` (boolean): Active year toggle.
+
+---
+
 ## 🔗 Foreign Key Mappings & UI Display Paths
 
 This table maps how the relational dropdown selects resolve database identifiers into human-readable representations inside Oikonomos's custom UI:
 
 | Source Collection | Form Field Path | Target Firestore Collection Path | UI Display Path |
 | :--- | :--- | :--- | :--- |
-| `serviceGroups/{serviceGroupId}/mistersMemberships` | `misterId` | `churches/{churchId}/misters` | `displayName` |
-| `classes/{classId}/mistersMemberships` | `misterId` | `churches/{churchId}/misters` | `displayName` |
-| `classes/{classId}/kidsMemberships` | `kidId` | `churches/{churchId}/kids` | `current.fullName` |
-| `classInstances` | `classId` | `churches/{churchId}/classes` | `current.name` |
-| `classInstances` | `serviceGroupId` | `churches/{churchId}/serviceGroups` | `current.displayName` |
+| `serviceGroups/{serviceGroupId}` | `roles` keys | `churches/{churchId}/misters` | `displayName` |
+| `classes/{classId}/academicYears/{yearId}` | `Misters` | `churches/{churchId}/misters` | `displayName` |
+| `classes/{classId}/academicYears/{yearId}` | `KidIds` | `churches/{churchId}/kids` | `current.fullName` |
+| `classes/{classId}/academicYears/{yearId}` | `serviceGroupId` | `churches/{churchId}/serviceGroups` | `displayName` |
+| `kids/{kidId}` | `activeAssignment.serviceGroupId` | `churches/{churchId}/serviceGroups` | `displayName` |
+| `kids/{kidId}` | `activeAssignment.classId` | `churches/{churchId}/classes` | `academicYears.{yearId}.name` |
 | `attendanceEvents` | `createdBy` | `churches/{churchId}/misters` | `displayName` |
 | `attendanceEvents` | `takenBy` | `churches/{churchId}/misters` | `displayName` |
 | `visits` (Home Visits) | `kidId` | `churches/{churchId}/kids` | `current.fullName` |

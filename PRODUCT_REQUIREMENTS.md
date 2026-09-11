@@ -47,14 +47,46 @@ This document serves as the absolute architectural blueprint and behavioral spec
 *   **Behavior:** All text fields, data rows, metrics, and profiles on the website are fully selectable and copyable by administrators.
 *   **Implementation:** The entire authenticated homepage tree is wrapped inside a Flutter **`SelectionArea`** widget, allowing coordinators to highlight and copy student names, parent emails, addresses, or dashboard metrics with native system convenience.
 
+### 🎛️ G. Global Cascading Navigation Filters
+*   **Behavior:** The top-right of the app layout features a persistent set of 4 selection dropdowns that dictate the active context for all views.
+*   **Filter Order:** **Church ➡️ Academic Year ➡️ Service Group ➡️ Class**
+*   **Cascading Logic:** Selections filter subsequent dropdowns (e.g., selecting a Church filters the available Academic Years and Service Groups to only those belonging to the selected Church).
+*   **Auto-Selection:** If a user only has access to one entity in any of these dropdowns (or if only one exists), it is automatically selected by default.
+*   **"All" Option:** Users can select "All" for any filter (e.g., "All Service Groups") to view aggregate data.
+*   **Active Year Default:** On initial load or refresh, the Academic Year dropdown is strictly bound and defaults to the Church's `activeAcademicYearId`.
+
 ---
 
-## 2. Directory Overhauls: Servants & Kids
+## 2. Role-Specific Pages & View Scoping
+
+The application dynamically adjusts visible modules and the global filter state based on the logged-in user's role.
+
+### 🏛️ A. Church Admin Page
+*   **Scope:** The view is heavily filtered by the **Church** selection. (Service Group, Class, and Academic Year dropdowns are dimmed/disabled).
+*   **Capabilities:** Manages overarching organizational structures:
+    *   Service Groups (Departments).
+    *   Academic Years.
+    *   Church Grades configuration.
+
+### 👥 B. Group Admin Page
+*   **Scope:** The view is filtered by **Church** and **Service Group** selections. (Class and Academic Year dropdowns are dimmed/disabled).
+*   **Capabilities:** Manages operational configurations for their specific group:
+    *   Creates and manages Classes mapped to their Service Group.
+    *(Note: Managing which servants are in the group happens in the Servants Directory).*
+
+### 👨‍🏫 C. Servants, Kids, Attendance & Visits Pages
+*   **Scope:** These daily operational views are highly granular. They are filtered dynamically by all four selections: **Church, Service Group, Class, and Academic Year**.
+*   **Capabilities:** Users see only the rosters, attendance sheets, and visitation logs assigned to their current filter scopes, respecting their specific RBAC authorizations.
+
+---
+
+## 3. Directory Overhauls: Servants & Kids
 
 ### 🧑‍🏫 A. Servants (Misters) Directory
 *   **Primary Key:** The servant's verified Google Email address is the primary Firestore Document ID Key (e.g. `/misters/bishoy@gmail.com`). 
 *   **Roster DataTable:** Displays servants in a responsive checkbox grid with columns for *Full Name*, *Email (Key)*, *Mobile*, *Access Role*, *Active Status*, and *Actions*.
 *   **Access Role Terminology:** The directory uses the explicit organizational levels **`Teacher`** and **`Admin`**.
+*   **Servant Assignments:** To assign a servant to a Service Group or a specific Class, an Admin or Group Admin performs the assignment directly from this Servants Directory view (using selection actions or dialogs).
 *   **Roster Export:** Supports multi-checking checkboxes. Checking rows opens a bulk action bar allowing the Admin to **Export selected to CSV** or **Bulk Delete** (with safety confirmation checks).
 *   **Spreadsheet Safe Formats:** CSV exports exclude separate country codes, formatting the phone number as a single unit cell prefixed with a tab `\t` separator to **force Excel/Sheets to preserve the leading plus sign** (`+201099441171`) instead of stripping it as a formula.
 *   **Unified Firestore Key:** Eliminates duplicate fields (such as `'phone'`), saving the complete E.164 string strictly under the `'mobile'` document key.
@@ -66,6 +98,9 @@ This document serves as the absolute architectural blueprint and behavioral spec
 *   **Roster DataTable:** Displays children in a tabular grid with checkbox rows for **Select All** bulk checks.
 *   **Clickable Profiles:** Clicking on a student's underlined name triggers a beautiful, read-only **CRM Student Details Popover Card**. It categories all 21 fields (general info, family contacts, address, pastoral notes) neatly into structured panels. Clicking the **"Edit Profile"** button at the bottom cleanly pops the popover and launches the full Edit Form!
 *   **Only Name is Mandatory:** Only the student's name is required to onboard a child; all other 15+ fields are optional.
+*   **Role-Based Edit Access (`activeAssignment`):**
+    *   **Group Admins & Class Servants** can **Edit/Write** to a child's profile *only if* the child's `activeAssignment` pointer maps to the current active Academic Year and a Class/Group that the servant commands.
+    *   If the child is viewed via historical logs (inactive academic year), or the servant is not actively assigned to them this term, the servant's access is strictly demoted to **Read Only**.
 *   **Collapsible Form Categories:** Add/Edit forms break down the extensive CRM information sheet into clean, expandable visual sections:
     1.  **General Profile:** Name, Gender, Birthday (visual calendar picker), School, and Confession Father.
     2.  **Home Address:** Street Name, Building Name/No, Floor, Apartment, and Area.
@@ -78,7 +113,7 @@ This document serves as the absolute architectural blueprint and behavioral spec
 
 ---
 
-## 3. Unified Validation & Form Entry Rules
+## 4. Unified Validation & Form Entry Rules
 
 ### ⏱️ A. Real-Time, Cell-by-Cell Checking
 *   **Behavior:** Form validation must **not** wait until the user presses "Save".
@@ -98,7 +133,7 @@ Every phone input in the application shares the same exact Google-style widget:
 
 ---
 
-## 4. Kanban Classroom Board ("Classes" Tab)
+## 5. Kanban Classroom Board ("Classes" Tab)
 
 The Classes tab has been redesigned into an interactive, visual **Classroom Hub**:
 *   **Card Grid Layout:** Displays classes as beautifully elevated cards, showing active student enrollment counts and assigned teacher chips.
@@ -114,7 +149,7 @@ The Classes tab has been redesigned into an interactive, visual **Classroom Hub*
 
 ---
 
-## 5. Church Onboarding & Year Timelines
+## 6. Church Onboarding & Year Timelines
 
 ### ⛪ A. Churches & Years timeline Visual
 *   **Behavior:** Academic Years are removed as a separate sidebar tab and merged directly under the Churches configuration panel.
@@ -130,7 +165,7 @@ The Classes tab has been redesigned into an interactive, visual **Classroom Hub*
 
 ---
 
-## 6. Secure Self-Service Onboarding
+## 7. Secure Self-Service Onboarding
 
 ### 🔐 A. Multi-Tier Security Guard
 The application utilizes a double-nested frontend StreamBuilder to verify user authorizations securely:
@@ -152,7 +187,7 @@ The application utilizes a double-nested frontend StreamBuilder to verify user a
 
 ---
 
-## 7. Resilient Spreadsheet Importer Normalizer
+## 8. Resilient Spreadsheet Importer Normalizer
 
 When administrators import servant or student rosters from `.xlsx`, `.xls`, or `.csv` files:
 1.  They select the file Sheet (tab).
@@ -169,7 +204,7 @@ When administrators import servant or student rosters from `.xlsx`, `.xls`, or `
 
 ---
 
-## 8. Soft Deletion Lifecycle: The "Active" Field Functionality
+## 9. Soft Deletion Lifecycle: The "Active" Field Functionality
 
 To preserve relational history and database integrity, no records are physically deleted from day-to-day administrative tables. Setting `active: false` archives the object:
 
@@ -184,7 +219,7 @@ To preserve relational history and database integrity, no records are physically
 
 ---
 
-## 9. Automated Testing Validation Guidelines
+## 10. Automated Testing Validation Guidelines
 
 The platform enforces a mandatory automated validation policy. Every core mechanism must possess a corresponding unit or widget test verified on the native VM runner before shipping:
 
