@@ -387,36 +387,80 @@ class _ServiceGroupsScreenState extends State<ServiceGroupsScreen> {
   // --- ACTIONS: ADD GROUP ---
   Future<void> _showAddGroupDialog(BuildContext context) async {
     final nameCtrl = TextEditingController();
+    bool isActive = true;
+    String? selectedChurchId = widget.churchId.isNotEmpty ? widget.churchId : null;
     final formKey = GlobalKey<FormState>();
+
+    // Fetch churches list to populate selection if "All" is active in top filter
+    final churchesSnap = await _churchesRef.get();
+    final churches = churchesSnap.docs;
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Service Group'),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: nameCtrl,
-            decoration: const InputDecoration(labelText: 'Group Name *', border: OutlineInputBorder()),
-            validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) Navigator.pop(context, true);
-            },
-            child: const Text('Create'),
-          ),
-        ],
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return AlertDialog(
+            title: const Text('Add Service Group'),
+            content: SizedBox(
+              width: 450,
+              child: Form(
+                key: formKey,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Church Selector (Locked if widget.churchId is selected)
+                      DropdownButtonFormField<String?>(
+                        value: selectedChurchId,
+                        decoration: const InputDecoration(labelText: 'Church *', border: OutlineInputBorder()),
+                        items: churches.map((c) {
+                          return DropdownMenuItem<String?>(
+                            value: c.id,
+                            child: Text(c.data()['displayName'] ?? c.id),
+                          );
+                        }).toList(),
+                        onChanged: widget.churchId.isNotEmpty 
+                            ? null // Locked if church filter is active!
+                            : (v) => setModalState(() => selectedChurchId = v),
+                        validator: (v) => v == null ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: nameCtrl,
+                        decoration: const InputDecoration(labelText: 'Group Name *', border: OutlineInputBorder()),
+                        validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 8),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Active Status'),
+                        value: isActive,
+                        onChanged: (v) => setModalState(() => isActive = v),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+              FilledButton(
+                onPressed: () {
+                  if (formKey.currentState!.validate()) Navigator.pop(context, true);
+                },
+                child: const Text('Create'),
+              ),
+            ],
+          );
+        }
       ),
     );
 
-    if (confirmed == true) {
-      await _groupsRef.add({
+    if (confirmed == true && selectedChurchId != null) {
+      await _churchesRef.doc(selectedChurchId).collection('serviceGroups').add({
         'displayName': nameCtrl.text.trim(),
-        'active': true,
+        'active': isActive,
         'misters': {},
         'createdAt': FieldValue.serverTimestamp(),
         'createdBy': AuthService.instance.currentUser?.uid,
