@@ -652,7 +652,7 @@ class _MainShellState extends State<MainShell> {
           onColor: colorScheme.onPrimaryContainer,
         ),
         const SizedBox(width: 8),
-        _buildDropdown(
+        if (_selectedIndex != 5) _buildDropdown(
           icon: Icons.calendar_today,
           value: _filterController.selectedAcademicYearId,
           items: _filterController.academicYears,
@@ -670,7 +670,7 @@ class _MainShellState extends State<MainShell> {
           onColor: colorScheme.onTertiaryContainer,
         ),
         const SizedBox(width: 8),
-        _buildDropdown(
+        if (_selectedIndex != 5) _buildDropdown(
           icon: Icons.class_,
           value: _filterController.selectedClassId,
           items: _filterController.classes,
@@ -756,13 +756,13 @@ class _MainShellState extends State<MainShell> {
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                   ),
                   const SizedBox(height: 16),
-                  _buildMobileField('Church', Icons.church, _filterController.selectedChurchId, _filterController.churches, _filterController.setChurch),
+                  if (_selectedIndex != 8) _buildMobileField('Church', Icons.church, _filterController.selectedChurchId, _filterController.churches, _filterController.setChurch),
                   const SizedBox(height: 12),
-                  _buildMobileField('Academic Year', Icons.calendar_today, _filterController.selectedAcademicYearId, _filterController.academicYears, _filterController.setAcademicYear),
+                  if (_selectedIndex != 5 && _selectedIndex != 8) _buildMobileField('Academic Year', Icons.calendar_today, _filterController.selectedAcademicYearId, _filterController.academicYears, _filterController.setAcademicYear),
                   const SizedBox(height: 12),
-                  _buildMobileField('Service Group', Icons.group_work, _filterController.selectedServiceGroupId, _filterController.serviceGroups, _filterController.setServiceGroup),
+                  if (_selectedIndex != 8) _buildMobileField('Service Group', Icons.group_work, _filterController.selectedServiceGroupId, _filterController.serviceGroups, _filterController.setServiceGroup),
                   const SizedBox(height: 12),
-                  _buildMobileField('Class', Icons.class_, _filterController.selectedClassId, _filterController.classes, _filterController.setClass),
+                  if (_selectedIndex != 5 && _selectedIndex != 8) _buildMobileField('Class', Icons.class_, _filterController.selectedClassId, _filterController.classes, _filterController.setClass),
                 ],
               ),
             );
