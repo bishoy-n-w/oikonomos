@@ -12,8 +12,8 @@ void main() {
       // Action: Change Church -> Triggers deep cascading reset
       selectedChurchId = 'CHC_B';
       selectedYearId = null; // Cleared
-      selectedGroupId = null; // Cleared
-      selectedClassId = null; // Cleared
+      selectedGroupId; // Cleared
+      selectedClassId; // Cleared
 
       expect(selectedChurchId, 'CHC_B');
       expect(selectedYearId, isNull);
@@ -25,8 +25,8 @@ void main() {
       // Mock "All" options
       String? selectedChurchId = 'CHC_A';
       String? selectedYearId = 'AY_2026';
-      String? selectedGroupId = null; // "All Groups"
-      String? selectedClassId = null; // "All Classes"
+      String? selectedGroupId; // "All Groups"
+      String? selectedClassId; // "All Classes"
 
       expect(selectedChurchId, 'CHC_A');
       expect(selectedYearId, 'AY_2026');
