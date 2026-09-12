@@ -659,10 +659,11 @@ class _MainShellState extends State<MainShell> {
           value: _filterController.selectedChurchId,
           items: _filterController.churches,
           onChanged: _filterController.setChurch,
-          color: colorScheme.primaryContainer,
-          onColor: colorScheme.onPrimaryContainer,
+          color: colorScheme.primary,
+          onColor: colorScheme.onPrimary,
           enabled: isChurchEnabled,
           allowAll: false, // Disallow selecting "All Churches"
+          isProminent: true, // Unique styling layer for the root Church context!
         ),
         const SizedBox(width: 8),
         _buildDropdown(
@@ -707,30 +708,62 @@ class _MainShellState extends State<MainShell> {
     required Color onColor,
     bool enabled = true,
     bool allowAll = true,
+    bool isProminent = false,
   }) {
     final isDisabled = items.isEmpty || !enabled;
+
+    // Distinct styles for Churches dropdown vs others
+    final borderRadius = isProminent
+        ? const BorderRadius.only(
+            topLeft: Radius.circular(16),
+            bottomRight: Radius.circular(16),
+            topRight: Radius.circular(4),
+            bottomLeft: Radius.circular(4),
+          )
+        : BorderRadius.circular(20);
+
+    final double horizontalPadding = isProminent ? 18 : 12;
+    final double verticalPadding = isProminent ? 6 : 0;
+    final double iconSize = isProminent ? 18 : 16;
+    final double fontSize = isProminent ? 14 : 13;
+    final fontWeight = isProminent ? FontWeight.w800 : FontWeight.bold;
+
+    // Solid opaque background for prominent selector, soft transluscent for other cascading controls
+    final boxColor = isProminent ? color.withOpacity(1.0) : color.withOpacity(0.3);
 
     return Opacity(
       opacity: enabled ? 1.0 : 0.4,
       child: IgnorePointer(
         ignoring: !enabled,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.3),
-            borderRadius: BorderRadius.circular(20),
+            color: boxColor,
+            borderRadius: borderRadius,
+            border: isProminent 
+                ? Border.all(color: onColor.withOpacity(0.4), width: 1.5)
+                : null,
+            boxShadow: isProminent
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.12),
+                      blurRadius: 6,
+                      offset: const Offset(0, 3),
+                    )
+                  ]
+                : null,
           ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String?>(
           value: isDisabled ? null : value,
           icon: Padding(
             padding: const EdgeInsets.only(left: 8.0),
-            child: Icon(icon, size: 16, color: onColor.withOpacity(0.8)),
+            child: Icon(icon, size: iconSize, color: onColor.withOpacity(0.9)),
           ),
           style: TextStyle(
             color: onColor,
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
+            fontWeight: fontWeight,
+            fontSize: fontSize,
           ),
           items: isDisabled ? const [
             DropdownMenuItem<String?>(
