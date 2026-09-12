@@ -643,7 +643,7 @@ class _MainShellState extends State<MainShell> {
 
   // --- SUB-VIEW: Global Cascading Filters ---
   Widget _buildGlobalFilters(ColorScheme colorScheme) {
-    final isChurchesView = _selectedIndex == 8;
+    final isChurchesView = _selectedIndex == 7;
     final isServiceGroupsView = _selectedIndex == 5;
 
     final isChurchEnabled = !isChurchesView;
@@ -756,6 +756,14 @@ class _MainShellState extends State<MainShell> {
 
   // --- SUB-VIEW: Mobile Filters Bottom Sheet ---
   void _showMobileFiltersBottomSheet(BuildContext context, ColorScheme colorScheme) {
+    final isChurchesView = _selectedIndex == 7;
+    final isServiceGroupsView = _selectedIndex == 5;
+
+    final isChurchEnabled = !isChurchesView;
+    final isYearEnabled = !isChurchesView && !isServiceGroupsView;
+    final isGroupEnabled = !isChurchesView && !isServiceGroupsView;
+    final isClassEnabled = !isChurchesView && !isServiceGroupsView;
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -776,13 +784,41 @@ class _MainShellState extends State<MainShell> {
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                   ),
                   const SizedBox(height: 16),
-                  if (_selectedIndex != 8) _buildMobileField('Church', Icons.church, _filterController.selectedChurchId, _filterController.churches, _filterController.setChurch),
+                  _buildMobileField(
+                    'Church',
+                    Icons.church,
+                    _filterController.selectedChurchId,
+                    _filterController.churches,
+                    _filterController.setChurch,
+                    enabled: isChurchEnabled,
+                  ),
                   const SizedBox(height: 12),
-                  if (_selectedIndex != 5 && _selectedIndex != 8) _buildMobileField('Academic Year', Icons.calendar_today, _filterController.selectedAcademicYearId, _filterController.academicYears, _filterController.setAcademicYear),
+                  _buildMobileField(
+                    'Academic Year',
+                    Icons.calendar_today,
+                    _filterController.selectedAcademicYearId,
+                    _filterController.academicYears,
+                    _filterController.setAcademicYear,
+                    enabled: isYearEnabled,
+                  ),
                   const SizedBox(height: 12),
-                  if (_selectedIndex != 8) _buildMobileField('Service Group', Icons.group_work, _filterController.selectedServiceGroupId, _filterController.serviceGroups, _filterController.setServiceGroup),
+                  _buildMobileField(
+                    'Service Group',
+                    Icons.group_work,
+                    _filterController.selectedServiceGroupId,
+                    _filterController.serviceGroups,
+                    _filterController.setServiceGroup,
+                    enabled: isGroupEnabled,
+                  ),
                   const SizedBox(height: 12),
-                  if (_selectedIndex != 5 && _selectedIndex != 8) _buildMobileField('Class', Icons.class_, _filterController.selectedClassId, _filterController.classes, _filterController.setClass),
+                  _buildMobileField(
+                    'Class',
+                    Icons.class_,
+                    _filterController.selectedClassId,
+                    _filterController.classes,
+                    _filterController.setClass,
+                    enabled: isClassEnabled,
+                  ),
                 ],
               ),
             );
@@ -792,31 +828,44 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-  Widget _buildMobileField(String label, IconData icon, String? value, List<DropdownItem> items, void Function(String?) onChanged) {
+  Widget _buildMobileField(
+    String label,
+    IconData icon,
+    String? value,
+    List<DropdownItem> items,
+    void Function(String?) onChanged, {
+    bool enabled = true,
+  }) {
     if (items.isEmpty) return const SizedBox.shrink();
-    return DropdownButtonFormField<String?>(
-      value: value,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-        border: const OutlineInputBorder(),
-      ),
-      items: [
-        if (items.length > 1) 
-          const DropdownMenuItem<String?>(
-            value: null,
-            child: Text('All'),
+    return Opacity(
+      opacity: enabled ? 1.0 : 0.4,
+      child: IgnorePointer(
+        ignoring: !enabled,
+        child: DropdownButtonFormField<String?>(
+          value: value,
+          decoration: InputDecoration(
+            labelText: label,
+            prefixIcon: Icon(icon),
+            border: const OutlineInputBorder(),
           ),
-        ...items.map((item) {
-          return DropdownMenuItem<String?>(
-            value: item.id,
-            child: Text(item.displayName),
-          );
-        }),
-      ],
-      onChanged: (val) {
-        onChanged(val);
-      },
+          items: [
+            if (items.length > 1)
+              const DropdownMenuItem<String?>(
+                value: null,
+                child: Text('All'),
+              ),
+            ...items.map((item) {
+              return DropdownMenuItem<String?>(
+                value: item.id,
+                child: Text(item.displayName),
+              );
+            }),
+          ],
+          onChanged: (val) {
+            onChanged(val);
+          },
+        ),
+      ),
     );
   }
 
