@@ -318,15 +318,20 @@ class _ClassesScreenState extends State<ClassesScreen> {
   ) async {
     final isEdit = classDoc != null;
     final data = classDoc?.data();
-    final current = data?['current'] ?? {};
     final classId = classDoc?.id ?? '';
+    final yearsMap = data?['academicYears'] as Map<String, dynamic>? ?? {};
+    final yearData = widget.academicYearId.isNotEmpty && yearsMap.containsKey(widget.academicYearId) ? yearsMap[widget.academicYearId] as Map<String, dynamic> : {};
 
-    final nameController = TextEditingController(text: current['name']);
+    final nameController = TextEditingController(text: yearData['name']);
     bool isActive = data?['active'] ?? true;
+    String selectedServiceGroupId = yearData['serviceGroupId'] ?? widget.serviceGroupId;
 
+    final groupsSnap = await _churchesRef.doc(widget.churchId).collection('serviceGroups').get();
+    final groups = groupsSnap.docs;
     // Load current arrays
-    List<String> selectedKids = List<String>.from(current['currentKidIds'] ?? []);
-    List<String> selectedServants = List<String>.from(current['servantEmails'] ?? []);
+    List<String> selectedKids = List<String>.from(yearData['KidIds'] ?? []);
+    final Map<String, dynamic> mistersMap = yearData['Misters'] ?? {};
+    List<String> selectedServants = mistersMap.keys.toList();
 
     final formKey = GlobalKey<FormState>();
 
@@ -386,6 +391,19 @@ class _ClassesScreenState extends State<ClassesScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    DropdownButtonFormField<String>(
+                      value: selectedServiceGroupId.isEmpty ? null : selectedServiceGroupId,
+                      decoration: const InputDecoration(
+                        labelText: 'Service Group *',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: groups.map((g) => DropdownMenuItem(value: g.id, child: Text(g.data()['displayName'] ?? g.id))).toList(),
+                      onChanged: (val) {
+                        if (val != null) setModalState(() => selectedServiceGroupId = val);
+                      },
+                      validator: (val) => val == null ? 'Please assign a Service Group' : null,
+                    ),
+                    const SizedBox(height: 12),
                     TextFormField(
                       controller: nameController,
                       decoration: const InputDecoration(
