@@ -22,7 +22,6 @@ class ServiceGroupsScreen extends StatefulWidget {
 class _ServiceGroupsScreenState extends State<ServiceGroupsScreen> {
   String _searchQuery = '';
   String _statusFilter = 'All'; // 'All', 'Active', 'Inactive'
-  String? _selectedChurchFilter; // Filter by Church Name
   String? _selectedGradeFilter; // Filter by Grade Name
   String _adminSearchQuery = ''; // Search by Admin Name/Email
 
@@ -70,19 +69,11 @@ class _ServiceGroupsScreenState extends State<ServiceGroupsScreen> {
             }
 
             // Dynamically gather unique options for column header popup filters
-            final List<String> uniqueChurchesInTable = [];
             final List<String> uniqueGradesInTable = [];
 
             for (final doc in rawDocs) {
-              // Extract parent church ID from path (churches/churchId/serviceGroups/groupId)
               final pathSegments = doc.reference.path.split('/');
               final parentChurchId = pathSegments.length > 1 ? pathSegments[1] : widget.churchId;
-              final chName = churchNames[parentChurchId] ?? parentChurchId;
-
-              if (!uniqueChurchesInTable.contains(chName)) {
-                uniqueChurchesInTable.add(chName);
-              }
-
               final gradesMap = churchGrades[parentChurchId] ?? {};
               gradesMap.forEach((k, v) {
                 if (v is Map && v['serviceGroupId'] == doc.id) {
@@ -102,26 +93,22 @@ class _ServiceGroupsScreenState extends State<ServiceGroupsScreen> {
 
               final pathSegments = doc.reference.path.split('/');
               final parentChurchId = pathSegments.length > 1 ? pathSegments[1] : widget.churchId;
-              final chName = churchNames[parentChurchId] ?? parentChurchId;
 
               // 1. Status Filter
               if (_statusFilter == 'Active' && !active) return false;
               if (_statusFilter == 'Inactive' && active) return false;
 
-              // 2. Church Filter
-              if (_selectedChurchFilter != null && chName != _selectedChurchFilter) return false;
-
-              // 3. Group Name Filter
+              // 2. Group Name Filter
               if (_searchQuery.isNotEmpty && !name.contains(_searchQuery.toLowerCase().trim())) return false;
 
-              // 4. Admin Search Filter
+              // 3. Admin Search Filter
               final admins = mistersMap.entries.where((e) => e.value == 'admin').map((e) => e.key.toLowerCase()).toList();
               if (_adminSearchQuery.isNotEmpty) {
                 final match = admins.any((email) => email.contains(_adminSearchQuery.toLowerCase().trim()));
                 if (!match) return false;
               }
 
-              // 5. Assigned Grades Filter
+              // 4. Assigned Grades Filter
               final gradesMap = churchGrades[parentChurchId] ?? {};
               final assignedGrades = <String>[];
               gradesMap.forEach((k, v) {
@@ -205,31 +192,7 @@ class _ServiceGroupsScreenState extends State<ServiceGroupsScreen> {
                                             ],
                                           ),
                                         ),
-                                        // Column 2: Church (Header Filter popup)
-                                        DataColumn(
-                                          label: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Text('Church'),
-                                              PopupMenuButton<String?>(
-                                                icon: const Icon(Icons.filter_list, size: 16),
-                                                tooltip: 'Filter Church',
-                                                onSelected: (val) {
-                                                  setState(() {
-                                                    _selectedChurchFilter = val;
-                                                  });
-                                                },
-                                                itemBuilder: (context) => [
-                                                  const PopupMenuItem<String?>(value: null, child: Text('All Churches')),
-                                                  ...uniqueChurchesInTable.map((chName) {
-                                                    return PopupMenuItem<String?>(value: chName, child: Text(chName));
-                                                  }),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        // Column 3: Group Name (Inline Search in Header)
+                                        // Column 2: Group Name (Inline Search in Header)
                                         DataColumn(
                                           label: Row(
                                             mainAxisSize: MainAxisSize.min,
@@ -237,7 +200,7 @@ class _ServiceGroupsScreenState extends State<ServiceGroupsScreen> {
                                               const Text('Group Name'),
                                               const SizedBox(width: 4),
                                               SizedBox(
-                                                width: 110,
+                                                width: 140,
                                                 child: TextField(
                                                   decoration: const InputDecoration(
                                                     hintText: 'Search...',
@@ -256,7 +219,7 @@ class _ServiceGroupsScreenState extends State<ServiceGroupsScreen> {
                                             ],
                                           ),
                                         ),
-                                        // Column 4: Admins (Inline Search in Header)
+                                        // Column 3: Admins (Inline Search in Header)
                                         DataColumn(
                                           label: Row(
                                             mainAxisSize: MainAxisSize.min,
@@ -264,7 +227,7 @@ class _ServiceGroupsScreenState extends State<ServiceGroupsScreen> {
                                               const Text('Admins'),
                                               const SizedBox(width: 4),
                                               SizedBox(
-                                                width: 90,
+                                                width: 110,
                                                 child: TextField(
                                                   decoration: const InputDecoration(
                                                     hintText: 'Admin...',
@@ -284,7 +247,7 @@ class _ServiceGroupsScreenState extends State<ServiceGroupsScreen> {
                                           ),
                                         ),
                                         const DataColumn(label: Text('Servants (Count)')),
-                                        // Column 5: Assigned Grades (Header Filter popup)
+                                        // Column 4: Assigned Grades (Header Filter popup)
                                         DataColumn(
                                           label: Row(
                                             mainAxisSize: MainAxisSize.min,
@@ -318,7 +281,6 @@ class _ServiceGroupsScreenState extends State<ServiceGroupsScreen> {
 
                                         final pathSegments = doc.reference.path.split('/');
                                         final parentChurchId = pathSegments.length > 1 ? pathSegments[1] : widget.churchId;
-                                        final chName = churchNames[parentChurchId] ?? parentChurchId;
 
                                         final admins = mistersMap.entries.where((e) => e.value == 'admin').map((e) => e.key).toList();
                                         final servantsCount = mistersMap.entries.where((e) => e.value == 'servant').length;
@@ -339,7 +301,6 @@ class _ServiceGroupsScreenState extends State<ServiceGroupsScreen> {
                                                 color: active ? Colors.green : Colors.red,
                                               ),
                                             ),
-                                            DataCell(Text(chName)),
                                             DataCell(Text(displayName, style: const TextStyle(fontWeight: FontWeight.bold))),
                                             DataCell(Text(admins.isEmpty ? 'None' : admins.join(', '))),
                                             DataCell(Text('$servantsCount Servants')),
@@ -386,14 +347,15 @@ class _ServiceGroupsScreenState extends State<ServiceGroupsScreen> {
 
   // --- ACTIONS: ADD GROUP ---
   Future<void> _showAddGroupDialog(BuildContext context) async {
+    // Mandate that a specific church MUST be selected inside the top filters first!
+    if (widget.churchId.isEmpty) {
+      _showSnack('Please select a specific Church from the top filter to create a Service Group.');
+      return;
+    }
+
     final nameCtrl = TextEditingController();
     bool isActive = true;
-    String? selectedChurchId = widget.churchId.isNotEmpty ? widget.churchId : null;
     final formKey = GlobalKey<FormState>();
-
-    // Fetch churches list to populate selection if "All" is active in top filter
-    final churchesSnap = await _churchesRef.get();
-    final churches = churchesSnap.docs;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -406,38 +368,22 @@ class _ServiceGroupsScreenState extends State<ServiceGroupsScreen> {
               child: Form(
                 key: formKey,
                 autovalidateMode: AutovalidateMode.onUserInteraction,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Church Selector (Locked if widget.churchId is selected)
-                      DropdownButtonFormField<String?>(
-                        value: selectedChurchId,
-                        decoration: const InputDecoration(labelText: 'Church *', border: OutlineInputBorder()),
-                        items: churches.map((c) {
-                          return DropdownMenuItem<String?>(
-                            value: c.id,
-                            child: Text(c.data()['displayName'] ?? c.id),
-                          );
-                        }).toList(),
-                        onChanged: (v) => setModalState(() => selectedChurchId = v),
-                        validator: (v) => v == null ? 'Required' : null,
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: nameCtrl,
-                        decoration: const InputDecoration(labelText: 'Group Name *', border: OutlineInputBorder()),
-                        validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
-                      ),
-                      const SizedBox(height: 8),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Active Status'),
-                        value: isActive,
-                        onChanged: (v) => setModalState(() => isActive = v),
-                      ),
-                    ],
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(labelText: 'Group Name *', border: OutlineInputBorder()),
+                      validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Active Status'),
+                      value: isActive,
+                      onChanged: (v) => setModalState(() => isActive = v),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -455,8 +401,8 @@ class _ServiceGroupsScreenState extends State<ServiceGroupsScreen> {
       ),
     );
 
-    if (confirmed == true && selectedChurchId != null) {
-      await _churchesRef.doc(selectedChurchId).collection('serviceGroups').add({
+    if (confirmed == true) {
+      await _groupsRef.add({
         'displayName': nameCtrl.text.trim(),
         'active': isActive,
         'misters': {},
