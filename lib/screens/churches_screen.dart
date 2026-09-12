@@ -1,589 +1,490 @@
 // ignore_for_file: unnecessary_underscores, deprecated_member_use, use_build_context_synchronously
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import '../services/translations.dart';
 import '../services/app_settings.dart';
+import '../services/auth_service.dart';
 
 class ChurchesScreen extends StatefulWidget {
-  const ChurchesScreen({super.key});
+  const ChurchesScreen({required this.churchId, super.key});
+  
+  final String churchId;
 
   @override
   State<ChurchesScreen> createState() => _ChurchesScreenState();
 }
 
 class _ChurchesScreenState extends State<ChurchesScreen> {
+  String _searchQuery = '';
+  String _statusFilter = 'All'; // 'All', 'Active', 'Inactive'
+  String? _selectedYearFilter; // To filter by Active Year Display Name
+
   final CollectionReference<Map<String, dynamic>> _churchesRef =
       FirebaseFirestore.instance.collection('churches');
+
+  final Map<String, String> _yearCache = {}; // Cache to map Year ID to Display Name
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final lang = AppSettings.language.value;
+    final isRtl = AppSettings.isRtl();
+    final user = AuthService.instance.currentUser;
 
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                AppTranslation.translate('churches_config', lang),
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              FilledButton.icon(
-                onPressed: () => _showAddChurchWizard(context),
-                icon: const Icon(Icons.add),
-                label: Text(AppTranslation.translate('add', lang)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: _churchesRef.snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+    if (user == null) return const Scaffold(body: Center(child: Text('Please sign in')));
 
-                final docs = snapshot.data!.docs;
-                if (docs.isEmpty) {
-                  return const Center(child: Text('No churches registered yet.'));
-                }
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance.collection('global_admins').snapshots(),
+      builder: (context, globalAdminsSnapshot) {
+        if (!globalAdminsSnapshot.hasData) return const Center(child: CircularProgressIndicator());
+        final isGlobalAdmin = globalAdminsSnapshot.data!.docs.any((d) => d.id == user.uid);
 
-                return ListView.separated(
-                  itemCount: docs.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 16),
-                  itemBuilder: (context, index) {
-                    final doc = docs[index];
-                    final data = doc.data();
-                    final churchId = doc.id;
-                    final displayName = data['displayName'] ?? churchId;
-                    final activeYearId = data['activeAcademicYearId'] ?? '';
+        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: _churchesRef.snapshots(),
+          builder: (context, churchesSnapshot) {
+            if (churchesSnapshot.hasError) return Center(child: Text('Error: ${churchesSnapshot.error}'));
+            if (!churchesSnapshot.hasData) return const Center(child: CircularProgressIndicator());
 
-                    return Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(color: colorScheme.outlineVariant),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    CircleAvatar(
-                                      backgroundColor: colorScheme.primaryContainer,
-                                      foregroundColor: colorScheme.onPrimaryContainer,
-                                      child: const Icon(Icons.church),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          displayName,
-                                          style: theme.textTheme.titleMedium?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        Text(
-                                          'ID: $churchId',
-                                          style: theme.textTheme.bodySmall,
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                Row(
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.edit_outlined),
-                                      onPressed: () => _showEditChurchDialog(context, doc),
-                                      tooltip: 'Edit Church',
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete_outline),
-                                      color: colorScheme.error,
-                                      onPressed: () => _deleteChurch(context, churchId),
-                                      tooltip: 'Delete Church',
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            const Divider(height: 24),
-                            _buildGradesConfig(context, churchId, data['grades'] as Map<String, dynamic>? ?? {}),
-                            const Divider(height: 24),
-                            // Expanded Academic Years Timeline section
-                            _buildAcademicYearsTimeline(context, churchId, activeYearId),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+            final allChurches = churchesSnapshot.data!.docs;
+            final List<QueryDocumentSnapshot<Map<String, dynamic>>> visibleChurches = [];
 
-  // --- SUB-VIEW: Academic Years Timeline Layout ---
-  Widget _buildGradesConfig(BuildContext context, String churchId, Map<String, dynamic> grades) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Church Grades Configuration',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.primary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: grades.entries.map((e) {
-                  return Chip(
-                    label: Text(': '),
-                    backgroundColor: colorScheme.surfaceContainerHighest,
-                    deleteIcon: const Icon(Icons.close, size: 14),
-                    onDeleted: () {
-                      _removeGrade(churchId, e.key, grades);
-                    },
-                  );
-                }).toList(),
-              ),
-            ],
-          ),
-        ),
-        TextButton.icon(
-          onPressed: () => _showAddGradeDialog(context, churchId, grades),
-          icon: const Icon(Icons.add, size: 16),
-          label: const Text('Add Grade'),
-        ),
-      ],
-    );
-  }
-
-  // --- SUB-VIEW: Academic Years Timeline Layout ---
-  Widget _buildAcademicYearsTimeline(BuildContext context, String churchId, String activeYearId) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Theme(
-      data: theme.copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        tilePadding: EdgeInsets.zero,
-        title: Row(
-          children: [
-            const Icon(Icons.timeline, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              'Academic Years Timeline',
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: colorScheme.secondary,
-              ),
-            ),
-          ],
-        ),
-        subtitle: Text(
-          activeYearId.isNotEmpty ? 'Active Year: $activeYearId' : 'No active year set',
-          style: theme.textTheme.bodySmall,
-        ),
-        children: [
-          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: _churchesRef
-                .doc(churchId)
-                .collection('academicYears')
-                .orderBy('startDate', descending: true)
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return const LinearProgressIndicator();
+            for (final churchDoc in allChurches) {
+              if (isGlobalAdmin) {
+                visibleChurches.add(churchDoc);
+              } else if (churchDoc.id == widget.churchId) {
+                visibleChurches.add(churchDoc);
               }
-              final docs = snapshot.data!.docs;
-              if (docs.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Text('No academic years registered.'),
-                );
+            }
+
+            // Warm up cache and find unique academic year display names for column header filter list
+            final List<String> uniqueYearsInList = [];
+            for (final ch in visibleChurches) {
+              final activeYid = ch.data()['activeAcademicYearId'] as String?;
+              if (activeYid != null && activeYid.isNotEmpty) {
+                // We fetch display names dynamically, but to build the header popup we can gather loaded ones
+                final cachedName = _yearCache[activeYid];
+                if (cachedName != null && !uniqueYearsInList.contains(cachedName)) {
+                  uniqueYearsInList.add(cachedName);
+                }
+              }
+            }
+
+            final filteredChurches = visibleChurches.where((doc) {
+              final data = doc.data();
+              final name = (data['displayName'] ?? '').toString().toLowerCase();
+              final isActive = data['active'] ?? true;
+              final activeYid = data['activeAcademicYearId'] as String? ?? '';
+
+              // Apply Status Filter
+              if (_statusFilter == 'Active' && !isActive) return false;
+              if (_statusFilter == 'Inactive' && isActive) return false;
+
+              // Apply Year Filter
+              if (_selectedYearFilter != null) {
+                final yearName = _yearCache[activeYid] ?? activeYid;
+                if (yearName != _selectedYearFilter) return false;
               }
 
-              return Column(
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 12.0),
-                      child: TextButton.icon(
-                        onPressed: () => _showAddAcademicYearDialog(context, churchId),
-                        icon: const Icon(Icons.add, size: 16),
-                        label: const Text('Add Academic Year', style: TextStyle(fontSize: 12)),
-                      ),
-                    ),
-                  ),
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: docs.length,
-                    itemBuilder: (context, index) {
-                      final doc = docs[index];
-                      final data = doc.data();
-                      final yearId = doc.id;
-                      final displayName = data['displayName'] ?? yearId;
-                      final isActive = activeYearId == yearId;
+              return name.contains(_searchQuery.toLowerCase().trim());
+            }).toList();
 
-                      final startVal = data['startDate'];
-                      DateTime? startDate;
-                      if (startVal is Timestamp) {
-                        startDate = startVal.toDate();
-                      }
-
-                      final String startFormatted = startDate != null
-                          ? '${_getMonthName(startDate.month)} ${startDate.year}'
-                          : 'N/A';
-
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Left Timeline circles and lines
-                          Column(
-                            children: [
-                              Container(
-                                width: 24,
-                                height: 24,
-                                decoration: BoxDecoration(
-                                  color: isActive
-                                      ? colorScheme.primary
-                                      : colorScheme.outlineVariant,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: colorScheme.surface,
-                                    width: 2,
-                                  ),
-                                ),
-                                child: Icon(
-                                  isActive ? Icons.check : Icons.circle_outlined,
-                                  size: 14,
-                                  color: colorScheme.surface,
-                                ),
-                              ),
-                              if (index < docs.length - 1)
-                                Container(
-                                  width: 2,
-                                  height: 48,
-                                  color: colorScheme.outlineVariant,
-                                ),
-                            ],
-                          ),
-                          const SizedBox(width: 16),
-                          // Middle text metadata
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.only(top: 2.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    displayName,
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: isActive
-                                          ? colorScheme.primary
-                                          : colorScheme.onSurface,
-                                    ),
-                                  ),
-                                  Text(
-                                    'Starts: $startFormatted (1-Year Term)',
-                                    style: theme.textTheme.bodySmall,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          // Right action buttons
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (!isActive)
-                                TextButton(
-                                  onPressed: () => _setActiveYear(churchId, yearId),
-                                  child: const Text('Set Active', style: TextStyle(fontSize: 12)),
-                                ),
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline, size: 18),
-                                color: colorScheme.error,
-                                onPressed: () => _deleteAcademicYear(churchId, yearId),
-                              ),
-                            ],
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  // --- ACTIONS & DIALOGS ---
-
-  Future<void> _showAddChurchWizard(BuildContext context) async {
-    final nameController = TextEditingController();
-    String selectedMonth = '9'; // September by default
-    int selectedYear = DateTime.now().year;
-
-    final years = List<int>.generate(15, (index) => DateTime.now().year - 5 + index);
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => AlertDialog(
-          title: const Text('Create New Church & Active Year'),
-          content: SizedBox(
-            width: 450,
-            child: SingleChildScrollView(
+            return Padding(
+              padding: const EdgeInsets.all(24.0),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Step 1: Church Profile',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Church Name *',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Step 2: Initialize First Academic Year (1-Year Term)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: selectedMonth,
-                          decoration: const InputDecoration(
-                            labelText: 'Start Month',
-                            border: OutlineInputBorder(),
-                          ),
-                          items: const [
-                            DropdownMenuItem(value: '1', child: Text('Jan')),
-                            DropdownMenuItem(value: '2', child: Text('Feb')),
-                            DropdownMenuItem(value: '3', child: Text('Mar')),
-                            DropdownMenuItem(value: '4', child: Text('Apr')),
-                            DropdownMenuItem(value: '5', child: Text('May')),
-                            DropdownMenuItem(value: '6', child: Text('Jun')),
-                            DropdownMenuItem(value: '7', child: Text('Jul')),
-                            DropdownMenuItem(value: '8', child: Text('Aug')),
-                            DropdownMenuItem(value: '9', child: Text('Sep')),
-                            DropdownMenuItem(value: '10', child: Text('Oct')),
-                            DropdownMenuItem(value: '11', child: Text('Nov')),
-                            DropdownMenuItem(value: '12', child: Text('Dec')),
-                          ],
-                          onChanged: (val) {
-                            if (val != null) {
-                              setModalState(() => selectedMonth = val);
-                            }
-                          },
-                        ),
+                      const Text(
+                        'Church Admin',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 28),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: DropdownButtonFormField<int>(
-                          initialValue: selectedYear,
-                          decoration: const InputDecoration(
-                            labelText: 'Start Year',
-                            border: OutlineInputBorder(),
-                          ),
-                          items: years
-                              .map((y) => DropdownMenuItem(value: y, child: Text('$y')))
-                              .toList(),
-                          onChanged: (val) {
-                            if (val != null) {
-                              setModalState(() => selectedYear = val);
-                            }
-                          },
+                      if (isGlobalAdmin)
+                        FilledButton.icon(
+                          onPressed: () => _showAddChurchDialog(context, user.uid),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Add Church'),
                         ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Table
+                  Expanded(
+                    child: filteredChurches.isEmpty
+                        ? const Center(child: Text('No churches registered.'))
+                        : Card(
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(color: colorScheme.outlineVariant),
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.vertical,
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    minWidth: MediaQuery.of(context).size.width - 200,
+                                  ),
+                                  child: Directionality(
+                                    textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+                                    child: DataTable(
+                                      headingTextStyle: const TextStyle(fontWeight: FontWeight.bold),
+                                      columns: [
+                                        // 1. Status Filter Header
+                                        DataColumn(
+                                          label: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Text('Status'),
+                                              PopupMenuButton<String>(
+                                                icon: const Icon(Icons.filter_list, size: 16),
+                                                tooltip: 'Filter Status',
+                                                onSelected: (val) {
+                                                  setState(() {
+                                                    _statusFilter = val;
+                                                  });
+                                                },
+                                                itemBuilder: (context) => [
+                                                  const PopupMenuItem(value: 'All', child: Text('All Statuses')),
+                                                  const PopupMenuItem(value: 'Active', child: Text('Active Only')),
+                                                  const PopupMenuItem(value: 'Inactive', child: Text('Inactive Only')),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        // 2. Church Name Filter Header
+                                        DataColumn(
+                                          label: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Text('Church Name'),
+                                              const SizedBox(width: 4),
+                                              SizedBox(
+                                                width: 140,
+                                                child: TextField(
+                                                  decoration: const InputDecoration(
+                                                    hintText: 'Search...',
+                                                    border: InputBorder.none,
+                                                    isDense: true,
+                                                    contentPadding: EdgeInsets.zero,
+                                                  ),
+                                                  style: const TextStyle(fontSize: 12),
+                                                  onChanged: (val) {
+                                                    setState(() {
+                                                      _searchQuery = val;
+                                                    });
+                                                  },
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        // 3. Active Year Display Name Header with Popup list filter
+                                        DataColumn(
+                                          label: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Text('Active Term'),
+                                              PopupMenuButton<String?>(
+                                                icon: const Icon(Icons.filter_list, size: 16),
+                                                tooltip: 'Filter Term',
+                                                onSelected: (val) {
+                                                  setState(() {
+                                                    _selectedYearFilter = val;
+                                                  });
+                                                },
+                                                itemBuilder: (context) => [
+                                                  const PopupMenuItem<String?>(value: null, child: Text('All Terms')),
+                                                  ...uniqueYearsInList.map((yr) => PopupMenuItem<String?>(value: yr, child: Text(yr))),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const DataColumn(label: Text('Grades')),
+                                        const DataColumn(label: Text('Actions')),
+                                      ],
+                                      rows: filteredChurches.map((doc) {
+                                        final churchId = doc.id;
+                                        final data = doc.data();
+                                        final active = data['active'] ?? true;
+                                        final displayName = data['displayName'] ?? churchId;
+                                        final activeYearId = data['activeAcademicYearId'] ?? '';
+                                        final gradesMap = data['grades'] as Map<String, dynamic>? ?? {};
+
+                                        return DataRow(
+                                          cells: [
+                                            DataCell(
+                                              Icon(
+                                                active ? Icons.check_circle : Icons.cancel,
+                                                color: active ? Colors.green : Colors.red,
+                                              ),
+                                            ),
+                                            DataCell(Text(displayName, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                            // Dynamic StreamBuilder to resolve and Cache year displayName reactively
+                                            DataCell(
+                                              activeYearId.isEmpty
+                                                  ? const Text('None')
+                                                  : StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                                                      stream: _churchesRef.doc(churchId).collection('academicYears').doc(activeYearId).snapshots(),
+                                                      builder: (context, yearSnap) {
+                                                        if (!yearSnap.hasData) return Text(activeYearId);
+                                                        final yName = yearSnap.data?.data()?['displayName'] ?? activeYearId;
+                                                        
+                                                        // Cache the name for filtering header
+                                                        if (yName != activeYearId && _yearCache[activeYearId] != yName) {
+                                                          _yearCache[activeYearId] = yName;
+                                                          Future.microtask(() => setState(() {}));
+                                                        }
+
+                                                        return Text(yName);
+                                                      },
+                                                    ),
+                                            ),
+                                            DataCell(
+                                              ActionChip(
+                                                label: Text('${gradesMap.length} Grades'),
+                                                backgroundColor: colorScheme.primaryContainer,
+                                                onPressed: () => _showGradesDialog(context, churchId, gradesMap),
+                                              ),
+                                            ),
+                                            DataCell(
+                                              IconButton(
+                                                icon: const Icon(Icons.edit_outlined),
+                                                onPressed: isGlobalAdmin ? () => _showEditChurchDialog(context, doc, user.uid) : null,
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // --- ACTIONS: GRADES POPUP WITH UNIQUE SERVICE GROUP ASSIGNMENTS ---
+  Future<void> _showGradesDialog(
+    BuildContext context,
+    String churchId,
+    Map<String, dynamic> currentGrades,
+  ) async {
+    final firestore = FirebaseFirestore.instance;
+    final groupsSnap = await firestore.collection('churches').doc(churchId).collection('serviceGroups').get();
+    final groups = groupsSnap.docs;
+
+    final List<Map<String, dynamic>> tempGrades = [];
+    currentGrades.forEach((k, v) {
+      if (v is Map) {
+         tempGrades.add({
+           'id': int.tryParse(k) ?? k,
+           'name': v['name']?.toString() ?? '',
+           'serviceGroupId': v['serviceGroupId']?.toString(),
+         });
+      }
+    });
+
+    tempGrades.sort((a, b) => (a['id'] as int).compareTo(b['id'] as int));
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return AlertDialog(
+            title: const Text('Configure Grades & Service Group Binding'),
+            content: SizedBox(
+              width: 700,
+              height: 500,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: tempGrades.isEmpty
+                        ? const Center(child: Text('No grades configured. Click "+" to add.'))
+                        : ListView.builder(
+                            itemCount: tempGrades.length,
+                            itemBuilder: (context, index) {
+                              final item = tempGrades[index];
+                              final gradeId = item['id'] as int;
+                              final nameCtrl = TextEditingController(text: item['name']);
+                              
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(child: Text('$gradeId')),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      flex: 2,
+                                      child: TextField(
+                                        controller: nameCtrl,
+                                        decoration: const InputDecoration(labelText: 'Grade Name', border: OutlineInputBorder()),
+                                        onChanged: (val) {
+                                          item['name'] = val.trim();
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      flex: 3,
+                                      child: DropdownButtonFormField<String?>(
+                                        value: item['serviceGroupId'],
+                                        decoration: const InputDecoration(labelText: 'Service Group', border: OutlineInputBorder()),
+                                        items: [
+                                          const DropdownMenuItem<String?>(value: null, child: Text('Unassigned')),     
+                                          ...groups.map((g) {
+                                            return DropdownMenuItem<String?>(
+                                              value: g.id,
+                                              child: Text(g.data()['displayName'] ?? g.id),
+                                            );
+                                          }),
+                                        ],
+                                        onChanged: (val) {
+                                          setModalState(() {
+                                            item['serviceGroupId'] = val;
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                      onPressed: () {
+                                        setModalState(() {
+                                          tempGrades.removeAt(index);
+                                          for (int i = 0; i < tempGrades.length; i++) {
+                                            tempGrades[i]['id'] = i + 1;
+                                          }
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          setModalState(() {
+                            final nextId = tempGrades.length + 1;
+                            tempGrades.add({
+                              'id': nextId,
+                              'name': 'Grade $nextId',
+                              'serviceGroupId': null,
+                            });
+                          });
+                        },
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add New Grade'),
+                      ),
+                      FilledButton(
+                        onPressed: () async {
+                          final Map<String, dynamic> finalMap = {};
+                          for (final g in tempGrades) {
+                            finalMap[g['id'].toString()] = {
+                              'name': g['name'],
+                              'serviceGroupId': g['serviceGroupId'],
+                            };
+                          }
+                          await _churchesRef.doc(churchId).update({'grades': finalMap});
+                          Navigator.pop(context);
+                          setState(() {});
+                        },
+                        child: const Text('Save Grades Map'),
                       ),
                     ],
                   ),
                 ],
               ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Create Church'),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
-
-    if (confirmed == true) {
-      final name = nameController.text.trim();
-      if (name.isEmpty) return;
-
-      final firestore = FirebaseFirestore.instance;
-      final batch = firestore.batch();
-
-      // Auto-generate Church ID
-      final churchDocRef = firestore.collection('churches').doc();
-
-      // Calculate Year ID
-      final monthInt = int.parse(selectedMonth);
-      final yearId = 'AY_$selectedYear';
-
-      // Reconstruct start and end dates
-      final startDate = DateTime(selectedYear, monthInt, 1);
-      final endDate = DateTime(selectedYear + 1, monthInt, 1).subtract(const Duration(days: 1));
-
-      // 1. Create Church Document
-      batch.set(churchDocRef, {
-        'displayName': name,
-        'active': true,
-        'activeAcademicYearId': yearId,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      // 2. Create the first Academic Year Subcollection document
-      final yearDocRef = churchDocRef.collection('academicYears').doc(yearId);
-      batch.set(yearDocRef, {
-        'displayName': 'Academic Year $selectedYear/${selectedYear + 1}',
-        'active': true,
-        'startDate': Timestamp.fromDate(startDate),
-        'endDate': Timestamp.fromDate(endDate),
-      });
-
-      try {
-        await batch.commit();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Church and Academic Year initialized!')),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Initialization failed: $e')),
-          );
-        }
-      }
-    }
   }
 
-  Future<void> _showAddAcademicYearDialog(BuildContext context, String churchId) async {
-    String selectedMonth = '9'; // Sept by default
-    int selectedYear = DateTime.now().year;
+  // --- ACTIONS: ADD CHURCH (MANDATES FIRST ACTIVE ACADEMIC YEAR) ---
+  Future<void> _showAddChurchDialog(BuildContext context, String userUid) async {
+    final nameCtrl = TextEditingController();
+    final yearCtrl = TextEditingController(text: 'Academic Year 2026/2027');
+    final formKey = GlobalKey<FormState>();
 
-    final years = List<int>.generate(15, (index) => DateTime.now().year - 5 + index);
+    DateTime selectedStartDate = DateTime.now();
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => AlertDialog(
-          title: const Text('Add Academic Year (1-Year Term)'),
-          content: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: selectedMonth,
-                  decoration: const InputDecoration(
-                    labelText: 'Start Month',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: '1', child: Text('Jan')),
-                    DropdownMenuItem(value: '2', child: Text('Feb')),
-                    DropdownMenuItem(value: '3', child: Text('Mar')),
-                    DropdownMenuItem(value: '4', child: Text('Apr')),
-                    DropdownMenuItem(value: '5', child: Text('May')),
-                    DropdownMenuItem(value: '6', child: Text('Jun')),
-                    DropdownMenuItem(value: '7', child: Text('Jul')),
-                    DropdownMenuItem(value: '8', child: Text('Aug')),
-                    DropdownMenuItem(value: '9', child: Text('Sep')),
-                    DropdownMenuItem(value: '10', child: Text('Oct')),
-                    DropdownMenuItem(value: '11', child: Text('Nov')),
-                    DropdownMenuItem(value: '12', child: Text('Dec')),
+          title: const Text('Wizard: Create Church Tenant'),
+          content: SizedBox(
+            width: 500,
+            child: Form(
+              key: formKey,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('1. General Church Profile', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(labelText: 'Church Name *', border: OutlineInputBorder()),
+                      validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                    ),
+                    const Divider(height: 32),
+                    const Text('2. Map First Term (Mandatory)', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: yearCtrl,
+                      decoration: const InputDecoration(labelText: 'Academic Year Label *', border: OutlineInputBorder()),
+                      validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    InkWell(
+                      onTap: () async {
+                        final dt = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now(),
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2035),
+                        );
+                        if (dt != null) setModalState(() => selectedStartDate = DateTime(dt.year, dt.month, 1));
+                      },
+                      child: InputDecorator(
+                        decoration: const InputDecoration(labelText: 'Start Month & Year *', border: OutlineInputBorder()),
+                        child: Text('${selectedStartDate.year} - ${selectedStartDate.month.toString().padLeft(2, '0')}'),
+                      ),
+                    ),
                   ],
-                  onChanged: (val) {
-                    if (val != null) {
-                      setModalState(() => selectedMonth = val);
-                    }
-                  },
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: DropdownButtonFormField<int>(
-                  value: selectedYear,
-                  decoration: const InputDecoration(
-                    labelText: 'Start Year',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: years
-                      .map((y) => DropdownMenuItem(value: y, child: Text('$y')))
-                      .toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      setModalState(() => selectedYear = val);
-                    }
-                  },
-                ),
-              ),
-            ],
+            ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
             FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Create'),
+              onPressed: () {
+                if (formKey.currentState!.validate()) Navigator.pop(context, true);
+              },
+              child: const Text('Create Church & Year'),
             ),
           ],
         ),
@@ -591,66 +492,342 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
     );
 
     if (confirmed == true) {
-      final monthInt = int.parse(selectedMonth);
-      final yearId = 'AY_$selectedYear';
+      final firestore = FirebaseFirestore.instance;
+      final batch = firestore.batch();
 
-      final startDate = DateTime(selectedYear, monthInt, 1);
-      final endDate = DateTime(selectedYear + 1, monthInt, 1).subtract(const Duration(days: 1));
+      final newChurchId = 'CHC_${DateTime.now().millisecondsSinceEpoch}';
+      final newYearId = 'AY_${DateTime.now().millisecondsSinceEpoch}';
 
-      try {
-        await _churchesRef.doc(churchId).collection('academicYears').doc(yearId).set({
-          'displayName': 'Academic Year $selectedYear/${selectedYear + 1}',
-          'active': false,
-          'startDate': Timestamp.fromDate(startDate),
-          'endDate': Timestamp.fromDate(endDate),
-        });
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to add year: $e')),
-          );
-        }
-      }
+      final churchRef = _churchesRef.doc(newChurchId);
+      final yearRef = churchRef.collection('academicYears').doc(newYearId);
+
+      batch.set(churchRef, {
+        'displayName': nameCtrl.text.trim(),
+        'active': true,
+        'activeAcademicYearId': newYearId,
+        'grades': <String, dynamic>{},
+        'createdAt': FieldValue.serverTimestamp(),
+        'createdBy': userUid,
+      });
+
+      batch.set(yearRef, {
+        'displayName': yearCtrl.text.trim(),
+        'startDate': Timestamp.fromDate(selectedStartDate),
+        'active': true,
+        'createdAt': FieldValue.serverTimestamp(),
+        'createdBy': userUid,
+      });
+
+      await batch.commit();
+      _showSnack('Church successfully onboarded!');
     }
   }
 
+  // --- ACTIONS: EDIT CHURCH (WITH IN-PLACE TERM EDITING + YEAR ADD/DELETE) ---
   Future<void> _showEditChurchDialog(
     BuildContext context,
     DocumentSnapshot<Map<String, dynamic>> churchDoc,
+    String userUid,
   ) async {
-    final controller = TextEditingController(text: churchDoc.data()?['displayName']);
+    final churchId = churchDoc.id;
+    final nameCtrl = TextEditingController(text: churchDoc.data()?['displayName']);
+    bool isActive = churchDoc.data()?['active'] ?? true;
+    final formKey = GlobalKey<FormState>();
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Church'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            labelText: 'Church Name',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Save'),
-          ),
-        ],
+      builder: (context) => StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+        stream: _churchesRef.doc(churchId).snapshots(),
+        builder: (context, churchSnapshot) {
+          if (!churchSnapshot.hasData) return const Center(child: CircularProgressIndicator());
+          final currentChurchData = churchSnapshot.data!.data() ?? {};
+          final gradesMap = currentChurchData['grades'] as Map<String, dynamic>? ?? {};
+          final activeYearId = currentChurchData['activeAcademicYearId'] ?? '';
+
+          return StatefulBuilder(
+            builder: (context, setModalState) {
+              return AlertDialog(
+                title: Text('Edit Church: $churchId'),
+                content: SizedBox(
+                  width: 650,
+                  height: 600,
+                  child: Form(
+                    key: formKey,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextFormField(
+                          controller: nameCtrl,
+                          decoration: const InputDecoration(labelText: 'Church Name *', border: OutlineInputBorder()),
+                          validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                        ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Active Status'),
+                          value: isActive,
+                          onChanged: (val) => setModalState(() => isActive = val),
+                        ),
+                        const SizedBox(height: 8),
+                        
+                        // Interactive Grades configuration tile inside Edit Church Dialog
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.grade_outlined, color: Colors.indigo),
+                          title: const Text('Configure Grades Map', style: TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text('${gradesMap.length} Grades configured'),
+                          trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                          onTap: () => _showGradesDialog(context, churchId, gradesMap),
+                        ),
+                        
+                        const Divider(height: 32),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Academic Years Timeline', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            IconButton(
+                              icon: const Icon(Icons.add_circle_outline, color: Colors.teal),
+                              tooltip: 'Add Year',
+                              onPressed: () => _showAddYearDialog(context, churchId, userUid),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Expanded(
+                          child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                            stream: _churchesRef.doc(churchId).collection('academicYears').snapshots(),
+                            builder: (context, snap) {
+                              if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+                              final years = snap.data!.docs;
+
+                              return ListView.builder(
+                                itemCount: years.length,
+                                itemBuilder: (context, index) {
+                                  final yrDoc = years[index];
+                                  final yrData = yrDoc.data();
+                                  final yrName = yrData['displayName'] ?? yrDoc.id;
+                                  final yrActive = yrData['active'] ?? false;
+                                  final yrStart = (yrData['startDate'] as Timestamp?)?.toDate();
+
+                                  final isCurrentActive = yrDoc.id == activeYearId;
+
+                                  return ListTile(
+                                    dense: true,
+                                    title: Text(yrName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    subtitle: Text('Start Month: ${yrStart?.year}-${yrStart?.month.toString().padLeft(2, '0')}'),
+                                    trailing: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Switch(
+                                          value: yrActive,
+                                          onChanged: (val) async {
+                                            await _setActiveYear(churchId, yrDoc.id);
+                                          },
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.edit, size: 16),
+                                          onPressed: () => _showEditYearInline(context, churchId, yrDoc),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete_outline, size: 16),
+                                          color: isCurrentActive ? Colors.grey : Colors.red,
+                                          onPressed: isCurrentActive 
+                                              ? null 
+                                              : () => _deleteYear(churchId, yrDoc.id, years.length),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                  FilledButton(
+                    onPressed: () {
+                      if (formKey.currentState!.validate()) Navigator.pop(context, true);
+                    },
+                    child: const Text('Save Changes'),
+                  ),
+                ],
+              );
+            },
+          );
+        },
       ),
     );
 
     if (confirmed == true) {
-      final newName = controller.text.trim();
-      if (newName.isNotEmpty) {
-        await _churchesRef.doc(churchDoc.id).set({
-          'displayName': newName,
-        }, SetOptions(merge: true));
-      }
+      await _churchesRef.doc(churchId).update({
+        'displayName': nameCtrl.text.trim(),
+        'active': isActive,
+      });
+      _showSnack('Church settings saved.');
+    }
+  }
+
+  Future<void> _showAddYearDialog(BuildContext context, String churchId, String userUid) async {
+    final yearCtrl = TextEditingController();
+    DateTime selectedDate = DateTime.now();
+    final formKey = GlobalKey<FormState>();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          title: const Text('Add Academic Year'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: yearCtrl,
+                  decoration: const InputDecoration(labelText: 'Display Name *', border: OutlineInputBorder()),
+                  validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () async {
+                    final dt = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2035),
+                    );
+                    if (dt != null) setModalState(() => selectedDate = DateTime(dt.year, dt.month, 1));
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(labelText: 'Start Month *', border: OutlineInputBorder()),
+                    child: Text('${selectedDate.year} - ${selectedDate.month.toString().padLeft(2, '0')}'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) Navigator.pop(context, true);
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed == true) {
+      final yearId = 'AY_${DateTime.now().millisecondsSinceEpoch}';
+      await _churchesRef.doc(churchId).collection('academicYears').doc(yearId).set({
+        'displayName': yearCtrl.text.trim(),
+        'startDate': Timestamp.fromDate(selectedDate),
+        'active': false,
+        'createdAt': FieldValue.serverTimestamp(),
+        'createdBy': userUid,
+      });
+      _showSnack('Academic year added.');
+    }
+  }
+
+  Future<void> _deleteYear(String churchId, String yearId, int totalYears) async {
+    if (totalYears <= 1) {
+      _showSnack('Cannot delete. A church must contain at least one Academic Year.');
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Delete Academic Year?'),
+            content: const Text('Are you sure you want to delete this year? Any class rosters or logs tied to this year will remain in subcollections but will no longer show in active term screens.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (confirmed) {
+      await _churchesRef.doc(churchId).collection('academicYears').doc(yearId).delete();
+      _showSnack('Year deleted.');
+    }
+  }
+
+  Future<void> _showEditYearInline(
+    BuildContext context,
+    String churchId,
+    DocumentSnapshot<Map<String, dynamic>> yearDoc,
+  ) async {
+    final data = yearDoc.data()!;
+    final dCtrl = TextEditingController(text: data['displayName']);
+    DateTime selectedDate = (data['startDate'] as Timestamp).toDate();
+    final formKey = GlobalKey<FormState>();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          title: const Text('Edit Term Inline'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: dCtrl,
+                  decoration: const InputDecoration(labelText: 'Display Name *', border: OutlineInputBorder()),
+                  validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () async {
+                    final dt = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2035),
+                    );
+                    if (dt != null) setModalState(() => selectedDate = DateTime(dt.year, dt.month, 1));
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(labelText: 'Start Month *', border: OutlineInputBorder()),
+                    child: Text('${selectedDate.year} - ${selectedDate.month.toString().padLeft(2, '0')}'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) Navigator.pop(context, true);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed == true) {
+      await _churchesRef.doc(churchId).collection('academicYears').doc(yearDoc.id).update({
+        'displayName': dCtrl.text.trim(),
+        'startDate': Timestamp.fromDate(selectedDate),
+      });
     }
   }
 
@@ -659,12 +836,10 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
       final firestore = FirebaseFirestore.instance;
       final batch = firestore.batch();
 
-      // 1. Update activeAcademicYearId in parent Church document
       batch.update(_churchesRef.doc(churchId), {
         'activeAcademicYearId': yearId,
       });
 
-      // 2. Fetch all years to toggle active flags
       final yearsSnap = await _churchesRef.doc(churchId).collection('academicYears').get();
       for (final doc in yearsSnap.docs) {
         batch.update(doc.reference, {
@@ -676,98 +851,10 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
     } catch (_) {}
   }
 
-  Future<void> _showAddGradeDialog(BuildContext context, String churchId, Map<String, dynamic> currentGrades) async {
-    final idController = TextEditingController();
-    final nameController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Grade Level'),
-        content: Form(
-          key: formKey,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: idController,
-                decoration: const InputDecoration(labelText: 'Grade ID (Integer) *', hintText: 'e.g. 1'),
-                keyboardType: TextInputType.number,
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) return 'Required';
-                  if (int.tryParse(val.trim()) == null) return 'Must be an integer';
-                  if (currentGrades.containsKey(val.trim())) return 'ID already exists';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Display Name *', hintText: 'e.g. Grade 1'),
-                validator: (val) => val == null || val.trim().isEmpty ? 'Required' : null,
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () { if (formKey.currentState!.validate()) Navigator.pop(context, true); }, child: const Text('Add')),
-        ],
-      ),
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
-
-    if (confirmed == true) {
-      final newGrades = Map<String, dynamic>.from(currentGrades);
-      newGrades[idController.text.trim()] = nameController.text.trim();
-      await _churchesRef.doc(churchId).update({'grades': newGrades});
-    }
-  }
-
-  Future<void> _removeGrade(String churchId, String gradeId, Map<String, dynamic> currentGrades) async {
-    final newGrades = Map<String, dynamic>.from(currentGrades);
-    newGrades.remove(gradeId);
-    await _churchesRef.doc(churchId).update({'grades': newGrades});
-  }
-
-  Future<void> _deleteChurch(BuildContext context, String churchId) async {
-    final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('Delete Church?'),
-            content: Text('Are you sure you want to delete "$churchId" and all its structural configs?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Delete'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-
-    if (confirmed) {
-      await _churchesRef.doc(churchId).delete();
-    }
-  }
-
-  Future<void> _deleteAcademicYear(String churchId, String yearId) async {
-    await _churchesRef.doc(churchId).collection('academicYears').doc(yearId).delete();
-  }
-
-  String _getMonthName(int month) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    if (month >= 1 && month <= 12) {
-      return months[month - 1];
-    }
-    return 'N/A';
   }
 }
