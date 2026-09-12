@@ -165,6 +165,7 @@ class _MainShellState extends State<MainShell> {
         ),
         ServiceGroupsScreen(
           churchId: churchId,
+          userRole: userRole,
         ),
         Padding(
           padding: const EdgeInsets.all(24.0),
@@ -174,7 +175,9 @@ class _MainShellState extends State<MainShell> {
             classId: _filterController.selectedClassId ?? '',
           ),
         ),
-        const ChurchesScreen(),
+        ChurchesScreen(
+          churchId: churchId,
+        ),
         ];
 
         final sidebarDestinations = [
@@ -640,6 +643,14 @@ class _MainShellState extends State<MainShell> {
 
   // --- SUB-VIEW: Global Cascading Filters ---
   Widget _buildGlobalFilters(ColorScheme colorScheme) {
+    final isChurchesView = _selectedIndex == 8;
+    final isServiceGroupsView = _selectedIndex == 5;
+
+    final isChurchEnabled = !isChurchesView;
+    final isYearEnabled = !isChurchesView && !isServiceGroupsView;
+    final isGroupEnabled = !isChurchesView && !isServiceGroupsView;
+    final isClassEnabled = !isChurchesView && !isServiceGroupsView;
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -650,15 +661,17 @@ class _MainShellState extends State<MainShell> {
           onChanged: _filterController.setChurch,
           color: colorScheme.primaryContainer,
           onColor: colorScheme.onPrimaryContainer,
+          enabled: isChurchEnabled,
         ),
         const SizedBox(width: 8),
-        if (_selectedIndex != 5) _buildDropdown(
+        _buildDropdown(
           icon: Icons.calendar_today,
           value: _filterController.selectedAcademicYearId,
           items: _filterController.academicYears,
           onChanged: _filterController.setAcademicYear,
           color: colorScheme.secondaryContainer,
           onColor: colorScheme.onSecondaryContainer,
+          enabled: isYearEnabled,
         ),
         const SizedBox(width: 8),
         _buildDropdown(
@@ -668,15 +681,17 @@ class _MainShellState extends State<MainShell> {
           onChanged: _filterController.setServiceGroup,
           color: colorScheme.tertiaryContainer,
           onColor: colorScheme.onTertiaryContainer,
+          enabled: isGroupEnabled,
         ),
         const SizedBox(width: 8),
-        if (_selectedIndex != 5) _buildDropdown(
+        _buildDropdown(
           icon: Icons.class_,
           value: _filterController.selectedClassId,
           items: _filterController.classes,
           onChanged: _filterController.setClass,
           color: colorScheme.surfaceContainerHigh,
           onColor: colorScheme.onSurface,
+          enabled: isClassEnabled,
         ),
       ],
     );
@@ -689,15 +704,20 @@ class _MainShellState extends State<MainShell> {
     required void Function(String?) onChanged,
     required Color color,
     required Color onColor,
+    bool enabled = true,
   }) {
-    final isDisabled = items.isEmpty;
+    final isDisabled = items.isEmpty || !enabled;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(20),
-      ),
+    return Opacity(
+      opacity: enabled ? 1.0 : 0.4,
+      child: IgnorePointer(
+        ignoring: !enabled,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(20),
+          ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String?>(
           value: isDisabled ? null : value,
@@ -731,7 +751,7 @@ class _MainShellState extends State<MainShell> {
           onChanged: isDisabled ? null : onChanged,
         ),
       ),
-    );
+    ),),);
   }
 
   // --- SUB-VIEW: Mobile Filters Bottom Sheet ---
