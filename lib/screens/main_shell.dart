@@ -690,7 +690,7 @@ class _MainShellState extends State<MainShell> {
     required Color color,
     required Color onColor,
   }) {
-    if (items.isEmpty) return const SizedBox.shrink();
+    final isDisabled = items.isEmpty;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -700,7 +700,7 @@ class _MainShellState extends State<MainShell> {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String?>(
-          value: value,
+          value: isDisabled ? null : value,
           icon: Padding(
             padding: const EdgeInsets.only(left: 8.0),
             child: Icon(icon, size: 16, color: onColor.withOpacity(0.8)),
@@ -710,8 +710,13 @@ class _MainShellState extends State<MainShell> {
             fontWeight: FontWeight.bold,
             fontSize: 13,
           ),
-          items: [
-            if (items.length > 1) 
+          items: isDisabled ? const [
+            DropdownMenuItem<String?>(
+                value: null,
+                child: Text('None'),
+              )
+          ] : [
+            if (items.length > 0)
               const DropdownMenuItem<String?>(
                 value: null,
                 child: Text('All'),
@@ -723,7 +728,7 @@ class _MainShellState extends State<MainShell> {
               );
             }),
           ],
-          onChanged: onChanged,
+          onChanged: isDisabled ? null : onChanged,
         ),
       ),
     );
