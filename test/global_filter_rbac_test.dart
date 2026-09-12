@@ -12,8 +12,8 @@ void main() {
       // Action: Change Church -> Triggers deep cascading reset
       selectedChurchId = 'CHC_B';
       selectedYearId = null; // Cleared
-      selectedGroupId; // Cleared
-      selectedClassId; // Cleared
+      selectedGroupId = null; // Cleared
+      selectedClassId = null; // Cleared
 
       expect(selectedChurchId, 'CHC_B');
       expect(selectedYearId, isNull);
