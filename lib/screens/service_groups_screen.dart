@@ -420,9 +420,7 @@ class _ServiceGroupsScreenState extends State<ServiceGroupsScreen> {
                             child: Text(c.data()['displayName'] ?? c.id),
                           );
                         }).toList(),
-                        onChanged: widget.churchId.isNotEmpty 
-                            ? null // Locked if church filter is active!
-                            : (v) => setModalState(() => selectedChurchId = v),
+                        onChanged: (v) => setModalState(() => selectedChurchId = v),
                         validator: (v) => v == null ? 'Required' : null,
                       ),
                       const SizedBox(height: 16),
