@@ -753,11 +753,32 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
       return;
     }
 
+    // Referential integrity check: check if year is referenced in classes subcollection
+    try {
+      final classesSnap = await _churchesRef.doc(churchId).collection('classes').get();
+      bool isReferenced = false;
+      for (final doc in classesSnap.docs) {
+        final yearsMap = doc.data()['academicYears'] as Map<String, dynamic>? ?? {};
+        if (yearsMap.containsKey(yearId)) {
+          isReferenced = true;
+          break;
+        }
+      }
+
+      if (isReferenced) {
+        _showSnack('Cannot delete. This Academic Year is referenced inside active Class configurations.');
+        return;
+      }
+    } catch (e) {
+      _showSnack('Verification failed: $e');
+      return;
+    }
+
     final confirmed = await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
             title: const Text('Delete Academic Year?'),
-            content: const Text('Are you sure you want to delete this year? Any class rosters or logs tied to this year will remain in subcollections but will no longer show in active term screens.'),
+            content: const Text('Are you sure you want to delete this year? This action is permanent.'),
             actions: [
               TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
               FilledButton(
