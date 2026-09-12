@@ -34,7 +34,7 @@ class _ClassesScreenState extends State<ClassesScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final lang = AppSettings.language.value;
-    final isAdmin = widget.userRole == 'Admin';
+    final isAdmin = widget.userRole == 'Admin' || widget.userRole == 'owner';
 
     if (widget.churchId.isEmpty) {
       return Center(
