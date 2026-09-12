@@ -153,10 +153,13 @@ Contains the core registry of churches.
     *   `displayName` (string): Public name of the church (e.g., `Saint George Sunday School`).
     *   `active` (boolean): Whether this church is active in the database.
     *   `activeAcademicYearId` (string): Foreign key pointing to the active `academicYears` document ID.
-    *   `grades` (map): Key-value pair defining available grades in the church. 
-        *   `Key` (string): Integer represented as string (e.g., `'1'`, `'2'`, `'3'`).
-        *   `Value` (string): UI Display Name, e.g., `'Grade 1'`, `'Grade 2'`.
+    *   `grades` (map): Auto-incrementing integer keys mapping to grade details and their specific service group.
+        *   `Key` (string): System auto-incremented integer (e.g., `'1'`, `'2'`).
+        *   `Value` (map):
+            *   `name` (string): UI Display Name, e.g., `'Grade 1'`.
+            *   `serviceGroupId` (string/reference): Unique FK pointing to the assigned Service Group. (Cannot be reused across multiple grades).
     *   `createdAt` (server timestamp): Creation date.
+    *   `createdBy` (string/reference): FK pointing to the Admin who created the church.
 
 ---
 
@@ -207,11 +210,14 @@ The Directory of Service Groups (ministry departments) responsible for managing 
 
 #### Document: `{serviceGroupId}` (e.g., `SG_JUNIOR_HIGH`)
 *   **Fields:**
+    *   `active` (boolean): Service Group status.
     *   `displayName` (string): Service Group Name (e.g., `Junior High Department`).
-    *   `roles` (map): Map of assigned misters and their group-level roles.
+    *   `misters` (map): Map of assigned misters and their group-level roles.
         *   `Key` (string): `misterId`
         *   `Value` (string): `'admin'` (Group Admin) or `'servant'` (Group Servant).
-    *   `grades` (array of integers): List of grade IDs managed by this service group (e.g., `[7, 8, 9]`).
+    *   `createdAt` (server timestamp): Creation date.
+    *   `createdBy` (string/reference): FK pointing to the Admin who created the group.
+    *(Note: Grades assigned to the group are now read inversely from the `churches` document's `grades` map. The legacy `grades` and `roles` array/maps were removed).*
 
 ---
 
@@ -274,9 +280,10 @@ Defines the timeline metadata of Sunday School terms.
 #### Document: `{yearId}` (e.g., `AY_2026`)
 *   **Fields:**
     *   `displayName` (string): The term name (e.g., `Academic Year 2026/2027`).
-    *   `startDate` (timestamp): School year start date.
-    *   `endDate` (timestamp): School year end date (optional).
+    *   `startDate` (timestamp): School year start date (Month and Year).
     *   `active` (boolean): Active year toggle.
+    *   `createdAt` (server timestamp): Creation date.
+    *   `createdBy` (string/reference): FK pointing to the Admin who created the term.
 
 ---
 
