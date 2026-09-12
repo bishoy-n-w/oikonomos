@@ -253,9 +253,19 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
                                               ),
                                             ),
                                             DataCell(
-                                              IconButton(
-                                                icon: const Icon(Icons.edit_outlined),
-                                                onPressed: isGlobalAdmin ? () => _showEditChurchDialog(context, doc, user.uid) : null,
+                                              Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  IconButton(
+                                                    icon: const Icon(Icons.edit_outlined),
+                                                    onPressed: isGlobalAdmin ? () => _showEditChurchDialog(context, doc, user.uid) : null,
+                                                  ),
+                                                  IconButton(
+                                                    icon: const Icon(Icons.delete_outline),
+                                                    color: colorScheme.error,
+                                                    onPressed: isGlobalAdmin ? () => _deleteChurch(context, doc) : null,
+                                                  ),
+                                                ],
                                               ),
                                             ),
                                           ],
@@ -849,6 +859,30 @@ class _ChurchesScreenState extends State<ChurchesScreen> {
 
       await batch.commit();
     } catch (_) {}
+  }
+
+  Future<void> _deleteChurch(BuildContext context, DocumentSnapshot<Map<String, dynamic>> doc) async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Delete Church?'),
+            content: Text('Are you sure you want to delete "${doc.id}"? This will delete the church tenant. This action is permanent.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (confirmed) {
+      await doc.reference.delete();
+      _showSnack('Church successfully deleted.');
+    }
   }
 
   void _showSnack(String message) {

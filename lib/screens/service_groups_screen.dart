@@ -350,9 +350,19 @@ class _ServiceGroupsScreenState extends State<ServiceGroupsScreen> {
                                               ),
                                             ),
                                             DataCell(
-                                              IconButton(
-                                                icon: const Icon(Icons.edit_outlined),
-                                                onPressed: isAdmin ? () => _showEditGroupDialog(context, doc) : null,
+                                              Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  IconButton(
+                                                    icon: const Icon(Icons.edit_outlined),
+                                                    onPressed: isAdmin ? () => _showEditGroupDialog(context, doc) : null,
+                                                  ),
+                                                  IconButton(
+                                                    icon: const Icon(Icons.delete_outline),
+                                                    color: colorScheme.error,
+                                                    onPressed: isAdmin ? () => _deleteGroup(context, doc) : null,
+                                                  ),
+                                                ],
                                               ),
                                             ),
                                           ],
@@ -661,6 +671,30 @@ class _ServiceGroupsScreenState extends State<ServiceGroupsScreen> {
         },
       ),
     );
+  }
+
+  Future<void> _deleteGroup(BuildContext context, DocumentSnapshot<Map<String, dynamic>> doc) async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Delete Service Group?'),
+            content: Text('Are you sure you want to delete "${doc.id}"? This will delete the service group. This action is permanent.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (confirmed) {
+      await doc.reference.delete();
+      _showSnack('Service Group successfully deleted.');
+    }
   }
 
   void _showSnack(String message) {
