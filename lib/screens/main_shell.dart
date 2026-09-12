@@ -662,6 +662,7 @@ class _MainShellState extends State<MainShell> {
           color: colorScheme.primaryContainer,
           onColor: colorScheme.onPrimaryContainer,
           enabled: isChurchEnabled,
+          allowAll: false, // Disallow selecting "All Churches"
         ),
         const SizedBox(width: 8),
         _buildDropdown(
@@ -705,6 +706,7 @@ class _MainShellState extends State<MainShell> {
     required Color color,
     required Color onColor,
     bool enabled = true,
+    bool allowAll = true,
   }) {
     final isDisabled = items.isEmpty || !enabled;
 
@@ -736,7 +738,7 @@ class _MainShellState extends State<MainShell> {
                 child: Text('None'),
               )
           ] : [
-            if (items.length > 0)
+            if (items.length > 0 && allowAll)
               const DropdownMenuItem<String?>(
                 value: null,
                 child: Text('All'),
