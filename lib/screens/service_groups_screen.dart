@@ -424,6 +424,13 @@ class _ServiceGroupsScreenState extends State<ServiceGroupsScreen> {
     final nameCtrl = TextEditingController(text: data['displayName']);
     bool isActive = data['active'] ?? true;
 
+    // Load full names to display on chips instead of raw email keys!
+    final mistersSnap = await _churchesRef.doc(widget.churchId).collection('misters').get();
+    final Map<String, String> emailToName = {};
+    for (final d in mistersSnap.docs) {
+      emailToName[d.id] = d.data()['displayName'] ?? d.id;
+    }
+
     final Map<String, String> localMisters = Map<String, String>.from(data['misters'] ?? {});
 
     final formKey = GlobalKey<FormState>();
@@ -474,8 +481,9 @@ class _ServiceGroupsScreenState extends State<ServiceGroupsScreen> {
                         spacing: 8,
                         runSpacing: 8,
                         children: admins.map((email) {
+                          final displayName = emailToName[email] ?? email;
                           return Chip(
-                            label: Text(email),
+                            label: Text(displayName),
                             deleteIcon: const Icon(Icons.close, size: 14),
                             onDeleted: () => setModalState(() => localMisters.remove(email)),
                           );
@@ -497,8 +505,9 @@ class _ServiceGroupsScreenState extends State<ServiceGroupsScreen> {
                         spacing: 8,
                         runSpacing: 8,
                         children: servants.map((email) {
+                          final displayName = emailToName[email] ?? email;
                           return Chip(
-                            label: Text(email),
+                            label: Text(displayName),
                             deleteIcon: const Icon(Icons.close, size: 14),
                             onDeleted: () => setModalState(() => localMisters.remove(email)),
                           );
@@ -546,6 +555,7 @@ class _ServiceGroupsScreenState extends State<ServiceGroupsScreen> {
     final groupsSnap = await _groupsRef.get();
     final allGroups = groupsSnap.docs;
 
+    // Resolve mappings for search queries
     final Map<String, List<String>> servantGroupNames = {};
     for (final group in allGroups) {
       final mData = group.data()['misters'] as Map<String, dynamic>? ?? {};
@@ -609,15 +619,15 @@ class _ServiceGroupsScreenState extends State<ServiceGroupsScreen> {
                         final name = m.data()['displayName'] ?? email;
                         final groupsAssigned = servantGroupNames[email] ?? [];
 
-                        final isAlreadyInThisGroup = currentMisters.containsKey(email);
-                        final isSelected = selectedEmails.contains(email) || isAlreadyInThisGroup;
+                        final hasThisRole = currentMisters[email] == targetRole;
+                        final isSelected = selectedEmails.contains(email) || hasThisRole;
 
                         return CheckboxListTile(
                           dense: true,
                           title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
                           subtitle: Text('Email: $email  •  Groups: ${groupsAssigned.isEmpty ? "None" : groupsAssigned.join(", ")}'),
                           value: isSelected,
-                          onChanged: isAlreadyInThisGroup ? null : (val) {
+                          onChanged: hasThisRole ? null : (val) {
                             setModalState(() {
                               if (val == true) {
                                 selectedEmails.add(email);
