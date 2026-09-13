@@ -649,7 +649,7 @@ class _MainShellState extends State<MainShell> {
     final isChurchEnabled = !isChurchesView;
     final isYearEnabled = !isChurchesView && !isServiceGroupsView;
     final isGroupEnabled = !isChurchesView && !isServiceGroupsView;
-    final isClassEnabled = !isChurchesView && !isServiceGroupsView;
+    final isClassEnabled = !isChurchesView && !isServiceGroupsView && _selectedIndex != 4;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -671,9 +671,11 @@ class _MainShellState extends State<MainShell> {
           value: _filterController.selectedAcademicYearId,
           items: _filterController.academicYears,
           onChanged: _filterController.setAcademicYear,
-          color: colorScheme.secondaryContainer,
-          onColor: colorScheme.onSecondaryContainer,
+          color: colorScheme.secondary,
+          onColor: colorScheme.onSecondary,
           enabled: isYearEnabled,
+          allowAll: false, // Disallow selecting "All Terms"
+          isMedium: true, // Academic Year is 2nd in size and prominence!
         ),
         const SizedBox(width: 8),
         _buildDropdown(
@@ -709,10 +711,11 @@ class _MainShellState extends State<MainShell> {
     bool enabled = true,
     bool allowAll = true,
     bool isProminent = false,
+    bool isMedium = false,
   }) {
     final isDisabled = items.isEmpty || !enabled;
 
-    // Distinct styles for Churches dropdown vs others
+    // Distinct shapes for Church (1st/Largest), Academic Year (2nd/Medium), and others (Pills)
     final borderRadius = isProminent
         ? const BorderRadius.only(
             topLeft: Radius.circular(16),
@@ -720,16 +723,27 @@ class _MainShellState extends State<MainShell> {
             topRight: Radius.circular(4),
             bottomLeft: Radius.circular(4),
           )
-        : BorderRadius.circular(20);
+        : isMedium
+            ? const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                bottomRight: Radius.circular(12),
+                topRight: Radius.circular(4),
+                bottomLeft: Radius.circular(4),
+              )
+            : BorderRadius.circular(20);
 
-    final double horizontalPadding = isProminent ? 18 : 12;
-    final double verticalPadding = isProminent ? 6 : 0;
-    final double iconSize = isProminent ? 18 : 16;
-    final double fontSize = isProminent ? 14 : 13;
-    final fontWeight = isProminent ? FontWeight.w800 : FontWeight.bold;
+    final double horizontalPadding = isProminent ? 18 : (isMedium ? 15 : 12);
+    final double verticalPadding = isProminent ? 6 : (isMedium ? 3 : 0);
+    final double iconSize = isProminent ? 18 : (isMedium ? 17 : 16);
+    final double fontSize = isProminent ? 14 : (isMedium ? 13.5 : 13);
+    final fontWeight = isProminent ? FontWeight.w800 : (isMedium ? FontWeight.w700 : FontWeight.bold);
 
-    // Solid opaque background for prominent selector, soft transluscent for other cascading controls
-    final boxColor = isProminent ? color.withOpacity(1.0) : color.withOpacity(0.3);
+    // Dynamic backgrounds: Solid Primary for Church, Medium transluscent for Academic Year, Soft translucent for Pills
+    final boxColor = isProminent 
+        ? color.withOpacity(1.0) 
+        : isMedium 
+            ? color.withOpacity(0.6) 
+            : color.withOpacity(0.3);
 
     return Opacity(
       opacity: enabled ? 1.0 : 0.4,
@@ -742,13 +756,15 @@ class _MainShellState extends State<MainShell> {
             borderRadius: borderRadius,
             border: isProminent 
                 ? Border.all(color: onColor.withOpacity(0.4), width: 1.5)
-                : null,
-            boxShadow: isProminent
+                : isMedium
+                    ? Border.all(color: onColor.withOpacity(0.3), width: 1.0)
+                    : null,
+            boxShadow: isProminent || isMedium
                 ? [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.12),
-                      blurRadius: 6,
-                      offset: const Offset(0, 3),
+                      color: Colors.black.withOpacity(isProminent ? 0.12 : 0.08),
+                      blurRadius: isProminent ? 6 : 4,
+                      offset: Offset(0, isProminent ? 3 : 1.5),
                     )
                   ]
                 : null,
@@ -797,7 +813,7 @@ class _MainShellState extends State<MainShell> {
     final isChurchEnabled = !isChurchesView;
     final isYearEnabled = !isChurchesView && !isServiceGroupsView;
     final isGroupEnabled = !isChurchesView && !isServiceGroupsView;
-    final isClassEnabled = !isChurchesView && !isServiceGroupsView;
+    final isClassEnabled = !isChurchesView && !isServiceGroupsView && _selectedIndex != 4;
 
     showModalBottomSheet(
       context: context,

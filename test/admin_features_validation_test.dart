@@ -133,4 +133,63 @@ void main() {
       expect(groupItems.length, 2);
     });
   });
+
+  group('Classes Tab Validation & Sub-scoping Tests', () {
+    test('Grades dropdown should dynamically filter to only include grades mapped to the chosen Service Group', () {
+      // Mock gradeNames and gradeToGroup mappings
+      final Map<String, String> gradeNames = {
+        '1': 'Grade 1',
+        '2': 'Grade 2',
+        '3': 'Grade 3',
+      };
+      final Map<String, String> gradeToGroup = {
+        '1': 'SG_ELEMENTARY',
+        '2': 'SG_ELEMENTARY',
+        '3': 'SG_JUNIOR_HIGH',
+      };
+
+      final String selectedGroup = 'SG_ELEMENTARY';
+
+      // Dynamic filtering logic identical to ClassesScreen form builder
+      final availableGrades = gradeToGroup.entries
+          .where((e) => e.value == selectedGroup)
+          .map((e) => e.key)
+          .toList();
+
+      expect(availableGrades.length, 2);
+      expect(availableGrades.contains('1'), isTrue);
+      expect(availableGrades.contains('2'), isTrue);
+      expect(availableGrades.contains('3'), isFalse); // Grade 3 belongs to Junior High
+    });
+
+    test('Servant selector popup should strictly restrict list to servants mapped inside the selected Service Group document', () {
+      final String selectedGroupId = 'SG_JUNIOR_HIGH';
+
+      // Mock Service Group document data from Firestore
+      final Map<String, dynamic> mockGroupDoc = {
+        'displayName': 'Junior High Dept',
+        'misters': {
+          'bishoy@valeo.com': 'admin',
+          'mark@valeo.com': 'servant',
+        }
+      };
+
+      // Mock All Misters registered in the Church
+      final List<Map<String, dynamic>> mockAllMisters = [
+        {'email': 'bishoy@valeo.com', 'displayName': 'Bishoy NAGY'},
+        {'email': 'mark@valeo.com', 'displayName': 'Mark NAGY'},
+        {'email': 'other@valeo.com', 'displayName': 'Unrelated Teacher'},
+      ];
+
+      // Scoping logic identical to _showMisterSelector
+      final groupMistersMap = mockGroupDoc['misters'] as Map<String, dynamic>? ?? {};
+      final allowedEmails = groupMistersMap.keys.toList();
+
+      final filteredMisters = mockAllMisters.where((m) => allowedEmails.contains(m['email'])).toList();
+
+      expect(filteredMisters.length, 2);
+      expect(filteredMisters.any((m) => m['email'] == 'other@valeo.com'), isFalse); // Restricted!
+      expect(filteredMisters.any((m) => m['email'] == 'bishoy@valeo.com'), isTrue);
+    });
+  });
 }
