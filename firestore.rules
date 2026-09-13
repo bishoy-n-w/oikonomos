@@ -75,12 +75,21 @@ service cloud.firestore {
 
       // Misters (Teachers/Servants, locked by Email Key)
       match /misters/{misterEmail} {
-        // A servant can read other servants. Only church admins can write.
+        // A servant can read other servants.
         allow read: if isChurchServant(churchId);
-        
-        // Allow write if the database is in Setup Mode (no lock), or if the user is a Church Admin.
-        allow write: if (request.auth != null && !exists(/databases/$(database)/documents/global_admins/_lock)) ||
-                      isChurchAdmin(churchId);
+
+        // Allow create or delete if setup mode, or if Church Admin
+        allow create, delete: if (request.auth != null && !exists(/databases/$(database)/documents/global_admins/_lock)) ||
+                              isChurchAdmin(churchId);
+
+        // Allow update if setup mode, Church Admin, OR if a servant is updating strictly their OWN personalInfo map only!
+        allow update: if (request.auth != null && !exists(/databases/$(database)/documents/global_admins/_lock)) ||
+                      isChurchAdmin(churchId) ||
+                      (
+                        isAuthenticated() && 
+                        misterEmail == request.auth.token.email && 
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['personalInfo'])
+                      );
       }
       
       // Kids Directory (PII)

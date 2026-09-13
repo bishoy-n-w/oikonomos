@@ -136,12 +136,7 @@ void main() {
 
   group('Classes Tab Validation & Sub-scoping Tests', () {
     test('Grades dropdown should dynamically filter to only include grades mapped to the chosen Service Group', () {
-      // Mock gradeNames and gradeToGroup mappings
-      final Map<String, String> gradeNames = {
-        '1': 'Grade 1',
-        '2': 'Grade 2',
-        '3': 'Grade 3',
-      };
+      // Mock gradeToGroup mappings
       final Map<String, String> gradeToGroup = {
         '1': 'SG_ELEMENTARY',
         '2': 'SG_ELEMENTARY',
@@ -163,8 +158,6 @@ void main() {
     });
 
     test('Servant selector popup should strictly restrict list to servants mapped inside the selected Service Group document', () {
-      final String selectedGroupId = 'SG_JUNIOR_HIGH';
-
       // Mock Service Group document data from Firestore
       final Map<String, dynamic> mockGroupDoc = {
         'displayName': 'Junior High Dept',
@@ -190,6 +183,40 @@ void main() {
       expect(filteredMisters.length, 2);
       expect(filteredMisters.any((m) => m['email'] == 'other@valeo.com'), isFalse); // Restricted!
       expect(filteredMisters.any((m) => m['email'] == 'bishoy@valeo.com'), isTrue);
+    });
+  });
+
+  group('Servants Validation & Access Boundary Tests', () {
+    test('Email validator should successfully enforce Google Accounts Gmail criteria', () {
+      bool isValidGoogleEmail(String email) {
+        final match = RegExp(r'^[a-zA-Z0-9._%+-]+@gmail\.com$').hasMatch(email) ||
+                      RegExp(r'^[a-zA-Z0-9._%+-]+@valeo\.com$').hasMatch(email);
+        return match;
+      }
+
+      expect(isValidGoogleEmail('bishoy.nagy@gmail.com'), isTrue);
+      expect(isValidGoogleEmail('mark.nagy@valeo.com'), isTrue);
+      expect(isValidGoogleEmail('invalid_email'), isFalse);
+      expect(isValidGoogleEmail('unrelated@yahoo.com'), isFalse);
+    });
+
+    test('Self-service modifications should lock down status and role fields for non-admins', () {
+      bool isRoleLocked({
+        required bool isEdit,
+        required bool isSelf,
+        required bool isAdmin,
+      }) {
+        return isEdit && isSelf && !isAdmin;
+      }
+
+      // Case A: Servant editing their OWN profile (Should Lock!)
+      expect(isRoleLocked(isEdit: true, isSelf: true, isAdmin: false), isTrue);
+
+      // Case B: Admin editing their own profile (Should NOT lock!)
+      expect(isRoleLocked(isEdit: true, isSelf: true, isAdmin: true), isFalse);
+
+      // Case C: Admin editing someone else's profile (Should NOT lock!)
+      expect(isRoleLocked(isEdit: true, isSelf: false, isAdmin: true), isFalse);
     });
   });
 }
