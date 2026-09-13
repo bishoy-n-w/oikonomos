@@ -97,314 +97,305 @@ class _ClassesScreenState extends State<ClassesScreen> {
       );
     }
 
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: _churchesRef.doc(widget.churchId).collection('academicYears').doc(widget.academicYearId).snapshots(),
-      builder: (context, activeYearSnapshot) {
-        final activeYearData = activeYearSnapshot.data?.data() ?? {};
-        final isYearActiveInDb = activeYearData['active'] ?? false;
+    final isAddEnabled = isAdmin;
 
-        // Button should be fully dimmed and disabled if selected academic year is NOT active!
-        final isAddEnabled = isAdmin && isYearActiveInDb;
-
-        return Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 1. Title & Header Action
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // 1. Title & Header Action
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    AppTranslation.translate('classes', lang),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 28),
-                  ),
-                  Opacity(
-                    opacity: isAddEnabled ? 1.0 : 0.4,
-                    child: IgnorePointer(
-                      ignoring: !isAddEnabled,
-                      child: FilledButton.icon(
-                        onPressed: () => _showCreateEditClassDialog(context, null),
-                        icon: const Icon(Icons.add),
-                        label: const Text('Create Class'),
-                      ),
-                    ),
-                  ),
-                ],
+              Text(
+                AppTranslation.translate('classes', lang),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 28),
               ),
-              const SizedBox(height: 24),
-
-              // 2. DataTable list View
-              Expanded(
-                child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                  stream: _ref.snapshots(),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasError) {
-                      return Center(child: Text('Database Error: ${snapshot.error}'));
-                    }
-                    if (!snapshot.hasData) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-
-                    final classDocs = snapshot.data!.docs;
-                    final List<Map<String, dynamic>> flattenedClasses = [];
-
-                    for (final doc in classDocs) {
-                      final data = doc.data();
-                      final active = data['active'] ?? true;
-                      final yearsMap = data['academicYears'] as Map<String, dynamic>? ?? {};
-
-                      // Read only the years map configured for the current selected Academic Year in the top filter!
-                      if (widget.academicYearId.isNotEmpty && yearsMap.containsKey(widget.academicYearId)) {
-                        final yearData = yearsMap[widget.academicYearId] as Map<String, dynamic>;
-                        final sGroupId = yearData['serviceGroupId']?.toString() ?? '';
-                        final gradeId = yearData['gradeId']?.toString() ?? '';
-                        final name = yearData['name']?.toString() ?? doc.id;
-
-                        // Apply Top-Level Service Group filter
-                        if (widget.serviceGroupId.isNotEmpty && sGroupId != widget.serviceGroupId) {
-                          continue;
-                        }
-
-                        // Apply Local Status Filter
-                        if (_statusFilter == 'Active' && !active) continue;
-                        if (_statusFilter == 'Inactive' && active) continue;
-
-                        // Apply Local Column Headers Matrix filters
-                        if (_selectedGroupFilter != null && sGroupId != _selectedGroupFilter) continue;
-                        if (_selectedGradeFilter != null && gradeId != _selectedGradeFilter) continue;
-
-                        // Apply Local Search Filter by Class Name
-                        if (_searchQuery.isNotEmpty && !name.toLowerCase().contains(_searchQuery)) {
-                          continue;
-                        }
-
-                        flattenedClasses.add({
-                          'doc': doc,
-                          'yearData': yearData,
-                          'active': active,
-                          'name': name,
-                          'serviceGroupId': sGroupId,
-                          'gradeId': gradeId,
-                        });
-                      }
-                    }
-
-                    // Dynamically gather unique options for column header filters list
-                    final List<String> uniqueGroupsInTable = [];
-                    final List<String> uniqueGradesInTable = [];
-
-                    for (final item in flattenedClasses) {
-                      final gId = item['serviceGroupId'] as String;
-                      final grId = item['gradeId'] as String;
-
-                      if (gId.isNotEmpty && !uniqueGroupsInTable.contains(gId)) {
-                        uniqueGroupsInTable.add(gId);
-                      }
-                      if (grId.isNotEmpty && !uniqueGradesInTable.contains(grId)) {
-                        uniqueGradesInTable.add(grId);
-                      }
-                    }
-
-                    return Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: colorScheme.outlineVariant),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.vertical,
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              minWidth: MediaQuery.of(context).size.width - 200,
-                            ),
-                            child: Directionality(
-                              textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
-                              child: DataTable(
-                                headingTextStyle: const TextStyle(fontWeight: FontWeight.bold),
-                                columns: [
-                                  // Column 1: Status Filter
-                                  DataColumn(
-                                    label: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Text('Status'),
-                                        PopupMenuButton<String>(
-                                          icon: const Icon(Icons.filter_list, size: 16),
-                                          tooltip: 'Filter Status',
-                                          onSelected: (val) {
-                                            setState(() {
-                                              _statusFilter = val;
-                                            });
-                                          },
-                                          itemBuilder: (context) => [
-                                            const PopupMenuItem(value: 'All', child: Text('All Statuses')),
-                                            const PopupMenuItem(value: 'Active', child: Text('Active Only')),
-                                            const PopupMenuItem(value: 'Inactive', child: Text('Inactive Only')),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  // Column 2: Class Name Filter (Inline Search)
-                                  DataColumn(
-                                    label: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Text('Class Name'),
-                                        const SizedBox(width: 4),
-                                        SizedBox(
-                                          width: 130,
-                                          child: TextField(
-                                            decoration: const InputDecoration(
-                                              hintText: 'Search...',
-                                              border: InputBorder.none,
-                                              isDense: true,
-                                              contentPadding: EdgeInsets.zero,
-                                            ),
-                                            style: const TextStyle(fontSize: 12),
-                                            onChanged: (val) {
-                                              setState(() {
-                                                _searchQuery = val.toLowerCase().trim();
-                                              });
-                                            },
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  // Column 3: Service Group Filter (Header Matrix Dropdown)
-                                  DataColumn(
-                                    label: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Text('Service Group'),
-                                        PopupMenuButton<String?>(
-                                          icon: const Icon(Icons.filter_list, size: 16),
-                                          tooltip: 'Filter Group',
-                                          onSelected: (val) {
-                                            setState(() {
-                                              _selectedGroupFilter = val;
-                                            });
-                                          },
-                                          itemBuilder: (context) => [
-                                            const PopupMenuItem<String?>(value: null, child: Text('All Groups')),
-                                            ...uniqueGroupsInTable.map((id) => PopupMenuItem<String?>(value: id, child: Text(_groupNames[id] ?? id))),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  // Column 4: Grade Filter (Header Matrix Dropdown)
-                                  DataColumn(
-                                    label: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Text('Grade Level'),
-                                        PopupMenuButton<String?>(
-                                          icon: const Icon(Icons.filter_list, size: 16),
-                                          tooltip: 'Filter Grade',
-                                          onSelected: (val) {
-                                            setState(() {
-                                              _selectedGradeFilter = val;
-                                            });
-                                          },
-                                          itemBuilder: (context) => [
-                                            const PopupMenuItem<String?>(value: null, child: Text('All Grades')),
-                                            ...uniqueGradesInTable.map((id) => PopupMenuItem<String?>(value: id, child: Text(_gradeNames[id] ?? id))),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const DataColumn(label: Text('Enrolled Kids')),
-                                  const DataColumn(label: Text('Assigned Servants')),
-                                  const DataColumn(label: Text('Actions')),
-                                ],
-                                rows: flattenedClasses.map((item) {
-                                  final DocumentSnapshot<Map<String, dynamic>> doc = item['doc'];
-                                  final Map<String, dynamic> yearData = item['yearData'];
-                                  final bool active = item['active'];
-                                  final String className = item['name'];
-                                  final String sGroupId = item['serviceGroupId'];
-                                  final String gradeId = item['gradeId'];
-
-                                  final kidsList = List.from(yearData['KidIds'] ?? []);
-                                  final mistersList = List.from(yearData['MistersIds'] ?? []);
-
-                                  return DataRow(
-                                    cells: [
-                                      DataCell(
-                                        Icon(
-                                          active ? Icons.check_circle : Icons.cancel,
-                                          color: active ? Colors.green : Colors.red,
-                                        ),
-                                      ),
-                                      DataCell(Text(className, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                      DataCell(Text(_groupNames[sGroupId] ?? sGroupId)),
-                                      DataCell(
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: colorScheme.tertiaryContainer,
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                          child: Text(
-                                            _gradeNames[gradeId] ?? gradeId,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                              color: colorScheme.onTertiaryContainer,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      DataCell(Text('${kidsList.length} Kids')),
-                                      DataCell(Text('${mistersList.length} Servants')),
-                                      DataCell(
-                                        Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            if (isAdmin) ...[
-                                              IconButton(
-                                                icon: const Icon(Icons.edit_outlined, size: 18),
-                                                tooltip: 'Edit Class',
-                                                onPressed: () => _showCreateEditClassDialog(context, doc),
-                                              ),
-                                              IconButton(
-                                                icon: const Icon(Icons.delete_outline, size: 18),
-                                                color: colorScheme.error,
-                                                tooltip: 'Delete Class',
-                                                onPressed: () => _deleteClass(doc),
-                                              ),
-                                            ] else ...[
-                                              const Tooltip(
-                                                message: 'Read Only',
-                                                child: Icon(Icons.lock_outline, size: 16, color: Colors.grey),
-                                              )
-                                            ]
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
+              Opacity(
+                opacity: isAddEnabled ? 1.0 : 0.4,
+                child: IgnorePointer(
+                  ignoring: !isAddEnabled,
+                  child: FilledButton.icon(
+                    onPressed: () => _showCreateEditClassDialog(context, null),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Create Class'),
+                  ),
                 ),
               ),
             ],
           ),
-        );
-      },
+          const SizedBox(height: 24),
+
+          // 2. DataTable list View
+          Expanded(
+            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: _ref.snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(child: Text('Database Error: ${snapshot.error}'));
+                }
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final classDocs = snapshot.data!.docs;
+                final List<Map<String, dynamic>> flattenedClasses = [];
+
+                for (final doc in classDocs) {
+                  final data = doc.data();
+                  final active = data['active'] ?? true;
+                  final yearsMap = data['academicYears'] as Map<String, dynamic>? ?? {};
+
+                  // Read only the years map configured for the current selected Academic Year in the top filter!
+                  if (widget.academicYearId.isNotEmpty && yearsMap.containsKey(widget.academicYearId)) {
+                    final yearData = yearsMap[widget.academicYearId] as Map<String, dynamic>;
+                    final sGroupId = yearData['serviceGroupId']?.toString() ?? '';
+                    final gradeId = yearData['gradeId']?.toString() ?? '';
+                    final name = yearData['name']?.toString() ?? doc.id;
+
+                    // Apply Top-Level Service Group filter
+                    if (widget.serviceGroupId.isNotEmpty && sGroupId != widget.serviceGroupId) {
+                      continue;
+                    }
+
+                    // Apply Local Status Filter
+                    if (_statusFilter == 'Active' && !active) continue;
+                    if (_statusFilter == 'Inactive' && active) continue;
+
+                    // Apply Local Column Headers Matrix filters
+                    if (_selectedGroupFilter != null && sGroupId != _selectedGroupFilter) continue;
+                    if (_selectedGradeFilter != null && gradeId != _selectedGradeFilter) continue;
+
+                    // Apply Local Search Filter by Class Name
+                    if (_searchQuery.isNotEmpty && !name.toLowerCase().contains(_searchQuery)) {
+                      continue;
+                    }
+
+                    flattenedClasses.add({
+                      'doc': doc,
+                      'yearData': yearData,
+                      'active': active,
+                      'name': name,
+                      'serviceGroupId': sGroupId,
+                      'gradeId': gradeId,
+                    });
+                  }
+                }
+
+                // Dynamically gather unique options for column header filters list
+                final List<String> uniqueGroupsInTable = [];
+                final List<String> uniqueGradesInTable = [];
+
+                for (final item in flattenedClasses) {
+                  final gId = item['serviceGroupId'] as String;
+                  final grId = item['gradeId'] as String;
+
+                  if (gId.isNotEmpty && !uniqueGroupsInTable.contains(gId)) {
+                    uniqueGroupsInTable.add(gId);
+                  }
+                  if (grId.isNotEmpty && !uniqueGradesInTable.contains(grId)) {
+                    uniqueGradesInTable.add(grId);
+                  }
+                }
+
+                return Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: colorScheme.outlineVariant),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.vertical,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minWidth: MediaQuery.of(context).size.width - 200,
+                        ),
+                        child: Directionality(
+                          textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+                          child: DataTable(
+                            headingTextStyle: const TextStyle(fontWeight: FontWeight.bold),
+                            columns: [
+                              // Column 1: Status Filter
+                              DataColumn(
+                                label: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text('Status'),
+                                    PopupMenuButton<String>(
+                                      icon: const Icon(Icons.filter_list, size: 16),
+                                      tooltip: 'Filter Status',
+                                      onSelected: (val) {
+                                        setState(() {
+                                          _statusFilter = val;
+                                        });
+                                      },
+                                      itemBuilder: (context) => [
+                                        const PopupMenuItem(value: 'All', child: Text('All Statuses')),
+                                        const PopupMenuItem(value: 'Active', child: Text('Active Only')),
+                                        const PopupMenuItem(value: 'Inactive', child: Text('Inactive Only')),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // Column 2: Class Name Filter (Inline Search)
+                              DataColumn(
+                                label: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text('Class Name'),
+                                    const SizedBox(width: 4),
+                                    SizedBox(
+                                      width: 130,
+                                      child: TextField(
+                                        decoration: const InputDecoration(
+                                          hintText: 'Search...',
+                                          border: InputBorder.none,
+                                          isDense: true,
+                                          contentPadding: EdgeInsets.zero,
+                                        ),
+                                        style: const TextStyle(fontSize: 12),
+                                        onChanged: (val) {
+                                          setState(() {
+                                            _searchQuery = val.toLowerCase().trim();
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // Column 3: Service Group Filter (Header Matrix Dropdown)
+                              DataColumn(
+                                label: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text('Service Group'),
+                                    PopupMenuButton<String?>(
+                                      icon: const Icon(Icons.filter_list, size: 16),
+                                      tooltip: 'Filter Group',
+                                      onSelected: (val) {
+                                        setState(() {
+                                          _selectedGroupFilter = val;
+                                        });
+                                      },
+                                      itemBuilder: (context) => [
+                                        const PopupMenuItem<String?>(value: null, child: Text('All Groups')),
+                                        ...uniqueGroupsInTable.map((id) => PopupMenuItem<String?>(value: id, child: Text(_groupNames[id] ?? id))),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // Column 4: Grade Filter (Header Matrix Dropdown)
+                              DataColumn(
+                                label: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text('Grade Level'),
+                                    PopupMenuButton<String?>(
+                                      icon: const Icon(Icons.filter_list, size: 16),
+                                      tooltip: 'Filter Grade',
+                                      onSelected: (val) {
+                                        setState(() {
+                                          _selectedGradeFilter = val;
+                                        });
+                                      },
+                                      itemBuilder: (context) => [
+                                        const PopupMenuItem<String?>(value: null, child: Text('All Grades')),
+                                        ...uniqueGradesInTable.map((id) => PopupMenuItem<String?>(value: id, child: Text(_gradeNames[id] ?? id))),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const DataColumn(label: Text('Enrolled Kids')),
+                              const DataColumn(label: Text('Assigned Servants')),
+                              const DataColumn(label: Text('Actions')),
+                            ],
+                            rows: flattenedClasses.map((item) {
+                              final DocumentSnapshot<Map<String, dynamic>> doc = item['doc'];
+                              final Map<String, dynamic> yearData = item['yearData'];
+                              final bool active = item['active'];
+                              final String className = item['name'];
+                              final String sGroupId = item['serviceGroupId'];
+                              final String gradeId = item['gradeId'];
+
+                              final kidsList = List.from(yearData['KidIds'] ?? []);
+                              final mistersList = List.from(yearData['MistersIds'] ?? []);
+
+                              return DataRow(
+                                cells: [
+                                  DataCell(
+                                    Icon(
+                                      active ? Icons.check_circle : Icons.cancel,
+                                      color: active ? Colors.green : Colors.red,
+                                    ),
+                                  ),
+                                  DataCell(Text(className, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                  DataCell(Text(_groupNames[sGroupId] ?? sGroupId)),
+                                  DataCell(
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: colorScheme.tertiaryContainer,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        _gradeNames[gradeId] ?? gradeId,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: colorScheme.onTertiaryContainer,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  DataCell(Text('${kidsList.length} Kids')),
+                                  DataCell(Text('${mistersList.length} Servants')),
+                                  DataCell(
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (isAdmin) ...[
+                                          IconButton(
+                                            icon: const Icon(Icons.edit_outlined, size: 18),
+                                            tooltip: 'Edit Class',
+                                            onPressed: () => _showCreateEditClassDialog(context, doc),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.delete_outline, size: 18),
+                                            color: colorScheme.error,
+                                            tooltip: 'Delete Class',
+                                            onPressed: () => _deleteClass(doc),
+                                          ),
+                                        ] else ...[
+                                          const Tooltip(
+                                            message: 'Read Only',
+                                            child: Icon(Icons.lock_outline, size: 16, color: Colors.grey),
+                                          )
+                                        ]
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
