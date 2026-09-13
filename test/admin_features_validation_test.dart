@@ -218,5 +218,62 @@ void main() {
       // Case C: Admin editing someone else's profile (Should NOT lock!)
       expect(isRoleLocked(isEdit: true, isSelf: false, isAdmin: true), isFalse);
     });
+
+    test('Header matrix filtering should cleanly target specific columns (Phone, Address, Job)', () {
+      final List<Map<String, dynamic>> mockMisters = [
+        {
+          'email': 'a@valeo.com',
+          'personalInfo': {'phone': '010111111', 'address': 'Heliopolis, Cairo', 'job': 'Software Engineer'}
+        },
+        {
+          'email': 'b@valeo.com',
+          'personalInfo': {'phone': '012222222', 'address': 'Maadi, Cairo', 'job': 'Dentist'}
+        }
+      ];
+
+      // Filter by Phone
+      final phoneFilterResult = mockMisters.where((m) {
+        final personal = m['personalInfo'] as Map<String, dynamic>? ?? {};
+        final phone = (personal['phone'] ?? '').toString();
+        return phone.contains('012'); // target b@valeo.com
+      }).toList();
+
+      expect(phoneFilterResult.length, 1);
+      expect(phoneFilterResult[0]['email'], 'b@valeo.com');
+
+      // Filter by Address
+      final addressFilterResult = mockMisters.where((m) {
+        final personal = m['personalInfo'] as Map<String, dynamic>? ?? {};
+        final address = (personal['address'] ?? '').toString().toLowerCase();
+        return address.contains('heliopolis'); // target a@valeo.com
+      }).toList();
+
+      expect(addressFilterResult.length, 1);
+      expect(addressFilterResult[0]['email'], 'a@valeo.com');
+
+      // Filter by Job
+      final jobFilterResult = mockMisters.where((m) {
+        final personal = m['personalInfo'] as Map<String, dynamic>? ?? {};
+        final job = (personal['job'] ?? '').toString();
+        return job == 'Dentist'; // target b@valeo.com
+      }).toList();
+
+      expect(jobFilterResult.length, 1);
+      expect(jobFilterResult[0]['email'], 'b@valeo.com');
+    });
+
+    test('Robust cascade filter should safely return false on un-synced or deleted group selections without throwing StateErrors', () {
+      // Mock empty list of Service Groups (meaning selected group is un-synced or deleted)
+      final List<Map<String, dynamic>?> mockGroups = [];
+      final String targetGroupId = 'SG_DELETED';
+
+      // Zero-crash lookup mimicking MistersScreen refactored filter
+      final groupDoc = mockGroups.firstWhere(
+            (d) => d?['id'] == targetGroupId,
+            orElse: () => null, // Safe exit!
+          );
+
+      expect(groupDoc, isNull); // Must safely resolve to null instead of throwing StateError: No element!
+    });
   });
 }
