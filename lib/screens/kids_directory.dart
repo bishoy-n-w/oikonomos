@@ -787,13 +787,13 @@ class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
       'academicYears.$newYearId.KidIds': FieldValue.arrayUnion([kidId])
     });
 
-    batch.update(_ref.doc(kidId), {
+    batch.set(_ref.doc(kidId), {
       'activeAssignment': {
         'academicYearId': newYearId,
         'serviceGroupId': newGroupId,
         'classId': newClassId,
       }
-    });
+    }, SetOptions(merge: true));
   }
 
   // --- ACTIONS: BULK ASSIGN ---
@@ -928,17 +928,17 @@ class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
     final regionController = TextEditingController(text: address['region']);
 
     // Phone / Contacts sub-controllers
-    final kidMobileController = TextEditingController(text: contacts['kidMob']);
-    final fNameController = TextEditingController(text: contacts['fatherName']);
-    final fMobileController = TextEditingController(text: contacts['fatherMob']);
-    final fJobController = TextEditingController(text: contacts['fatherProfession']);
-    final mNameController = TextEditingController(text: contacts['motherName']);
-    final mMobileController = TextEditingController(text: contacts['motherMob']);
-    final mJobController = TextEditingController(text: contacts['motherProfession']);
+    final kidMobileController = TextEditingController(text: contacts['kidMob']?.toString() ?? '');
+    final fNameController = TextEditingController(text: contacts['fatherName']?.toString() ?? '');
+    final fMobileController = TextEditingController(text: contacts['fatherMob']?.toString() ?? '');
+    final fJobController = TextEditingController(text: contacts['fatherProfession']?.toString() ?? '');
+    final mNameController = TextEditingController(text: contacts['motherName']?.toString() ?? '');
+    final mMobileController = TextEditingController(text: contacts['motherMob']?.toString() ?? '');
+    final mJobController = TextEditingController(text: contacts['motherProfession']?.toString() ?? '');
     final otherMobileController = TextEditingController(
         text: (contacts['otherMob'] is List) ? (contacts['otherMob'] as List).join(', ') : (contacts['otherMob']?.toString() ?? ''));
 
-    final notesController = TextEditingController(text: data?['notes']);
+    final notesController = TextEditingController(text: data?['notes']?.toString() ?? '');
 
     // State properties
     String selectedGender = info['gender'] ?? 'M';
