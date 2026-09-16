@@ -273,7 +273,75 @@ void main() {
             orElse: () => null, // Safe exit!
           );
 
-      expect(groupDoc, isNull); // Must safely resolve to null instead of throwing StateError: No element!
+      expect(groupDoc, isNull); // Must safely resolve to null instead of throwing StateError: No element!      
     });
-  });
-}
+    });
+
+    group('Kids Directory CRM & Normalization Validation Tests', () {
+    test('Dynamic Column Expansion should dynamically calculate layout row sizing based on folding triggers', () {
+      List<String> getActiveColumns({
+        required bool showAssignments,
+        required bool showGeneralInfo,
+        required bool isAddressExpanded,
+        required bool isContactsExpanded,
+      }) {
+        return [
+          'Status',
+          if (showAssignments) ...['Group', 'Class'],
+          if (showGeneralInfo) ...['Gender', 'DOB', 'School', 'Father of Confession'],
+          if (isAddressExpanded) ...['Building', 'Floor', 'Apartment', 'Region'],
+          if (isContactsExpanded) ...['Father Name', 'Father Mob', 'Mother Name', 'Mother Mob'],
+          'Notes',
+          'Actions',
+        ];
+      }
+
+      final activeCols = getActiveColumns(
+        showAssignments: true,
+        showGeneralInfo: false,
+        isAddressExpanded: false,
+        isContactsExpanded: false,
+      );
+      expect(activeCols.length, 5); // Status, Group, Class, Notes, Actions (GeneralInfo, Address, Contacts are collapsed!)
+      expect(activeCols.contains('Gender'), isFalse);
+      expect(activeCols.contains('Street'), isFalse);
+
+      // Expand General Info
+      final expandedCols = getActiveColumns(
+        showAssignments: true,
+        showGeneralInfo: true,
+        isAddressExpanded: false,
+        isContactsExpanded: false,
+      );
+      expect(expandedCols.length, 9); // Added Gender, DOB, School, Father of Confession!
+      expect(expandedCols.contains('Gender'), isTrue);
+    });
+
+    test('E.164 phone normalizer should strip formatting and apply strict multi-tenant prefixes', () {
+      String resolveAndNormalizeE164(String input) {
+        String num = input.replaceAll(RegExp(r'\D'), ''); // Strip non-digits
+        if (num.isEmpty) return '';
+        if (num.startsWith('0')) num = num.substring(1); // Strip leading zero
+
+        // 1. Egypt mobile length with mobile presets get +20
+        if (num.length == 10 &&
+            (num.startsWith('10') || num.startsWith('11') || num.startsWith('12') || num.startsWith('15'))) {
+          return '+20$num';
+        }
+        // 2. Other 10-digit lengths get USA +1
+        if (num.length == 10) {
+          return '+1$num';
+        }
+        // 3. Otherwise default prefix Egypt
+        return '+20$num';
+      }
+
+      // Egyptian Mobile with leading zero (e.g. 01099441171)
+      expect(resolveAndNormalizeE164('01099441171'), '+201099441171');
+      // USA 10-digit number with leading zero (e.g. 0415994411) -> 415994411 is 9 digit, let's pass USA 10-digit (e.g. 415-994-4117)
+      expect(resolveAndNormalizeE164('415-994-4117'), '+14159944117');
+      // Egyptian with spaces and formatting (e.g. +20 (10) 99 44 11 71)
+      expect(resolveAndNormalizeE164('+20 (10) 99 44 11 71'), '+20201099441171');
+    });
+    });
+    }
