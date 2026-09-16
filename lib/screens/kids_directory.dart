@@ -196,6 +196,10 @@ class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
                         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
                         final docs = snapshot.data!.docs;
+                        print("=== [DEBUG] STREAM RECEIVED ${docs.length} KIDS FROM FIRESTORE ===");
+                        for (var d in docs) {
+                          print(" - Kid ID: '${d.id}', activeAssignment: ${d.data()['activeAssignment']}, active: ${d.data()['active']}");
+                        }
 
                         final filteredDocs = docs.where((doc) {
                           final data = doc.data();
@@ -1294,7 +1298,25 @@ class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
               TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
               FilledButton(
                 onPressed: () {
-                  if (formKey.currentState!.validate()) Navigator.pop(context, true);
+                  print("=== SAVE PROFILE BUTTON CLICKED ===");
+                  try {
+                    final form = formKey.currentState;
+                    if (form == null) {
+                      print("[ERROR] FormState is null inside dialog onPressed callback!");
+                      return;
+                    }
+                    final bool isValid = form.validate();
+                    print("[INFO] Form validation result: $isValid");
+                    if (isValid) {
+                      print("[INFO] Form is 100% valid, popping true!");
+                      Navigator.pop(context, true);
+                    } else {
+                      print("[WARNING] Form validation FAILED! Please inspect red field warnings in collapsed tabs.");
+                    }
+                  } catch (e, stack) {
+                    print("[EXCEPTION] Crash inside dialog onPressed callback: $e");
+                    print(stack);
+                  }
                 },
                 child: const Text('Save Profile'),
               ),
@@ -1305,6 +1327,7 @@ class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
     );
 
     if (confirmed == true) {
+      print("=== [DEBUG] CONFIRMED SAVE PAYLOAD PREPARATION ===");
       final name = nameController.text.trim();
       final user = AuthService.instance.currentUser?.uid ?? 'unknown';
 
@@ -1336,6 +1359,7 @@ class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
         'otherMob': otherMobileController.text.trim(),
       };
 
+      print("Assembling batch set operations: name='$name', user='$user', active='$isActive'");
       try {
         final firestore = FirebaseFirestore.instance;
         final batch = firestore.batch();
@@ -1381,6 +1405,11 @@ class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
 
         final Map<String, dynamic> payload = {
           'active': isActive,
+          'activeAssignment': {
+            'academicYearId': selYear,
+            'serviceGroupId': selGroup,
+            'classId': selClass,
+          },
           'info': infoMap,
           'address': addressMap,
           'contacts': contactsMap,
@@ -1393,6 +1422,7 @@ class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
         if (!isEdit) {
           final existing = await _ref.doc(name).get();
           if (existing.exists) {
+            print("[WARNING] A child with name '$name' already exists in DB!");
             _showSnack('A child with this full name is already registered!');
             return;
           }
@@ -1400,18 +1430,24 @@ class _KidsDirectoryScreenState extends State<KidsDirectoryScreen> {
           payload['createdAt'] = FieldValue.serverTimestamp() as Object;
           payload['createdBy'] = user;
 
-          batch.set(_ref.doc(name), payload);
+          print("Drafting new child set payload to '/churches/${widget.churchId}/kids/$name'...");
+          batch.set(_ref.doc(name), payload, SetOptions(merge: true));
         } else {
           payload['createdAt'] = data?['createdAt'];
           payload['createdBy'] = data?['createdBy'] ?? 'system';
 
+          print("Drafting edit merge payload to '/churches/${widget.churchId}/kids/$name'...");
           batch.set(_ref.doc(name), payload, SetOptions(merge: true));
         }
 
+        print("Executing Firestore batch commit now...");
         await batch.commit();
+        print("=== [DEBUG] FIRESTORE BATCH COMMIT SUCCESSFUL! ===");
         if (mounted) setState(() {});
         _showSnack('Profile successfully saved.');
-      } catch (e) {
+      } catch (e, stack) {
+        print("[ERROR] FIRESTORE DATA SAVE FAILED: $e");
+        print(stack);
         _showSnack('Save failed: $e');
       }
     }
