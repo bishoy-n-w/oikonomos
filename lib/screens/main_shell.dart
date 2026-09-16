@@ -149,6 +149,9 @@ class _MainShellState extends State<MainShell> {
         ),
         MistersDirectoryScreen(
           churchId: churchId,
+          academicYearId: yearId,
+          serviceGroupId: _filterController.selectedServiceGroupId ?? '',
+          classId: _filterController.selectedClassId ?? '',
           userRole: userRole,
         ),
         AttendanceTrackerScreen(

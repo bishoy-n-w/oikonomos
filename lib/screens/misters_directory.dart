@@ -1,20 +1,24 @@
 // ignore_for_file: unnecessary_underscores, deprecated_member_use, use_build_context_synchronously
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:excel/excel.dart';
 import 'package:flutter/material.dart';
-import '../widgets/phone_field.dart';
 import '../services/app_settings.dart';
 import '../services/translations.dart';
-import '../services/file_service.dart';
+import '../services/auth_service.dart';
 
 class MistersDirectoryScreen extends StatefulWidget {
   const MistersDirectoryScreen({
     required this.churchId,
+    required this.academicYearId,
+    required this.serviceGroupId,
+    required this.classId,
     required this.userRole,
     super.key,
   });
 
   final String churchId;
+  final String academicYearId;
+  final String serviceGroupId;
+  final String classId;
   final String userRole;
 
   @override
@@ -22,15 +26,18 @@ class MistersDirectoryScreen extends StatefulWidget {
 }
 
 class _MistersDirectoryScreenState extends State<MistersDirectoryScreen> {
-  final Map<String, bool> _selectedRows = {};
   String _searchQuery = '';
-  bool _selectAll = false;
+  String _statusFilter = 'All'; // 'All', 'Active', 'Inactive'
+  String? _selectedRoleFilter; // Column Header ChurchRole filter
+  String _phoneFilter = ''; // Column Header Phone filter
+  String _addressFilter = ''; // Column Header Address filter
+  String? _selectedJobFilter; // Column Header Job filter
 
-  final CollectionReference<Map<String, dynamic>> _mistersRef =
+  final CollectionReference<Map<String, dynamic>> _churchesRef =
       FirebaseFirestore.instance.collection('churches');
 
   CollectionReference<Map<String, dynamic>> get _ref =>
-      _mistersRef.doc(widget.churchId).collection('misters');
+      _churchesRef.doc(widget.churchId).collection('misters');
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +45,7 @@ class _MistersDirectoryScreenState extends State<MistersDirectoryScreen> {
     final colorScheme = theme.colorScheme;
     final lang = AppSettings.language.value;
     final isRtl = AppSettings.isRtl();
+    final isAdmin = widget.userRole == 'Admin' || widget.userRole == 'owner';
 
     if (widget.churchId.isEmpty) {
       return Center(
@@ -45,346 +53,713 @@ class _MistersDirectoryScreenState extends State<MistersDirectoryScreen> {
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: _ref.snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(child: Text('Database Error: ${snapshot.error}'));
-          }
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: _ref.snapshots(),
+      builder: (context, mistersSnapshot) {
+        if (mistersSnapshot.hasError) return Center(child: Text('Error: ${mistersSnapshot.error}'));
+        if (!mistersSnapshot.hasData) return const Center(child: CircularProgressIndicator());
 
-          final docs = snapshot.data!.docs;
-          // Filter list by search query
-          final filteredDocs = docs.where((doc) {
-            final data = doc.data();
-            final name = (data['displayName'] ?? '').toString().toLowerCase();
-            final email = doc.id.toLowerCase(); // Email is the document ID key!
-            final mobile = (data['phone'] ?? data['mobile'] ?? '').toString().toLowerCase();
-            final query = _searchQuery.toLowerCase().trim();
+        final allMisters = mistersSnapshot.data!.docs;
 
-            return name.contains(query) || email.contains(query) || mobile.contains(query);
-          }).toList();
+        // Fetch Service Groups and Classes to resolve assignments
+        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: _churchesRef.doc(widget.churchId).collection('serviceGroups').snapshots(),
+          builder: (context, groupsSnapshot) {
+            if (!groupsSnapshot.hasData) return const Center(child: CircularProgressIndicator());
+            final allGroups = groupsSnapshot.data!.docs;
 
-          final selectedCount = _selectedRows.values.where((v) => v).length;
-          final isAdmin = widget.userRole == 'Admin';
+            return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: _churchesRef.doc(widget.churchId).collection('classes').snapshots(),
+              builder: (context, classesSnapshot) {
+                if (!classesSnapshot.hasData) return const Center(child: CircularProgressIndicator());
+                final allClasses = classesSnapshot.data!.docs;
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Title & Header Actions
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    AppTranslation.translate('servants', lang),
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
+                // Resolve cross-referencing assignments for ALL misters
+                final Map<String, List<String>> misterAdminInGroups = {};
+                final Map<String, List<String>> misterServantInGroups = {};
+                final Map<String, List<String>> misterServantInClasses = {};
+
+                for (final g in allGroups) {
+                  final gName = g.data()['displayName'] ?? g.id;
+                  final mData = g.data()['misters'] as Map<String, dynamic>? ?? {};
+                  mData.forEach((email, role) {
+                    if (role == 'admin') {
+                      misterAdminInGroups.putIfAbsent(email, () => []).add(gName);
+                    } else if (role == 'servant') {
+                      misterServantInGroups.putIfAbsent(email, () => []).add(gName);
+                    }
+                  });
+                }
+
+                for (final c in allClasses) {
+                  final data = c.data();
+                  final yearsMap = data['academicYears'] as Map<String, dynamic>? ?? {};
+                  if (widget.academicYearId.isNotEmpty && yearsMap.containsKey(widget.academicYearId)) {
+                    final yrData = yearsMap[widget.academicYearId] as Map<String, dynamic>;
+                    final className = yrData['name'] ?? c.id;
+                    final mistersList = List.from(yrData['MistersIds'] ?? []);
+                    for (final email in mistersList) {
+                      misterServantInClasses.putIfAbsent(email.toString(), () => []).add(className);
+                    }
+                  }
+                }
+
+                // Dynamically gather unique options for column header filters
+                final List<String> uniqueJobsInTable = [];
+                for (final d in allMisters) {
+                  final personal = d.data()['personalInfo'] as Map<String, dynamic>? ?? {};
+                  final j = (personal['job'] ?? '').toString().trim();
+                  if (j.isNotEmpty && !uniqueJobsInTable.contains(j)) {
+                    uniqueJobsInTable.add(j);
+                  }
+                }
+
+                final filteredMisters = allMisters.where((doc) {
+                  final emailId = doc.id;
+                  final data = doc.data();
+                  final active = data['active'] ?? true;
+                  final name = (data['displayName'] ?? '').toString().toLowerCase();
+                  final churchRole = data['churchRole'] ?? 'viewer';
+
+                  // Apply local status filter
+                  if (_statusFilter == 'Active' && !active) return false;
+                  if (_statusFilter == 'Inactive' && active) return false;
+
+                  // Apply local column header role filter
+                  if (_selectedRoleFilter != null && churchRole != _selectedRoleFilter) return false;
+
+                  // Apply global top-level filters dynamically to filter rows with robust zero-crash fallbacks!
+                  if (widget.serviceGroupId.isNotEmpty) {
+                    final groupDoc = allGroups.cast<QueryDocumentSnapshot<Map<String, dynamic>>?>().firstWhere(
+                          (d) => d?.id == widget.serviceGroupId,
+                          orElse: () => null,
+                        );
+                    if (groupDoc == null) return false;
+                    final groupName = groupDoc.data()['displayName'] ?? groupDoc.id;
+
+                    final isAssignedAdmin = misterAdminInGroups[emailId]?.contains(groupName) ?? false;
+                    final isAssignedServant = misterServantInGroups[emailId]?.contains(groupName) ?? false;
+
+                    if (!isAssignedAdmin && !isAssignedServant) return false;
+                  }
+
+                  if (widget.classId.isNotEmpty) {
+                    final classDoc = allClasses.cast<QueryDocumentSnapshot<Map<String, dynamic>>?>().firstWhere(
+                          (d) => d?.id == widget.classId,
+                          orElse: () => null,
+                        );
+                    if (classDoc == null) return false;
+                    final yearsMap = classDoc.data()['academicYears'] as Map<String, dynamic>? ?? {};
+                    final yrData = yearsMap[widget.academicYearId] as Map<String, dynamic>? ?? {};
+                    final className = yrData['name'] ?? classDoc.id;
+
+                    final isAssignedInClass = misterServantInClasses[emailId]?.contains(className) ?? false;
+                    if (!isAssignedInClass) return false;
+                  }
+
+                  final personal = data['personalInfo'] as Map<String, dynamic>? ?? {};
+                  final phone = (personal['phone'] ?? '').toString();
+                  final job = (personal['job'] ?? '').toString();
+                  final address = (personal['address'] ?? '').toString();
+
+                  // Apply deep column header filtering matrix parameters
+                  if (_phoneFilter.isNotEmpty && !phone.contains(_phoneFilter.trim())) {
+                    return false;
+                  }
+                  if (_addressFilter.isNotEmpty && !address.toLowerCase().contains(_addressFilter.toLowerCase().trim())) {
+                    return false;
+                  }
+                  if (_selectedJobFilter != null && job != _selectedJobFilter) {
+                    return false;
+                  }
+
+                  // Apply local search filter by Name/Email
+                  final query = _searchQuery.toLowerCase().trim();
+                  return name.contains(query) ||
+                      emailId.contains(query) ||
+                      phone.contains(query) ||
+                      job.toLowerCase().contains(query) ||
+                      address.toLowerCase().contains(query);
+                }).toList();
+
+                return Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      OutlinedButton.icon(
-                        onPressed: () => _showImportWizard(context),
-                        icon: const Icon(Icons.file_upload_outlined),
-                        label: const Text('Import Excel / CSV'),
+                      // 1. Header Action
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            AppTranslation.translate('servants', lang),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 28),
+                          ),
+                          if (isAdmin)
+                            FilledButton.icon(
+                              onPressed: () => _showAddEditMisterDialog(context, null),
+                              icon: const Icon(Icons.add),
+                              label: const Text('Add Servant'),
+                            ),
+                        ],
                       ),
-                      FilledButton.icon(
-                        onPressed: () => _showAddEditDialog(context, null),
-                        icon: const Icon(Icons.add),
-                        label: Text(AppTranslation.translate('add', lang)),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
+                      const SizedBox(height: 24),
 
-              // Pending Join Requests Panel
-              if (isAdmin) _buildJoinRequestsPanel(context, theme, colorScheme),
-
-              // 2. Search & Bulk Actions Bar
-              Card(
-                elevation: 0,
-                color: colorScheme.surfaceContainerLow,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: colorScheme.outlineVariant),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    children: [
+                      // 2. DataTable Grid List
                       Expanded(
-                        child: TextField(
-                          decoration: InputDecoration(
-                            hintText: '${AppTranslation.translate('search', lang)}...',
-                            prefixIcon: const Icon(Icons.search, size: 20),
-                            border: InputBorder.none,
-                          ),
-                          onChanged: (text) {
-                            setState(() {
-                              _searchQuery = text;
-                            });
-                          },
-                        ),
-                      ),
-                      if (selectedCount > 0) ...[
-                        const SizedBox(width: 16),
-                        Text(
-                          '$selectedCount selected',
-                          style: TextStyle(
-                            color: colorScheme.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        FilledButton.tonalIcon(
-                          onPressed: () => _exportSelectedToCsv(filteredDocs),
-                          icon: const Icon(Icons.download, size: 18),
-                          label: const Text('Export CSV'),
-                        ),
-                        const SizedBox(width: 8),
-                        FilledButton.icon(
-                          onPressed: () => _deleteSelected(filteredDocs),
-                          icon: const Icon(Icons.delete, size: 18),
-                          label: const Text('Delete'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: colorScheme.error,
-                            foregroundColor: colorScheme.onError,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
+                        child: filteredMisters.isEmpty
+                            ? const Center(child: Text('No servants registered matching filters.'))
+                            : Card(
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: BorderSide(color: colorScheme.outlineVariant),
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.vertical,
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        minWidth: MediaQuery.of(context).size.width - 200,
+                                      ),
+                                      child: Directionality(
+                                        textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+                                        child: DataTable(
+                                          headingTextStyle: const TextStyle(fontWeight: FontWeight.bold),
+                                          columns: [
+                                            // Status Filter Header
+                                            DataColumn(
+                                              label: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Text('Status'),
+                                                  PopupMenuButton<String>(
+                                                    icon: const Icon(Icons.filter_list, size: 16),
+                                                    tooltip: 'Filter Status',
+                                                    onSelected: (val) {
+                                                      setState(() {
+                                                        _statusFilter = val;
+                                                      });
+                                                    },
+                                                    itemBuilder: (context) => [
+                                                      const PopupMenuItem(value: 'All', child: Text('All Statuses')),
+                                                      const PopupMenuItem(value: 'Active', child: Text('Active Only')),
+                                                      const PopupMenuItem(value: 'Inactive', child: Text('Inactive Only')),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            // Name Inline Search Header
+                                            DataColumn(
+                                              label: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Text('Full Name'),
+                                                  const SizedBox(width: 4),
+                                                  SizedBox(
+                                                    width: 120,
+                                                    child: TextField(
+                                                      decoration: const InputDecoration(
+                                                        hintText: 'Search...',
+                                                        border: InputBorder.none,
+                                                        isDense: true,
+                                                        contentPadding: EdgeInsets.zero,
+                                                      ),
+                                                      style: const TextStyle(fontSize: 12),
+                                                      onChanged: (val) {
+                                                        setState(() {
+                                                          _searchQuery = val;
+                                                        });
+                                                      },
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            // Church Role Filter Header
+                                            DataColumn(
+                                              label: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Text('Access Role'),
+                                                  PopupMenuButton<String?>(
+                                                    icon: const Icon(Icons.filter_list, size: 16),
+                                                    tooltip: 'Filter Role',
+                                                    onSelected: (val) {
+                                                      setState(() {
+                                                        _selectedRoleFilter = val;
+                                                      });
+                                                    },
+                                                    itemBuilder: (context) => [
+                                                      const PopupMenuItem<String?>(value: null, child: Text('All Roles')),
+                                                      const PopupMenuItem<String?>(value: 'admin', child: Text('Admin (Coordinator)')),
+                                                      const PopupMenuItem<String?>(value: 'viewer', child: Text('Viewer (Teacher)')),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const DataColumn(label: Text('Admin in Groups')),
+                                            const DataColumn(label: Text('Servant in Groups')),
+                                            const DataColumn(label: Text('Servant in Classes')),
+                                            const DataColumn(label: Text('Email (Key)')),
+                                            // Deep Header Filtering Matrix: Phone Inline Search
+                                            DataColumn(
+                                              label: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Text('Phone'),
+                                                  const SizedBox(width: 4),
+                                                  SizedBox(
+                                                    width: 100,
+                                                    child: TextField(
+                                                      decoration: const InputDecoration(
+                                                        hintText: 'Phone...',
+                                                        border: InputBorder.none,
+                                                        isDense: true,
+                                                        contentPadding: EdgeInsets.zero,
+                                                      ),
+                                                      style: const TextStyle(fontSize: 12),
+                                                      onChanged: (val) {
+                                                        setState(() {
+                                                          _phoneFilter = val;
+                                                        });
+                                                      },
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const DataColumn(label: Text('Date of Birth')),
+                                            // Deep Header Filtering Matrix: Job Dropdown Popup
+                                            DataColumn(
+                                              label: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Text('Job'),
+                                                  PopupMenuButton<String?>(
+                                                    icon: const Icon(Icons.filter_list, size: 16),
+                                                    tooltip: 'Filter Job',
+                                                    onSelected: (val) {
+                                                      setState(() {
+                                                        _selectedJobFilter = val;
+                                                      });
+                                                    },
+                                                    itemBuilder: (context) => [
+                                                      const PopupMenuItem<String?>(value: null, child: Text('All Jobs')),
+                                                      ...uniqueJobsInTable.map((j) => PopupMenuItem<String?>(value: j, child: Text(j))),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            // Deep Header Filtering Matrix: Address Inline Search
+                                            DataColumn(
+                                              label: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Text('Address'),
+                                                  const SizedBox(width: 4),
+                                                  SizedBox(
+                                                    width: 110,
+                                                    child: TextField(
+                                                      decoration: const InputDecoration(
+                                                        hintText: 'Addr...',
+                                                        border: InputBorder.none,
+                                                        isDense: true,
+                                                        contentPadding: EdgeInsets.zero,
+                                                      ),
+                                                      style: const TextStyle(fontSize: 12),
+                                                      onChanged: (val) {
+                                                        setState(() {
+                                                          _addressFilter = val;
+                                                        });
+                                                      },
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const DataColumn(label: Text('Actions')),
+                                          ],
+                                          rows: filteredMisters.map((doc) {
+                                            final emailId = doc.id;
+                                            final data = doc.data();
+                                            final active = data['active'] ?? true;
+                                            final name = data['displayName'] ?? emailId;
+                                            final churchRole = data['churchRole'] ?? 'viewer';
 
-              // 3. DataTable Grid
-              Expanded(
-                child: filteredDocs.isEmpty
-                    ? const Center(child: Text('No servants found.'))
-                    : Card(
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: colorScheme.outlineVariant),
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.vertical,
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                minWidth: MediaQuery.of(context).size.width - 200,
-                              ),
-                              child: Directionality(
-                                textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
-                                child: DataTable(
-                                  columns: [
-                                    DataColumn(
-                                      label: Row(
-                                        children: [
-                                          Checkbox(
-                                            value: _selectAll,
-                                            onChanged: (val) {
-                                              setState(() {
-                                                _selectAll = val ?? false;
-                                                for (final doc in filteredDocs) {
-                                                  _selectedRows[doc.id] = _selectAll;
-                                                }
-                                              });
-                                            },
-                                          ),
-                                          const SizedBox(width: 8),
-                                          const Text('Select All', style: TextStyle(fontWeight: FontWeight.bold)),
-                                        ],
+                                            final personal = data['personalInfo'] as Map<String, dynamic>? ?? {};
+                                            final phone = personal['phone'] ?? '';
+                                            final job = personal['job'] ?? '';
+                                            final address = personal['address'] ?? '';
+
+                                            String dobStr = '';
+                                            final dobVal = personal['dob'];
+                                            if (dobVal is Timestamp) {
+                                              final dt = dobVal.toDate();
+                                              dobStr = '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+                                            }
+
+                                            final adminGrps = misterAdminInGroups[emailId] ?? [];
+                                            final servantGrps = misterServantInGroups[emailId] ?? [];
+                                            final servantClasses = misterServantInClasses[emailId] ?? [];
+
+                                            // Access control: User can edit if Admin/Owner OR if it is their OWN profile!
+                                            final isSelf = AuthService.instance.currentUser?.email == emailId;
+                                            final hasEditAccess = isAdmin || isSelf;
+
+                                            return DataRow(
+                                              cells: [
+                                                DataCell(
+                                                  Icon(
+                                                    active ? Icons.check_circle : Icons.cancel,
+                                                    color: active ? Colors.green : Colors.red,
+                                                  ),
+                                                ),
+                                                DataCell(Text(name, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                                DataCell(Text(churchRole == 'admin' ? 'Admin' : 'Viewer')),
+                                                DataCell(
+                                                  Wrap(
+                                                    spacing: 4,
+                                                    children: adminGrps.map((g) => Chip(label: Text(g, style: const TextStyle(fontSize: 10)))).toList(),
+                                                  ),
+                                                ),
+                                                DataCell(
+                                                  Wrap(
+                                                    spacing: 4,
+                                                    children: servantGrps.map((g) => Chip(label: Text(g, style: const TextStyle(fontSize: 10)))).toList(),
+                                                  ),
+                                                ),
+                                                DataCell(
+                                                  Wrap(
+                                                    spacing: 4,
+                                                    children: servantClasses.map((c) => Chip(label: Text(c, style: const TextStyle(fontSize: 10)))).toList(),
+                                                  ),
+                                                ),
+                                                DataCell(Text(emailId)),
+                                                DataCell(Text(phone)),
+                                                DataCell(Text(dobStr)),
+                                                DataCell(Text(job)),
+                                                DataCell(Text(address)),
+                                                DataCell(
+                                                  Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      if (hasEditAccess) ...[
+                                                        IconButton(
+                                                          icon: const Icon(Icons.edit_outlined, size: 18),
+                                                          onPressed: () => _showAddEditMisterDialog(context, doc),
+                                                        ),
+                                                        if (isAdmin) // Deletion strictly restricted to Admins/Owners!
+                                                          IconButton(
+                                                            icon: const Icon(Icons.delete_outline, size: 18),
+                                                            color: colorScheme.error,
+                                                            onPressed: () => _deleteMister(context, doc),
+                                                          ),
+                                                      ] else ...[
+                                                        const Tooltip(
+                                                          message: 'Read Only',
+                                                          child: Icon(Icons.lock_outline, size: 16, color: Colors.grey),
+                                                        )
+                                                      ]
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            );
+                                          }).toList(),
+                                        ),
                                       ),
                                     ),
-                                    const DataColumn(label: Text('Full Name', style: TextStyle(fontWeight: FontWeight.bold))),
-                                    const DataColumn(label: Text('Email (Key)', style: TextStyle(fontWeight: FontWeight.bold))),
-                                    const DataColumn(label: Text('Mobile', style: TextStyle(fontWeight: FontWeight.bold))),
-                                    const DataColumn(label: Text('Access Role', style: TextStyle(fontWeight: FontWeight.bold))),
-                                    const DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
-                                    const DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
-                                  ],
-                                  rows: filteredDocs.map((doc) {
-                                    final data = doc.data();
-                                    final emailId = doc.id; // Primary Key
-                                    final displayName = data['displayName'] ?? '';
-                                    final mobile = data['phone'] ?? data['mobile'] ?? '';
-                                    final countryCode = data['countryCode'] ?? '';
-                                    final role = data['churchRole'] ?? 'Teacher';
-                                    final active = data['active'] ?? true;
-                                    final isChecked = _selectedRows[emailId] ?? false;
-
-                                    final String mobileFormatted = countryCode.isNotEmpty
-                                        ? '$countryCode $mobile'
-                                        : mobile.toString();
-
-                                    return DataRow(
-                                      selected: isChecked,
-                                      cells: [
-                                        DataCell(
-                                          Checkbox(
-                                            value: isChecked,
-                                            onChanged: (val) {
-                                              setState(() {
-                                                _selectedRows[emailId] = val ?? false;
-                                                if (!val!) _selectAll = false;
-                                              });
-                                            },
-                                          ),
-                                        ),
-                                        DataCell(Text(displayName, style: const TextStyle(fontWeight: FontWeight.bold))),
-                                        DataCell(SelectableText(emailId)),
-                                        DataCell(Text(mobileFormatted)),
-                                        DataCell(
-                                          Chip(
-                                            label: Text(role.toString().toUpperCase()),
-                                            padding: EdgeInsets.zero,
-                                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                            backgroundColor: role == 'admin'
-                                                ? colorScheme.primaryContainer
-                                                : colorScheme.surfaceVariant,
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Icon(
-                                            active ? Icons.check_circle : Icons.cancel,
-                                            color: active ? Colors.green : Colors.red,
-                                            size: 20,
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              IconButton(
-                                                icon: const Icon(Icons.edit_outlined, size: 18),
-                                                tooltip: 'Edit Servant',
-                                                onPressed: () => _showAddEditDialog(context, doc),
-                                              ),
-                                              if (isAdmin)
-                                                IconButton(
-                                                  icon: const Icon(Icons.assignment_ind_outlined, size: 18),
-                                                  color: colorScheme.primary,
-                                                  tooltip: 'Manage Roles & Assignments',
-                                                  onPressed: () => _showAssignmentDialog(context, doc),
-                                                ),
-                                              IconButton(
-                                                icon: const Icon(Icons.delete_outline, size: 18),
-                                                color: colorScheme.error,
-                                                tooltip: 'Delete Servant',
-                                                onPressed: () => _deleteSingle(context, emailId),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  }).toList(),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
-                        ),
                       ),
-              ),
-            ],
-          );
-        },
-      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 
-  // --- ACTIONS: EXPORT & DELETE ---
-
-  void _exportSelectedToCsv(List<DocumentSnapshot<Map<String, dynamic>>> docs) {
-    try {
-      final List<String> csvLines = [];
-      // CSV Headers (Unified Mobile column, no Country Code!)
-      csvLines.add('Full Name,Email,Mobile,Role,Active');
-
-      for (final doc in docs) {
-        if (_selectedRows[doc.id] == true) {
-          final data = doc.data()!;
-          final email = doc.id;
-          final name = data['displayName'] ?? '';
-          
-          final rawMobile = data['mobile'] ?? data['phone'] ?? '';
-          // Prefix with tab '\t' inside the CSV to force Excel/Sheets to preserve the leading '+'
-          final String mobile = rawMobile.toString().startsWith('+')
-              ? '\t$rawMobile'
-              : '\t+$rawMobile';
-
-          final role = data['churchRole'] ?? 'Teacher';
-          final active = data['active'] ?? true;
-
-          csvLines.add('"$name","$email","$mobile","$role","$active"');
-        }
-      }
-
-      final csvContent = csvLines.join('\n');
-      FileService.saveFile(
-        content: csvContent,
-        fileName: 'Oikonomos_Servants_Roster.csv',
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Roster exported successfully!')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('CSV Export failed: $e')),
-      );
-    }
-  }
-
-  Future<void> _showAssignmentDialog(
+  // --- ACTIONS: ADD & EDIT SERVANT POPUP DIALOG (WITH SELF-SERVICE ACCESS BOUNDS) ---
+  Future<void> _showAddEditMisterDialog(
     BuildContext context,
-    DocumentSnapshot<Map<String, dynamic>> servantDoc,
+    DocumentSnapshot<Map<String, dynamic>>? misterDoc,
   ) async {
-    final servantId = servantDoc.id;
-    final servantName = servantDoc.data()?['displayName'] ?? servantId;
+    final isEdit = misterDoc != null;
+    final emailId = misterDoc?.id ?? '';
+    final data = misterDoc?.data() ?? {};
+    final personal = data['personalInfo'] as Map<String, dynamic>? ?? {};
+
+    final emailCtrl = TextEditingController(text: emailId);
+    final nameCtrl = TextEditingController(text: data['displayName']);
+    final phoneCtrl = TextEditingController(text: personal['phone']);
+    final jobCtrl = TextEditingController(text: personal['job']);
+    final addressCtrl = TextEditingController(text: personal['address']);
+    final notesCtrl = TextEditingController(text: personal['notes']);
+
+    bool isActive = data['active'] ?? true;
+    String selectedRole = data['churchRole'] ?? 'viewer';
+    String selectedGender = personal['gender'] ?? 'M';
+
+    DateTime? selectedDob;
+    final dobVal = personal['dob'];
+    if (dobVal is Timestamp) selectedDob = dobVal.toDate();
+
+    final formKey = GlobalKey<FormState>();
+
+    // Self-Service Access Constraint Check:
+    // If they are NOT a Church Admin, but are editing their own profile:
+    // Lock down "active" status and "churchRole" dropdowns!
+    final isSelf = AuthService.instance.currentUser?.email == emailId;
+    final isAdmin = widget.userRole == 'Admin' || widget.userRole == 'owner';
+    final isRoleLocked = isEdit && isSelf && !isAdmin;
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => _ServantAssignmentDialog(
-        churchId: widget.churchId,
-        servantId: servantId,
-        servantName: servantName,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          title: Text(isEdit ? 'Edit Servant Profile' : 'Register New Servant'),
+          content: SizedBox(
+            width: 600,
+            child: Form(
+              key: formKey,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // --- 1. SYSTEM SECURITY RULES ---
+                    ExpansionTile(
+                      initiallyExpanded: true,
+                      title: const Text('Access Permissions (Admin Only)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal)),
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            children: [
+                              TextFormField(
+                                controller: emailCtrl,
+                                enabled: !isEdit,
+                                decoration: const InputDecoration(labelText: 'Google Email Key *', border: OutlineInputBorder()),
+                                validator: (v) {
+                                  if (v == null || v.trim().isEmpty) return 'Required';
+                                  final email = v.trim();
+                                  // Validate standard Google Gmail formats
+                                  final match = RegExp(r'^[a-zA-Z0-9._%+-]+@gmail\.com$').hasMatch(email) ||
+                                                RegExp(r'^[a-zA-Z0-9._%+-]+@valeo\.com$').hasMatch(email); // Mock testing domains
+                                  if (!match && !email.contains('@')) return 'Must be a valid Google Account email';
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              IgnorePointer(
+                                ignoring: isRoleLocked,
+                                child: Opacity(
+                                  opacity: isRoleLocked ? 0.5 : 1.0,
+                                  child: DropdownButtonFormField<String>(
+                                    value: selectedRole,
+                                    decoration: const InputDecoration(labelText: 'Church Role *', border: OutlineInputBorder()),
+                                    items: const [
+                                      DropdownMenuItem(value: 'admin', child: Text('Admin (Coordinator)')),
+                                      DropdownMenuItem(value: 'viewer', child: Text('Viewer (Teacher)')),
+                                    ],
+                                    onChanged: (v) {
+                                      if (v != null) setModalState(() => selectedRole = v);
+                                    },
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              IgnorePointer(
+                                ignoring: isRoleLocked,
+                                child: Opacity(
+                                  opacity: isRoleLocked ? 0.5 : 1.0,
+                                  child: SwitchListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    title: const Text('Active Account Status'),
+                                    value: isActive,
+                                    onChanged: (v) => setModalState(() => isActive = v),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // --- 2. PERSONAL INFO ---
+                    ExpansionTile(
+                      initiallyExpanded: true,
+                      title: const Text('Personal Details (Editable by Self)', style: TextStyle(fontWeight: FontWeight.bold)),
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            children: [
+                              TextFormField(
+                                controller: nameCtrl,
+                                decoration: const InputDecoration(labelText: 'Full Name *', border: OutlineInputBorder()),
+                                validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: DropdownButtonFormField<String>(
+                                      value: selectedGender,
+                                      decoration: const InputDecoration(labelText: 'Gender', border: OutlineInputBorder()),
+                                      items: const [
+                                        DropdownMenuItem(value: 'M', child: Text('Male')),
+                                        DropdownMenuItem(value: 'F', child: Text('Female')),
+                                      ],
+                                      onChanged: (v) {
+                                        if (v != null) setModalState(() => selectedGender = v);
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    flex: 2,
+                                    child: InkWell(
+                                      onTap: () async {
+                                        final dt = await showDatePicker(
+                                          context: context,
+                                          initialDate: selectedDob ?? DateTime(1990),
+                                          firstDate: DateTime(1940),
+                                          lastDate: DateTime.now(),
+                                        );
+                                        if (dt != null) setModalState(() => selectedDob = dt);
+                                      },
+                                      child: InputDecorator(
+                                        decoration: const InputDecoration(labelText: 'Date of Birth', border: OutlineInputBorder()),
+                                        child: Text(selectedDob != null
+                                            ? '${selectedDob!.year}-${selectedDob!.month.toString().padLeft(2, '0')}-${selectedDob!.day.toString().padLeft(2, '0')}'
+                                            : 'Select date'),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              TextFormField(
+                                controller: phoneCtrl,
+                                decoration: const InputDecoration(labelText: 'Mobile Phone', border: OutlineInputBorder()),
+                                keyboardType: TextInputType.phone,
+                              ),
+                              const SizedBox(height: 12),
+                              TextFormField(
+                                controller: jobCtrl,
+                                decoration: const InputDecoration(labelText: 'Job / Profession', border: OutlineInputBorder()),
+                              ),
+                              const SizedBox(height: 12),
+                              TextFormField(
+                                controller: addressCtrl,
+                                decoration: const InputDecoration(labelText: 'Home Address', border: OutlineInputBorder()),
+                              ),
+                              const SizedBox(height: 12),
+                              TextFormField(
+                                controller: notesCtrl,
+                                decoration: const InputDecoration(labelText: 'Pastoral Notes', border: OutlineInputBorder()),
+                                maxLines: 3,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) Navigator.pop(context, true);
+              },
+              child: const Text('Save Profile'),
+            ),
+          ],
+        ),
       ),
     );
-    
+
     if (confirmed == true) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Roles updated successfully.')),
-        );
+      final email = emailCtrl.text.trim();
+      final user = AuthService.instance.currentUser?.uid ?? 'unknown';
+
+      // Assemble personalInfo structure with schema lifecycle tracers
+      final personalInfoMap = {
+        'phone': phoneCtrl.text.trim(),
+        'gender': selectedGender,
+        'dob': selectedDob != null ? Timestamp.fromDate(selectedDob!) : null,
+        'job': jobCtrl.text.trim(),
+        'address': addressCtrl.text.trim(),
+        'notes': notesCtrl.text.trim(),
+        'lastEditAt': FieldValue.serverTimestamp(),
+        'lastEditBy': user,
+      };
+
+      if (!isEdit) {
+        personalInfoMap['createdAt'] = FieldValue.serverTimestamp() as Object;
+        personalInfoMap['createdBy'] = user;
+      } else {
+        personalInfoMap['createdAt'] = personal['createdAt'];
+        personalInfoMap['createdBy'] = personal['createdBy'] ?? 'system';
       }
+
+      final payload = {
+        'active': isActive,
+        'email': email,
+        'displayName': nameCtrl.text.trim(),
+        'churchRole': selectedRole,
+        'personalInfo': personalInfoMap,
+        'lastEditAt': FieldValue.serverTimestamp(),
+        'lastEditBy': user,
+      };
+
+      if (!isEdit) {
+        payload['authUid'] = '';
+        payload['createdAt'] = FieldValue.serverTimestamp() as Object;
+        payload['createdBy'] = user;
+        
+        await _ref.doc(email).set(payload);
+      } else {
+        payload['authUid'] = data['authUid'] ?? '';
+        payload['createdAt'] = data['createdAt'];
+        payload['createdBy'] = data['createdBy'] ?? 'system';
+
+        await _ref.doc(email).update(payload);
+      }
+
+      _showSnack('Servant profile successfully saved.');
     }
   }
 
-  Future<void> _deleteSingle(BuildContext context, String emailId) async {
+  // --- ACTIONS: DELETE SERVANT CORE ---
+  Future<void> _deleteMister(BuildContext context, DocumentSnapshot<Map<String, dynamic>> doc) async {
     final confirmed = await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
-            title: const Text('Delete Servant?'),
-            content: Text('Are you sure you want to delete servant "$emailId"? This cannot be undone.'),
+            title: const Text('Delete Servant Account?'),
+            content: Text('Are you sure you want to permanently delete "${doc.id}"? This action cannot be undone.'),
             actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
               FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.red),
                 onPressed: () => Navigator.pop(context, true),
                 child: const Text('Delete'),
               ),
@@ -394,780 +769,15 @@ class _MistersDirectoryScreenState extends State<MistersDirectoryScreen> {
         false;
 
     if (confirmed) {
-      await _ref.doc(emailId).delete();
+      await doc.reference.delete();
+      _showSnack('Account successfully deleted.');
     }
-  }
-
-  Future<void> _deleteSelected(List<DocumentSnapshot<Map<String, dynamic>>> docs) async {
-    final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('Delete Selected Servants?'),
-            content: const Text('Are you sure you want to delete all checked servants? This cannot be undone.'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Delete All'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-
-    if (confirmed) {
-      final firestore = FirebaseFirestore.instance;
-      final batch = firestore.batch();
-
-      for (final doc in docs) {
-        if (_selectedRows[doc.id] == true) {
-          batch.delete(doc.reference);
-        }
-      }
-
-      await batch.commit();
-      setState(() {
-        _selectedRows.clear();
-        _selectAll = false;
-      });
-    }
-  }
-
-  // --- EDIT & ADD SINGLE DIALOG ---
-
-  Future<void> _showAddEditDialog(
-    BuildContext context,
-    DocumentSnapshot<Map<String, dynamic>>? doc,
-  ) async {
-    final isEdit = doc != null;
-    final data = doc?.data();
-
-    final nameController = TextEditingController(text: data?['displayName']);
-    final emailController = TextEditingController(text: doc?.id);
-    
-    final String initialMobile = (data?['mobile'] != null && data!['mobile'].toString().isNotEmpty)
-        ? data['mobile'].toString()
-        : (data?['phone'] ?? '').toString();
-    final mobileController = TextEditingController(text: initialMobile);
-
-    String selectedRole = data?['churchRole'] ?? 'Teacher';
-    bool isActive = data?['active'] ?? true;
-
-    final formKey = GlobalKey<FormState>();
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => AlertDialog(
-          title: Text(isEdit ? 'Edit Servant Profile' : 'Register New Servant'),
-          content: Container(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Form(
-              key: formKey,
-              autovalidateMode: AutovalidateMode.onUserInteraction,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextFormField(
-                      controller: nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Full Name *',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Full name is required';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: emailController,
-                      enabled: !isEdit, // Email is the Key, cannot be edited!
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(
-                        labelText: 'Google Email Address *',
-                        border: OutlineInputBorder(),
-                        hintText: 'e.g. servant@gmail.com',
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Email is required';
-                        }
-                        final emailReg = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                        if (!emailReg.hasMatch(value.trim().toLowerCase())) {
-                          return 'Invalid email format';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    OikonomosPhoneField(
-                      initialValue: mobileController.text,
-                      labelText: 'Mobile Number *',
-                      required: true,
-                      onChanged: (e164Value) {
-                        setModalState(() {
-                          mobileController.text = e164Value;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedRole,
-                      decoration: const InputDecoration(
-                        labelText: 'Access Permissions',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: const [
-                        DropdownMenuItem(value: 'Teacher', child: Text('Teacher')),
-                        DropdownMenuItem(value: 'Admin', child: Text('Admin')),
-                      ],
-                      onChanged: (val) {
-                        if (val != null) {
-                          setModalState(() => selectedRole = val);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Active Servant'),
-                      value: isActive,
-                      onChanged: (val) => setModalState(() => isActive = val),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                if (formKey.currentState!.validate()) {
-                  Navigator.pop(context, true);
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (confirmed == true) {
-      final name = nameController.text.trim();
-      final email = emailController.text.trim().toLowerCase();
-      final mobile = mobileController.text.trim(); // Complete E.164 string!
-
-      final payload = {
-        'displayName': name,
-        'mobile': mobile,
-        'churchRole': selectedRole,
-        'active': isActive,
-        'authUid': email, // Binds key
-      };
-
-      try {
-        if (!isEdit) {
-          // Check key uniqueness
-          final existing = await _ref.doc(email).get();
-          if (existing.exists) {
-            _showSnack('A servant with this email is already registered!');
-            return;
-          }
-          await _ref.doc(email).set({
-            ...payload,
-            'createdAt': FieldValue.serverTimestamp(),
-          });
-        } else {
-          await _ref.doc(email).set(payload, SetOptions(merge: true));
-        }
-      } catch (e) {
-        _showSnack('Save failed: $e');
-      }
-    }
-  }
-
-  // --- CORE EXCEL/CSV IMPORT WIZARD ---
-
-  Future<void> _showImportWizard(BuildContext context) async {
-    FileService.pickFile(
-      allowedExtensions: '.xlsx,.xls,.csv',
-      onPicked: (AppFile file) async {
-        try {
-          if (file.name.endsWith('.csv')) {
-            final text = await file.readAsString();
-            _startCsvMappingWizard(file.name, text);
-          } else {
-            final bytes = await file.readAsBytes();
-            final excel = Excel.decodeBytes(bytes);
-            _startExcelSheetSelector(file.name, excel);
-          }
-        } catch (e) {
-          _showSnack('Failed to parse file: $e');
-        }
-      },
-      onError: (err) => _showSnack(err),
-    );
-  }
-
-  Future<void> _startExcelSheetSelector(String fileName, Excel excel) async {
-    final sheets = excel.tables.keys.toList();
-    if (sheets.isEmpty) {
-      _showSnack('This Excel file has no tabs/sheets.');
-      return;
-    }
-
-    String selectedSheet = sheets.first;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => AlertDialog(
-          title: const Text('Excel Import: Choose Tab'),
-          content: DropdownButtonFormField<String>(
-            initialValue: selectedSheet,
-            decoration: const InputDecoration(
-              labelText: 'Select Excel Tab',
-              border: OutlineInputBorder(),
-            ),
-            items: sheets.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-            onChanged: (val) {
-              if (val != null) {
-                setModalState(() => selectedSheet = val);
-              }
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Next'),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (confirmed == true) {
-      final sheet = excel.tables[selectedSheet]!;
-      _startExcelMappingWizard(fileName, sheet.rows);
-    }
-  }
-
-  Future<void> _startExcelMappingWizard(String fileName, List<List<Data?>> rows) async {
-    if (rows.isEmpty) {
-      _showSnack('The selected sheet is completely empty.');
-      return;
-    }
-
-    // Convert excel rows to string lists
-    final List<List<String>> stringRows = rows.map((row) {
-      return row.map((cell) => cell?.value?.toString().trim() ?? '').toList();
-    }).toList();
-
-    _launchMappingWizard(fileName, stringRows);
-  }
-
-  Future<void> _startCsvMappingWizard(String fileName, String csvText) async {
-    final List<List<String>> rows = csvText
-        .split('\n')
-        .map((line) => line
-            .split(',')
-            .map((cell) => cell.trim().replaceAll('"', ''))
-            .toList())
-        .where((row) => row.isNotEmpty && row.any((c) => c.isNotEmpty))
-        .toList();
-
-    if (rows.isEmpty) {
-      _showSnack('The uploaded CSV file is empty.');
-      return;
-    }
-
-    _launchMappingWizard(fileName, rows);
-  }
-
-  Future<void> _launchMappingWizard(String fileName, List<List<String>> rows) async {
-    int headerRowIndex = 0; // Default Row 1 (0-based index)
-    
-    // Choose headers list
-    List<String> getHeaders(int idx) {
-      if (idx >= rows.length) return [];
-      return rows[idx].asMap().map((i, val) => MapEntry(i, val.isNotEmpty ? val : 'Column ${i + 1}')).values.toList();
-    }
-
-    List<String> currentHeaders = getHeaders(headerRowIndex);
-    
-    // Mapping configurations (Database Field -> Excel Column Index)
-    int? mappedNameIdx;
-    int? mappedEmailIdx;
-    int? mappedMobileIdx;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) {
-          currentHeaders = getHeaders(headerRowIndex);
-          return AlertDialog(
-            title: Text('Import Map: $fileName'),
-            content: SizedBox(
-              width: 500,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '1. Select Header Row',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<int>(
-                      initialValue: headerRowIndex,
-                      decoration: const InputDecoration(
-                        labelText: 'Row containing column names',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: List.generate(
-                        rows.length > 10 ? 10 : rows.length,
-                        (index) => DropdownMenuItem(value: index, child: Text('Row ${index + 1}')),
-                      ),
-                      onChanged: (val) {
-                        if (val != null) {
-                          setModalState(() {
-                            headerRowIndex = val;
-                            currentHeaders = getHeaders(headerRowIndex);
-                            // Reset mappings as headers changed
-                            mappedNameIdx = null;
-                            mappedEmailIdx = null;
-                            mappedMobileIdx = null;
-                          });
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      '2. Map Fields to Excel Columns',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 12),
-                    // Map Display Name
-                    DropdownButtonFormField<int>(
-                      value: mappedNameIdx,
-                      decoration: const InputDecoration(
-                        labelText: 'Map "Full Name" Field *',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: currentHeaders.asMap().entries.map((e) {
-                        return DropdownMenuItem(value: e.key, child: Text(e.value));
-                      }).toList(),
-                      onChanged: (val) => setModalState(() => mappedNameIdx = val),
-                    ),
-                    const SizedBox(height: 12),
-                    // Map Email (Key)
-                    DropdownButtonFormField<int>(
-                      value: mappedEmailIdx,
-                      decoration: const InputDecoration(
-                        labelText: 'Map "Email (Key)" Field *',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: currentHeaders.asMap().entries.map((e) {
-                        return DropdownMenuItem(value: e.key, child: Text(e.value));
-                      }).toList(),
-                      onChanged: (val) => setModalState(() => mappedEmailIdx = val),
-                    ),
-                    const SizedBox(height: 12),
-                    // Map Mobile
-                    DropdownButtonFormField<int>(
-                      value: mappedMobileIdx,
-                      decoration: const InputDecoration(
-                        labelText: 'Map "Mobile" Field *',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: currentHeaders.asMap().entries.map((e) {
-                        return DropdownMenuItem(value: e.key, child: Text(e.value));
-                      }).toList(),
-                      onChanged: (val) => setModalState(() => mappedMobileIdx = val),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Import Now'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-
-    if (confirmed == true) {
-      if (mappedNameIdx == null || mappedEmailIdx == null || mappedMobileIdx == null) {
-        _showSnack('Mapping all three required fields (* Name, Email, Mobile) is mandatory.');
-        return;
-      }
-
-      // Execute high speed import batch
-      final firestore = FirebaseFirestore.instance;
-      final batch = firestore.batch();
-
-      final dataRows = rows.sublist(headerRowIndex + 1);
-      int importedCount = 0;
-      int skippedCount = 0;
-
-      for (final row in dataRows) {
-        if (row.length <= mappedNameIdx! || row.length <= mappedEmailIdx! || row.length <= mappedMobileIdx!) {
-          continue; // Skip malformed row
-        }
-
-        final name = row[mappedNameIdx!].trim();
-        final email = row[mappedEmailIdx!].trim().toLowerCase();
-        final mobile = OikonomosPhoneField.parseImportedPhone(row[mappedMobileIdx!]);
-
-        // Validation filter
-        if (name.isEmpty || email.isEmpty || !email.contains('@') || mobile.isEmpty) {
-          skippedCount++;
-          continue;
-        }
-
-        final payload = {
-          'displayName': name,
-          'mobile': mobile,
-          'churchRole': 'Teacher',
-          'active': true,
-          'authUid': email,
-          'createdAt': FieldValue.serverTimestamp(),
-        };
-
-        batch.set(_ref.doc(email), payload, SetOptions(merge: true));
-        importedCount++;
-      }
-
-      try {
-        await batch.commit();
-        _showSnack('Successfully imported $importedCount records! (Skipped $skippedCount invalid rows).');
-      } catch (e) {
-        _showSnack('Bulk import transaction failed: $e');
-      }
-    }
-  }
-
-  // --- SUB-VIEW: Pending Join Requests Panel ---
-  Widget _buildJoinRequestsPanel(BuildContext context, ThemeData theme, ColorScheme colorScheme) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('churches')
-          .doc(widget.churchId)
-          .collection('joinRequests')
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const SizedBox.shrink(); // No pending requests, hide completely!
-        }
-
-        final docs = snapshot.data!.docs;
-
-        return Card(
-          margin: const EdgeInsets.only(bottom: 24),
-          color: Colors.orange.shade50,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: Colors.orange.shade200, width: 1.5),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.notification_important, color: Colors.orange),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Pending Servant Join Requests (${docs.length})',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.orange.shade900,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: docs.length,
-                  separatorBuilder: (context, index) => const Divider(height: 16),
-                  itemBuilder: (context, index) {
-                    final doc = docs[index];
-                    final rData = doc.data();
-                    final applicantName = rData['displayName'] ?? 'New Servant';
-                    final applicantEmail = doc.id; // Email key
-
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              applicantName,
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            Text(
-                              applicantEmail,
-                              style: theme.textTheme.bodySmall,
-                            ),
-                          ],
-                        ),
-                        Row(
-                          children: [
-                            FilledButton.tonal(
-                              style: FilledButton.styleFrom(
-                                backgroundColor: Colors.green.shade100,
-                                foregroundColor: Colors.green.shade900,
-                              ),
-                              onPressed: () => _approveJoinRequest(context, applicantName, applicantEmail),
-                              child: const Text('Approve', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                            ),
-                            const SizedBox(width: 8),
-                            TextButton(
-                              style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
-                              onPressed: () => _rejectJoinRequest(applicantEmail),
-                              child: const Text('Reject', style: TextStyle(fontSize: 12)),
-                            ),
-                          ],
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // --- ACTIONS: APPROVE & REJECT JOIN REQUESTS ---
-
-  Future<void> _approveJoinRequest(BuildContext context, String name, String email) async {
-    try {
-      final firestore = FirebaseFirestore.instance;
-      final batch = firestore.batch();
-
-      // 1. Create a Teacher (Servant) record under misters keyed by verified Email (No Country Code, No Phone Redundancy!)
-      final misterRef = firestore
-          .collection('churches')
-          .doc(widget.churchId)
-          .collection('misters')
-          .doc(email);
-
-      batch.set(misterRef, {
-        'displayName': name,
-        'mobile': '',
-        'churchRole': 'Teacher', // Teacher by default
-        'active': true, // Auto-active upon approval!
-        'authUid': email,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      // 2. Delete their joinRequest document
-      final requestRef = firestore
-          .collection('churches')
-          .doc(widget.churchId)
-          .collection('joinRequests')
-          .doc(email);
-
-      batch.delete(requestRef);
-
-      await batch.commit();
-
-      _showSnack('$name approved successfully!');
-    } catch (e) {
-      _showSnack('Approval failed: $e');
-    }
-  }
-
-  Future<void> _rejectJoinRequest(String email) async {
-    try {
-      await FirebaseFirestore.instance
-          .collection('churches')
-          .doc(widget.churchId)
-          .collection('joinRequests')
-          .doc(email)
-          .delete();
-    } catch (_) {}
   }
 
   void _showSnack(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
-    );
-  }
-}
-
-// =============================================================================
-// SUB-DIALOG: ServantAssignmentDialog (Group Roles)
-// =============================================================================
-class _ServantAssignmentDialog extends StatefulWidget {
-  const _ServantAssignmentDialog({
-    required this.churchId,
-    required this.servantId,
-    required this.servantName,
-  });
-
-  final String churchId;
-  final String servantId;
-  final String servantName;
-
-  @override
-  State<_ServantAssignmentDialog> createState() => _ServantAssignmentDialogState();
-}
-
-class _ServantAssignmentDialogState extends State<_ServantAssignmentDialog> {
-  bool _isLoading = true;
-
-  // Maps group ID to role ('admin' or 'servant')
-  final Map<String, String> _groupRoles = {};
-  List<QueryDocumentSnapshot<Map<String, dynamic>>> _allGroups = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchCurrentAssignments();
-  }
-
-  Future<void> _fetchCurrentAssignments() async {
-    final firestore = FirebaseFirestore.instance;
-    final db = firestore.collection('churches').doc(widget.churchId);
-
-    final groupsSnap = await db.collection('serviceGroups').get();
-    _allGroups = groupsSnap.docs;
-
-    for (final doc in _allGroups) {
-      final rolesMap = doc.data()['roles'] as Map<String, dynamic>? ?? {};
-      if (rolesMap.containsKey(widget.servantId)) {
-        _groupRoles[doc.id] = rolesMap[widget.servantId];
-      }
-    }
-
-    setState(() {
-      _isLoading = false;
-    });
-  }
-
-  Future<void> _saveAssignments() async {
-    setState(() => _isLoading = true);
-    final firestore = FirebaseFirestore.instance;
-    final batch = firestore.batch();
-
-    for (final doc in _allGroups) {
-      final ref = doc.reference;
-      if (_groupRoles.containsKey(doc.id)) {
-        batch.update(ref, {
-          'roles.${widget.servantId}': _groupRoles[doc.id],
-        });
-      } else {
-        batch.update(ref, {
-          'roles.${widget.servantId}': FieldValue.delete(),
-        });
-      }
-    }
-
-    await batch.commit();
-    if (mounted) {
-      Navigator.pop(context, true);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return AlertDialog(
-      title: Text('Manage Roles: ${widget.servantName}'),
-      content: SizedBox(
-        width: 600,
-        height: 400,
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Service Groups & Department Roles', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(side: BorderSide(color: colorScheme.outlineVariant)),
-                      child: ListView.separated(
-                        itemCount: _allGroups.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (context, index) {
-                          final doc = _allGroups[index];
-                          final name = doc.data()['displayName'] ?? doc.id;
-                          final currentRole = _groupRoles[doc.id];
-                          final isAssigned = currentRole != null;
-
-                          return ListTile(
-                            title: Text(name),
-                            subtitle: isAssigned
-                                ? Text('Assigned as: ${currentRole.toUpperCase()}', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold))
-                                : const Text('Unassigned', style: TextStyle(color: Colors.grey)),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (isAssigned) ...[
-                                  TextButton(
-                                    onPressed: () => setState(() => _groupRoles[doc.id] = currentRole == 'admin' ? 'servant' : 'admin'),
-                                    child: const Text('Toggle Role'),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-                                    onPressed: () => setState(() => _groupRoles.remove(doc.id)),
-                                  ),
-                                ] else
-                                  FilledButton.tonal(
-                                    onPressed: () => setState(() => _groupRoles[doc.id] = 'servant'),
-                                    child: const Text('Assign'),
-                                  ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-        FilledButton(onPressed: _isLoading ? null : _saveAssignments, child: const Text('Save Roles')),
-      ],
     );
   }
 }
