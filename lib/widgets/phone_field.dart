@@ -119,6 +119,7 @@ class _OikonomosPhoneFieldState extends State<OikonomosPhoneField> {
   Widget build(BuildContext context) {
     return IntlPhoneField(
       controller: _controller,
+      disableLengthCheck: true, // Disable built-in length checks to avoid silent validation failures on empty optional fields
       decoration: InputDecoration(
         labelText: widget.labelText,
         border: const OutlineInputBorder(),
