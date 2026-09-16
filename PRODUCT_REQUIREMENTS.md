@@ -4,22 +4,20 @@ This document serves as the absolute architectural blueprint and behavioral spec
 
 ---
 
-## 1. Core Platform, Layout & UX Redesign
+## 1. Core Visual & Platform Behaviors
 
-### 🔓 A. Implicit Document ID Management
+### 🔐 A. Implicit Document ID Management
 *   **Behavior:** Manual, user-facing input fields for Firebase Document IDs are permanently disabled and hidden from all creation and edit form windows.
-*   **Implementation:** The code automatically generates secure, random 20-character alphanumeric UIDs (via Firestore auto-IDs) or maps keys strictly to verified, unique natural identifiers (such as Email for Servants, and Full Name for Kids) behind the scenes, eliminating key collisions and UX friction.
+*   **Implementation:** The code automatically generates secure, random 20-character alphanumeric UIDs (via Firestore auto-IDs) or maps keys strictly to verified, unique natural identifiers (such as Email for Servants, and Full Name for Kids). This eliminates key collisions and UX friction.
 
-### 🌍 B. Language Selector & Arabic RTL Mirroring
-*   **Behavior:** The application supports English and Arabic. 
-*   **Real-time State Update:** Toggling the language instantly translates all navigation labels, metrics, grids, and dialogs.
-*   **RTL Mirroring:** Selecting Arabic dynamically wraps the layout in a `Directionality(textDirection: TextDirection.rtl)` widget, mirroring the sidebars, tables, alignments, and icons from Right-to-Left instantly.
-*   **Persistence:** The chosen language code is cached in the browser's native `localStorage` and automatically loaded on session startup.
+### 🌐 B. Language Selector & Arabic RTL Mirroring
+*   **Behavior:** The application supports English and Arabic.
+*   **Real-time State Update:** Toggling the language instantly translates all navigation labels, metrics, tabular columns, form fields, validation guidelines, and action buttons. 
+*   **RTL Transformation:** Toggling to Arabic flips the global visual axis 180 degrees (Right-to-Left orientation), mirroring sidebars, icons, input fields, navigation flows, and DataTable rows cleanly across all clients.
 
-### 🌓 C. Theme Mode Controller
-*   **Behavior:** Supports Light and Dark modes.
-*   **Visual Standard:** Both themes are seeded with a modern, high-fidelity teal color palette (`Colors.teal`) using Material 3 specifications.
-*   **Persistence:** Theme preferences are stored in the browser's native `localStorage` and loaded synchronously.
+### 🎨 C. Dynamic Dark Theme System
+*   **Visual Standard:** Both light and dark themes are seeded with a modern, high-fidelity teal color palette (`Colors.teal`) using Material 3 specifications.
+*   **Persistence:** Theme preferences are stored in the browser's native local storage and loaded synchronously.
 
 ### 👥 D. Google-Style Multi-Account Session Switcher
 *   **Behavior:** The generic, single-action sign-out button is replaced with a polished, circular User Profile Avatar in the top-right of the AppBar.
@@ -27,21 +25,20 @@ This document serves as the absolute architectural blueprint and behavioral spec
     *   The logged-in user's profile picture, full name, and verified email address.
     *   **Theme Toggle:** Seamlessly switches light/dark modes.
     *   **Language Toggle:** Switches English/Arabic.
-    *   **Switch Account:** Invokes Google's native Account Chooser popup with `prompt: 'select_account'` parameters. This allows users to switch between signed-in browser accounts or click *"Use another account"* in one click, matching Google Drive exactly.
-    *   **Sign Out:** Log out of the current Google Firebase session (with a safety confirmation dialog).
+    *   **Switch Account:** Invokes Google's native Account Chooser popup with `prompt: 'select_account'` parameters. This allows users to switch between signed-in browser accounts or click *"Use another account"* in one click.
+    *   **Sign Out:** Log out of the current Google Firebase session (with a safety confirmation dialog).       
 
 ### ⚙️ E. Sidebar Promotion & Settings Tab Removal
 *   **Behavior:** The legacy, cluttered "Settings" tab has been completely removed.
-*   **Flat Architecture:** All individual administrative and configurations directories are promoted directly to the primary sidebar `NavigationRail` as top-level options, creating a spacious and direct administrative workflow:
+*   **Flat Architecture:** All individual administrative and configuration directories are promoted directly to the primary sidebar `NavigationRail` as top-level options, creating a spacious and direct administrative workflow:
     1.  **Dashboard** (Quick tasks, metric counters, and admin notifications)
     2.  **Kids Directory** (Tabular CRM student roster)
     3.  **Servants Directory** (Tabular servant management console)
     4.  **Attendance Tracker** (Lesson logs)
-    5.  **Classes** (Kanban Classroom Board)
+    5.  **Classes** (Classroom DataTable list & Dialog config)
     6.  **Service Groups** (Pastoral departments)
-    7.  **Class Assignments** (Academic term class instances)
-    8.  **Home Visits** (Pastoral visitation logs)
-    9.  **Churches & Years** (Church timeline visualizer)
+    7.  **Home Visits** (Pastoral visitation logs)
+    8.  **Church Admin** (Church timeline and core admin configs)
 
 ### 📋 F. Global Text Selection & Copying
 *   **Behavior:** All text fields, data rows, metrics, and profiles on the website are fully selectable and copyable by administrators.
@@ -49,177 +46,180 @@ This document serves as the absolute architectural blueprint and behavioral spec
 
 ### 🎛️ G. Global Cascading Navigation Filters
 *   **Behavior:** The top-right of the app layout features a persistent set of 4 selection dropdowns that dictate the active context for all views.
-*   **Filter Order:** **Church ➡️ Academic Year ➡️ Service Group ➡️ Class**
+*   **Filter Order:** **Church ➡️ Academic Year ➡️ Service Group ➔ Class**
 *   **Cascading Logic:** Selections filter subsequent dropdowns (e.g., selecting a Church filters the available Academic Years and Service Groups to only those belonging to the selected Church).
-*   **Auto-Selection:** If a user only has access to one entity in any of these dropdowns (or if only one exists), it is automatically selected by default.
-*   **"All" Option:** Users can select "All" for any filter (e.g., "All Service Groups") to view aggregate data.
-*   **Active Year Default:** On initial load or refresh, the Academic Year dropdown is strictly bound and defaults to the Church's `activeAcademicYearId`.
+*   **Distinct Sizing Hierarchy:** 
+    1.  **Church Dropdown (Largest/Anchor):** Unique asymmetric corner rounded shape, solid vibrant primary background color, extra bold formatting (`FontWeight.w800`), increased horizontal padding (`18`), and an elevation drop shadow.
+    2.  **Academic Year Dropdown (2nd in size):** Medium asymmetric shape, semi-translucent background (`0.6` opacity), and medium padding (`15`), establishing an intuitive visual hierarchy.
+    3.  **Service Group & Class Dropdowns (Standard):** Classic symmetrical pill containers (`BorderRadius.circular(20)`), soft translucent background (`0.3` opacity), and standard padding (`12`).
+*   **"All" Option:** Users can select "All" for Service Group and Class filters to view aggregate data. 
+*   **"All" Restriction:** The root **Church** and **Academic Year** dropdowns strictly **disallow** the "All" option (`allowAll: false`). This guarantees a single, stable Church and active Term context across the application at all times.
+*   **Active Year Default:** On initial load or refresh, the Academic Year dropdown is strictly bound and defaults to the Church's active year.
 
 ---
 
-## 2. Role-Specific Pages & View Scoping
+## 2. Church Admin & Timeline View (`ChurchesScreen`)
 
-The application dynamically adjusts visible modules and the global filter state based on the logged-in user's role.
+The "Church Admin" panel enables global owners and authorized church admins to configure core tenants, academic timelines, and church-wide grade schemas.
 
-### 🏛️ A. Church Admin Page
-*   **Scope:** The view is heavily filtered by the **Church** selection. (Service Group, Class, and Academic Year dropdowns are dimmed/disabled).
-*   **Capabilities:** Manages overarching organizational structures:
-    *   Service Groups (Departments).
-    *   Academic Years.
-    *   Church Grades configuration.
+### 🏛️ A. Details List View (DataTable)
+Displays registered churches in a clean grid with columns in order:
+1.  **Status (Active / Inactive Icon):** Colored indicators showing if the tenant is active.
+2.  **Church Name (`displayName`):** Real name of the church.
+3.  **Active Academic Year (`displayName`):** Resolves and displays the real-time term display name instead of the raw year ID.
+4.  **Grades (Count action-chip):** Displays only the sum number of grades configured (e.g., "5 Grades"). Clicking it opens the popup Grades Mapping popup.
+5.  **Actions (Edit / Delete Icons):** Group of icons at the end of the row.
 
-### 👥 B. Group Admin Page
-*   **Scope:** The view is filtered by **Church** and **Service Group** selections. (Class and Academic Year dropdowns are dimmed/disabled).
-*   **Capabilities:** Manages operational configurations for their specific group:
-    *   Creates and manages Classes mapped to their Service Group.
-    *(Note: Managing which servants are in the group happens in the Servants Directory).*
+### 🔍 B. Header Filtering Matrix
+Each column header in the Churches DataTable hosts local filters built directly inside the table header layout: 
+*   **Status Column Header:** A popup menu offering status filters (`All Statuses`, `Active Only`, `Inactive Only`).
+*   **Church Name Column Header:** An inline search text field inside the column label to filter matching church display names instantly on keypress.
+*   **Active Year Column Header:** A dropdown mapping unique, resolved active year display names to filter the rows live on selection.
 
-### 👨‍🏫 C. Servants, Kids, Attendance & Visits Pages
-*   **Scope:** These daily operational views are highly granular. They are filtered dynamically by all four selections: **Church, Service Group, Class, and Academic Year**.
-*   **Capabilities:** Users see only the rosters, attendance sheets, and visitation logs assigned to their current filter scopes, respecting their specific RBAC authorizations.
+### 📊 C. Grades & Service Group Mapping Popup
+Pressing on the Grades ActionChip launches a stateful configuration panel:
+*   **Auto-Incrementing Integer Keys:** Integer values start at `1` and sequentially increment when the user adds a new grade line (no manual input is permitted, preventing ID collisions). Deleting a line automatically shifts and re-indexes remaining grades sequentially.
+*   **Name:** A free-text field (e.g., `Grade 1`, `High School Junior`).
+*   **Service Group Dropdown:** A dropdown selector mapping each grade to an available Service Group in that church.
+*   **Duplicate Assignments Allowed:** Multiple grades can map to the same Service Group (e.g., `Grade 7` and `Grade 8` both point to `Junior High Department`).
 
----
+### 📝 D. Church Onboarding & Edit Modals
+*   **Onboarding Church Wizard:** Creating a new church mandates setting `displayName`, `active` status, and **adding at least one Academic Year** (timeline label and start Month/Year picker, set to active by default), creating them transactionally as a single atomic batch.
+*   **Church Edit Dialog:** Provides forms to update the name and active status of the church.
+    *   *Grades Map Tile:* Shows the sum count of grades and clicking it launches the Grades Mapping Popup.
+    *   *In-place Academic Years List:* Displays all registered timeline terms at the bottom of the edit dialog.
+        *   *Active Switch:* Toggling a year active automatically disables all other terms inside that church document.
+        *   *Edit inline:* Clicking the edit icon opens an inline form to update the term's label and start date.
+        *   *Add Academic Year:* Allows adding a new year (label and Month/Year picker).
+        *   *Delete Year Constraints:* Supports deleting years, subject to constraints:
+            *   *At least one year:* Blocked if it's the last registered term.
+            *   *At least one active:* Blocked if it is currently set active.
+            *   *Class Reference check:* The system queries the `classes` collection. If the year ID is referenced inside any class document's `academicYears` map, deletion is blocked with a warning: *"Cannot delete. This Academic Year is referenced inside active Class configurations."*
 
-## 3. Directory Overhauls: Servants & Kids
-
-### 🧑‍🏫 A. Servants (Misters) Directory
-*   **Primary Key:** The servant's verified Google Email address is the primary Firestore Document ID Key (e.g. `/misters/bishoy@gmail.com`). 
-*   **Roster DataTable:** Displays servants in a responsive checkbox grid with columns for *Full Name*, *Email (Key)*, *Mobile*, *Access Role*, *Active Status*, and *Actions*.
-*   **Access Role Terminology:** The directory uses the explicit organizational levels **`Teacher`** and **`Admin`**.
-*   **Servant Assignments:** To assign a servant to a Service Group or a specific Class, an Admin or Group Admin performs the assignment directly from this Servants Directory view (using selection actions or dialogs).
-*   **Roster Export:** Supports multi-checking checkboxes. Checking rows opens a bulk action bar allowing the Admin to **Export selected to CSV** or **Bulk Delete** (with safety confirmation checks).
-*   **Spreadsheet Safe Formats:** CSV exports exclude separate country codes, formatting the phone number as a single unit cell prefixed with a tab `\t` separator to **force Excel/Sheets to preserve the leading plus sign** (`+201099441171`) instead of stripping it as a formula.
-*   **Unified Firestore Key:** Eliminates duplicate fields (such as `'phone'`), saving the complete E.164 string strictly under the `'mobile'` document key.
-
----
-
-### 🧒 B. Kids Directory CRM
-*   **Primary Key:** The child's Full Name is the primary Firestore Document ID Key (e.g. `/kids/Mark Nagy`).
-*   **Roster DataTable:** Displays children in a tabular grid with checkbox rows for **Select All** bulk checks.
-*   **Clickable Profiles:** Clicking on a student's underlined name triggers a beautiful, read-only **CRM Student Details Popover Card**. It categories all 21 fields (general info, family contacts, address, pastoral notes) neatly into structured panels. Clicking the **"Edit Profile"** button at the bottom cleanly pops the popover and launches the full Edit Form!
-*   **Only Name is Mandatory:** Only the student's name is required to onboard a child; all other 15+ fields are optional.
-*   **Role-Based Edit Access (`activeAssignment`):**
-    *   **Group Admins & Class Servants** can **Edit/Write** to a child's profile *only if* the child's `activeAssignment` pointer maps to the current active Academic Year and a Class/Group that the servant commands.
-    *   If the child is viewed via historical logs (inactive academic year), or the servant is not actively assigned to them this term, the servant's access is strictly demoted to **Read Only**.
-*   **Collapsible Form Categories:** Add/Edit forms break down the extensive CRM information sheet into clean, expandable visual sections:
-    1.  **General Profile:** Name, Gender, Birthday (visual calendar picker), School, and Confession Father.
-    2.  **Home Address:** Street Name, Building Name/No, Floor, Apartment, and Area.
-    3.  **Family Contacts:** Home Tele, Kid Mobile, Father Name, Father Mobile, Father Job, Mother Name, Mother Mobile, Mother Job, and Other Mobiles (dynamic comma-separated list).
-    4.  **Pastoral Notes:** Special warnings, conditions, or visitation remarks.
-*   **Bulk Actions:** Supports multi-checking rows for bulk deletion or bulk CSV exports containing all 21 fields (with tab `\t` leading-plus preservation).
-*   **Hardware Client-Side Profile Photo Compressor:**
-    *   **Behavior:** When an image is uploaded, the browser uses HTML5 Canvas to scale and compress the photo down to an optimized JPEG thumbnail (max 150px) at 70% quality in milliseconds.
-    *   **The Benefit:** It encodes the thumbnail into a compact `base64` string and saves it directly inside the child's Firestore document under `'photoBase64'`. This loads instantly on attendance sheets on all devices with **zero Firebase Storage server bills!**
+### 🗑️ E. Deletion Confirmation Popup
+Clicking the Delete icon next to any Church row pops a modal: *"Delete Church? This will delete the church tenant. This action is permanent."* Confirmation permanently deletes the document and all nested collections.
 
 ---
 
-## 4. Unified Validation & Form Entry Rules
+## 3. Service Groups View (`ServiceGroupsScreen`)
 
-### ⏱️ A. Real-Time, Cell-by-Cell Checking
-*   **Behavior:** Form validation must **not** wait until the user presses "Save".
-*   **Implementation:** All text cells use `TextFormField` wrapped inside a keyed `Form` configured with **`AutovalidateMode.onUserInteraction`**.
-*   **Real-time Alerts:** Inputs highlight in bold red with descriptive helper guidelines directly below the active text input cell the moment the user types invalid data (e.g. invalid email syntax, or numeric character violations).
+The Service Groups screen manages pastoral departments (e.g., Elementary, High School) within the active Church.
 
-### 🛡️ B. Unbreakable Save Gates (Modal Lock)
-*   **Behavior:** If a user clicks "Save" while the form contains any invalid data, **the dialog must remain completely open.**
-*   **On-the-spot marking:** The saving trigger checks `formKey.currentState!.validate()`. If it returns `false`, it blocks the submission, scrolls/focuses on the invalid cell, and prevents the modal from closing. The window can **only** be closed by resolving all invalid cells, or by explicitly clicking the "Cancel" button.
+### 🏷️ A. Details List View (DataTable)
+Displays service groups in a clean grid with columns in order:
+1.  **Status (Active / Inactive Icon):** Colored indicators.
+2.  **Group Name (`displayName`):** Department label.
+3.  **Admins (Stacked list):** Displays the names of all assigned coordinators stacked together.
+4.  **Servants (Total Count):** Displays the sum number of active teachers assigned to the group.
+5.  **Assigned Grades:** Inverse-reads the church's main `grades` map, collects all grades where `serviceGroupId == thisGroupId`, and displays them neatly as visual chips.
+6.  **Actions (Edit / Delete Icons):** Located at the end of the row.
 
-### 📱 C. The Unified `OikonomosPhoneField` Widget
-Every phone input in the application shares the same exact Google-style widget:
-*   **Flags & Search:** Displays interactive search-filterable country flags and dial prefixes.
-*   **Default Country:** The country picker always defaults to **Egypt (`EG` / `+20`)** automatically on clean launches.
-*   **Google-Style Real-time Stripping:** It listens to keypresses as the user types. The millisecond they type a leading zero (e.g. `01099...`), **the leading `0` is instantly and silently stripped** from the input text field. It is mathematically impossible for any leading zero to remain in the input or write to the database!
-*   **Single-Cell E.164 Storage:** It merges country prefixes and digits, outputting a single, normalized, complete E.164 string (e.g. `+201099441171`) directly to Firestore under the `'mobile'` document key. It does not write separate country code columns or duplicate `'phone'` keys.
+### 🔍 B. Header Filtering Matrix
+Supports local filtering per value inside the column headers:
+*   **Status Column Header:** Popup menu (`All Statuses`, `Active Only`, `Inactive Only`).
+*   **Group Name Column Header:** Inline search field to filter group names on keypress.
+*   **Admins Column Header:** Inline search field to filter service groups by assigned admin names/emails.
+*   **Assigned Grades Column Header:** Dropdown menu mapping all unique assigned grade names to filter the rows.
 
----
+### 🗑️ C. Deletion Confirmation Popup
+Clicking the Delete icon next to any Service Group row pops a modal: *"Delete Service Group? This will delete the service group. This action is permanent."* Deleting a group removes the document from Firestore.
 
-## 5. Kanban Classroom Board ("Classes" Tab)
-
-The Classes tab has been redesigned into an interactive, visual **Classroom Hub**:
-*   **Card Grid Layout:** Displays classes as beautifully elevated cards, showing active student enrollment counts and assigned teacher chips.
-*   **Admin-Only Write Access:** Only global owners or church Admins can create classes, edit assigned rosters, delete classes, or move students. Teachers have secure, read-only views of their classes.
-*   **Single-Class Constraint:** A child can only belong to **one active class at a time**. During search or roster selection, any child already assigned to another active class is strictly filtered out and cannot be selected.
-*   **Instant Search Clearance (Zero Friction):** The moment a coordinator clicks a student or servant from the Autocomplete search box, the search text field **instantly goes back to completely empty**, letting them type the next search query immediately with no backspacing required.
-*   **Kids Roster Selector Dialog (With Multi-Select & Current Assignment):** Clicking a list icon launches a gorgeous sub-window showing all Kids in the church database, displaying their Name, Gender, Area, and **Current Class Assignment** (or *Unassigned*). It features:
-    *   *Real-time search bar* filtering by name.
-    *   *A filter dropdown* (e.g., Show Unassigned, Show All).
-    *   *Multi-select checkboxes* to bulk-add all checked students straight into the class chip list in 1 click.
-*   **Servants Roster Selector Dialog (With Multi-Select & Current Assignments):** A similar sub-window displaying all Servants, their Mobile, Access Role, and a **List of currently assigned Classes** (since servants are allowed to teach multiple classes). It includes search, filters, and multi-select checkboxes for high-speed bulk teacher assignments.
-*   **Dynamic 2-Click Student Swapper ("Move to Class"):** Next to each kid's name inside a class card, a swapper icon is rendered. Clicking it launches a compact dropdown listing all other classes. Clicking a class instantly triggers an atomic batch write to **remove the student from their current class and enroll them in the target class in under 10 milliseconds!**
+### 📝 D. Service Group Onboarding & Edit Modals
+*   **Onboarding Service Group:** Auto-selects and binds the group to the currently active Church in your top-right filter. If "All" is active, it prompts the user to select one. It mandates setting `displayName` and `active` status.
+*   **Group Edit Dialog:** Updates group name and active status.
+    *   *Admins & Servants Chip Management:* Displays assigned admins and servants as chips showing their **full display name** instead of raw emails. Clicking the `'x'` delete icon instantly removes them from that role in this group.
+    *   *"+" Servant Selector popup:* Clicking `+` next to Admins or Servants launches a multi-select search-and-select grid:
+        *   Displays all active church servants, showing their **displayName**, email, and list of **all currently assigned Service Groups** (supporting multi-group assignments).
+        *   Includes search fields to filter by Name and by Group.
+        *   Checkbox list tile is only blocked/disabled if the servant *already* holds that exact role in this specific group. If they have a different role or no role, they are fully selectable. Clicking apply adds them to the target role.
 
 ---
 
-## 6. Church Onboarding & Year Timelines
+## 4. Kids Directory CRM View (`KidsDirectoryScreen`)
 
-### ⛪ A. Churches & Years timeline Visual
-*   **Behavior:** Academic Years are removed as a separate sidebar tab and merged directly under the Churches configuration panel.
-*   **Timeline visual:** Expanding a Church Card displays a clean, vertical chronological timeline of all academic years registered in this church, featuring active-term checkmark indicators.
+The Kids Directory manages tabular student registries with an advanced collapsible layout suited for high-density visual tracking.
 
-### 🧙‍♂️ B. Double-Step Church Wizard
-*   **Behavior:** Adding a new church **forces** the user to initialize their first academic year.
-*   **Transactional Safety:** The form acts as a two-step wizard (Step 1: Church Name, Step 2: Year Start). Clicking create transactionally batches both documents together, preventing empty database fragments.
+### 🎨 A. Details List View (DataTable) with Collapsible Column Groups
+Displays extensive student sheets (over 20 fields) neatly. The columns list is grouped into **5 logical categories** which can be folded or unfolded independently inside the headers:
+1.  **Active Status (Always Visible):** Colored active indicator.
+2.  **Assignment Group:** Selected Year, Group, and Class. *Folded preview:* Merged string representation (e.g. `2026 • Elementary • Grade 5`).
+3.  **General Profile Group (`info` map):** `fullName`, `gender`, `dob`, `school`, `fatherOfConfession`. *Folded preview:* Shows name as a clickable hyperlink.
+4.  **Home Address Group (`address` map):** `street`, `building`, `floor`, `apartment`, `region`. *Folded preview:* Displays region area. (Collapsed/Folded by default).
+5.  **Family Contacts Group (`contacts` map):** `kidMob`, `fatherName`, `fatherProfession`, `fatherMob`, `motherName`, `motherProfession`, `motherMob`, `otherMob`. *Folded preview:* Shows main father and mother numbers. (Collapsed/Folded by default).
+6.  **Pastoral Notes:** Displays Multiline notes. *Folded preview:* Shows a truncated text snippet.
 
-### 📅 C. Simplified Month-Year Selector
-*   **Behavior:** Adding an Academic Year **only** asks for the start Month and Year (via a dropdown selector). It does **not** ask for days or an end date.
-*   **Implicit Calculation:** The code automatically sets the `startDate` to Day 1 of the chosen month, and calculates the `endDate` as exactly **one year later minus one day** (e.g., September 2026 to August 31, 2027), storing both timestamps in Firestore silently.
+### 🔍 B. Header Filtering Matrix & Deletion Popups
+*   **Matrix Filters:** Every visible active column head contains a dedicated filter popup menu (for status, gender, region, job) or inline search field (for name, phone, school) matching its data type.
+*   **Delete Icon & Dialog:** Triggers a popup: *"Delete Student? Are you sure you want to delete 'fullName'? This cannot be undone."* deletes the document and updates classes collections.
 
----
-
-## 7. Secure Self-Service Onboarding
-
-### 🔐 A. Multi-Tier Security Guard
-The application utilizes a double-nested frontend StreamBuilder to verify user authorizations securely:
-*   **Tier 1 (Database Owner bypass):** Listens to `/global_admins/{uid}`. If the signed-in user's Google UID exists in this collection (created during the setup bootstrap gate), they bypass all access limits and are automatically authorized with full `'Admin'` privileges for all churches.
-*   **Tier 2 (Roster Verification):** If they are not a global owner, the gate listens to the selected church's `/misters/{email}` roster. If their verified email exists and is active (`active == true`), they are authorized. If not, they are locked out.
-
-### 🚪 B. Self-Service Join Request Portal
-*   **Behavior:** Guests or unapproved users are cleanly blocked from the dashboard and sidebar menus.
-*   **Onboarding Portal:** They are shown a welcoming access request portal. It displays a dropdown of available Churches (which they can read publicly) and a **"Request to Join"** button.
-*   **Request database:** Clicking it commits a join request under `/churches/{churchId}/joinRequests/{email}` with their display name, email, and timestamp.
-*   **Stateful UI:** Once submitted, the card dynamically transitions to a friendly *"Pending Approval"* state, allowing them to cancel the request if needed.
-
-### 🔔 C. Roster Approval Panels (Dashboard & Servants Directory)
-*   **Behavior:** When an authorized **`Admin`** logs into Oikonomos, the system checks for any pending join requests under `/churches/{churchId}/joinRequests` in real-time.
-*   **Double-Tab Promotion:** The pending requests list is displayed prominently at the top of the **Dashboard** AND the **Servants Directory** tab!
-*   **Action Buttons:**
-    *   **Approve:** Runs an atomic transaction that registers them as an active **`Teacher`** under `/churches/{churchId}/misters/{email}` with an empty `'mobile': ''` string (no separate country code or duplicate `'phone'` keys are created), then deletes their pending request document. The approved user's screen automatically refreshes and logs them straight into the Sunday School Dashboard!
-    *   **Reject:** Deletes the pending join request document safely.
+### 🔐 C. Secure Role-Based Access Controls
+Editing permissions are evaluated dynamically for each student row:
+*   **Who can edit:** Church Admins, Group Admins (matching the student's assigned group ID), and Class Teachers (matching the student's assigned active class ID) can edit.
+*   **Who can view:** All other servants in the church have strict **Read Only** access.
 
 ---
 
-## 8. Resilient Spreadsheet Importer Normalizer
+## 5. Classes View (`ClassesScreen`)
 
-When administrators import servant or student rosters from `.xlsx`, `.xls`, or `.csv` files:
-1.  They select the file Sheet (tab).
-2.  They select which row contains column names (headers).
-3.  They interactively map their spreadsheet columns directly to Oikonomos required fields.
-4.  **Resilient Normalization:** The importer parses incoming phone columns using the smart algorithm:
-    *   *Strips non-digits:* Removes spaces, hyphens, pluses, or letters.
-    *   *Strips leading zero:* If the number starts with `0` (e.g. `010...`), it deletes the `0`.
-    *   *Resolves country prefix:*
-        *   If it matches standard Egyptian mobile lengths (10 digits) and starts with Egyptian mobile prefixes, it prepends Egypt's dial code (`+20`).
-        *   If it is a 10-digit number not matching Egypt, it prepends USA `+1`.
-        *   *All other unaligned formats default safely to Egypt (`+20`).*
-    *   *Saves E.164:* Batches the parsed string securely to Firestore as a single, combined, standard international E.164 string (`+201099441171`).
+The Classes screen manages classroom assignments and student-servant mappings within terms.
+
+### 🏷️ A. Details List View (DataTable)
+Displays active classroom directories in order:
+1.  **Status:** Active indicator.
+2.  **Class Name:** Dynamic class name resolved for the selected term.
+3.  **Service Group:** Resolved group display name.
+4.  **Grade Level:** Resolved grade display name.
+5.  **Enrolled Kids:** Sum count of student IDs in the list.
+6.  **Assigned Servants:** Sum count of assigned servants in the list.
+7.  **Actions:** Edit / Delete.
+
+### 🔍 B. Header Filtering Matrix & Actions
+*   **Column Matrix Filters:** Includes Status popup, Name inline search, Service Group dropdown, and Grade Level dropdown in column headers.
+*   **Filters Dimming:** Dims the **Class** global top-bar dropdown while on this tab, keeping Church, Year, and Group fully applicable.
+*   **Edit / Delete Modals:** Form dialog maps:
+    *   *Dynamic Grade Dropdown:* Filters dynamically based on selected Service Group.
+    *   *Servants popup selector:* Restricts select list to servants mapped inside the selected Service Group's misters list, displaying name, groups, and classes.
+    *   *Kids popup selector:* Pulls active church kids, displaying current assigned groups and classes.
 
 ---
 
-## 9. Soft Deletion Lifecycle: The "Active" Field Functionality
+## 6. Servants Directory View (`MistersDirectoryScreen`)
+
+The Servants Directory manages servants access profiles and personal details.
+
+### 🏛️ A. Details List View (DataTable)
+Displays registered servants in order:
+1.  **Status:** Active status icon.
+2.  **Full Name:** Display name.
+3.  **Access Role:** Mapped to `'admin'` or `'viewer'`.
+4.  **Admin in Groups:** Stacked list of groups they manage.
+5.  **Servant in Groups:** Stacked list of groups they serve.
+6.  **Servant in Classes:** Stacked list of active classrooms they serve.
+7.  **Email / Phone / Date of Birth / Job / Address:** Detailed personal tracing fields.
+
+### 🔍 B. Header Filtering Matrix & Self-Service Locks
+*   **Filters Matrix:** Includes status dropdown, name search, access role dropdown, phone search, job selector, and address search filters inside column headers.
+*   **Self-Service Fields Lock:** If a regular servant is editing their *own* profile, the `active` status switch and `churchRole` dropdown are **automatically locked and greyed out** (opacity `0.5`). They can only modify their personal fields (`phone`, `dob`, `job`, `address`, `notes`, `gender`).
+*   **Self-Service Cloud Rules (`firestore.rules`):** Evaluates `request.resource.data.diff(resource.data).affectedKeys()` to securely block self-service updates trying to modify any field other than `personalInfo`.
+
+---
+
+## 7. Operational & Database Integrity Lifecycle
 
 To preserve relational history and database integrity, no records are physically deleted from day-to-day administrative tables. Setting `active: false` archives the object:
 
 | Entity / Object | `active: false` Behavioral Impact & Functionality |
 | :--- | :--- |
 | **`churches`** | Global multi-tenancy lock. Setting to `false` blocks all read/write accesses to this church. Teachers and admins are locked out. |
-| **`misters`** | Real-time session termination. Security rules block access instantly, preventing them from viewing child PII. However, **their names are preserved on past attendance sheets** for historical accuracy. |
-| **`serviceGroups`** | Organizational restructuring. Hides the department from active dropdown selectors, preventing coordinators from assigning new classes to it while preserving student/teacher assignment logs. |
-| **`kids`** | Active classroom roster filter. Inactive children are archived, **instantly disappearing from weekly Attendance sheets** (teachers don't have to scroll past inactive names). They can still be viewed inside archives. |
+| **`misters`** | Real-time session termination. Security rules block access instantly, preventing them from viewing child PII. However, **their names are preserved on past attendance sheets** for historical accuracy. |     
+| **`serviceGroups`** | Hides the department from active dropdown selectors, preventing coordinators from assigning new classes to it while preserving student/teacher assignment logs. |
+| **`kids`** | Active classroom roster filter. Inactive children are archived, **instantly disappearing from weekly Attendance sheets**. They can still be viewed inside archives. |
 | **`classes`** | Classroom lifecycle management. Inactive classes are hidden from current assignments, preventing enrollment errors while preserving history. |
 | **`academicYears`** | Default viewport binding. Marking a year `active: true` establishes it as the current active term. The dashboard top bar reads this configuration to automatically filter and display classes and visitations for that specific term by default. |
 
 ---
 
-## 10. Automated Testing Validation Guidelines
+## 8. Automated Testing Validation Guidelines
 
 The platform enforces a mandatory automated validation policy. Every core mechanism must possess a corresponding unit or widget test verified on the native VM runner before shipping:
 
@@ -230,3 +230,6 @@ The platform enforces a mandatory automated validation policy. Every core mechan
 5.  **Simplified timelines:** Month-Year calendar term checks.
 6.  **Self-Service role transitions:** Onboarding payload state tests.
 7.  **Platform storage stubs:** VM safety checks.
+8.  **Church Year Deletion Integrity Checks:** Blocks year deletion if referenced in classes.
+9.  **Kids Foldable Columns & Expansion Layouts:** Sizing recalculations based on toggled header states.
+10. **Classes Dynamic Grade Bindings:** Restricts grade dropdown configurations based on selected service group dynamically.
