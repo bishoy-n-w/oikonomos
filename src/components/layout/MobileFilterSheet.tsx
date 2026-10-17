@@ -1,6 +1,7 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
 import { useFilter } from '../../context/FilterContext';
+import { useModalEscape } from '../../utils/useModalEscape';
 import type { ActiveTab } from './MainShell';
 import { X, Check } from 'lucide-react';
 
@@ -12,6 +13,7 @@ interface MobileFilterSheetProps {
 
 export const MobileFilterSheet: React.FC<MobileFilterSheetProps> = ({ activeTab, isOpen, onClose }) => {
   const { translate } = useApp();
+  useModalEscape(onClose, isOpen);
   const {
     churches,
     academicYears,
@@ -94,7 +96,7 @@ export const MobileFilterSheet: React.FC<MobileFilterSheetProps> = ({ activeTab,
               )}
               {academicYears.map((y) => (
                 <option key={y.id} value={y.id}>
-                  {y.isActiveYear ? `⭐ ${y.displayName} (Active)` : y.displayName}
+                  {y.isActiveYear ? `⭐ ${y.displayName} ${translate('active_term_badge')}` : y.displayName}
                 </option>
               ))}
             </select>

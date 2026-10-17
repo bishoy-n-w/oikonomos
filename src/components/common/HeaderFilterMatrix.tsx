@@ -1,4 +1,5 @@
 import React from 'react';
+import { useApp } from '../../context/AppContext';
 import { Search, X } from 'lucide-react';
 
 export type FilterType = 'text' | 'select' | 'boolean' | 'number';
@@ -21,6 +22,8 @@ export const HeaderFilterMatrix: React.FC<HeaderFilterMatrixProps> = ({
   values,
   onChange,
 }) => {
+  const { translate } = useApp();
+
   return (
     <tr className="bg-zinc-100/70 dark:bg-zinc-800/50 border-b border-zinc-200 dark:border-zinc-800">
       {configs.map((config) => {
@@ -34,9 +37,9 @@ export const HeaderFilterMatrix: React.FC<HeaderFilterMatrixProps> = ({
                 onChange={(e) => onChange(config.key, e.target.value)}
                 className="w-full text-[11px] font-semibold py-1 px-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-teal-500"
               >
-                <option value="">All Status</option>
-                <option value="true">Active</option>
-                <option value="false">Inactive</option>
+                <option value="">{translate('all_statuses')}</option>
+                <option value="true">{translate('active_badge')}</option>
+                <option value="false">{translate('inactive_badge')}</option>
               </select>
             </th>
           );
@@ -50,7 +53,7 @@ export const HeaderFilterMatrix: React.FC<HeaderFilterMatrixProps> = ({
                 onChange={(e) => onChange(config.key, e.target.value)}
                 className="w-full text-[11px] font-semibold py-1 px-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-teal-500"
               >
-                <option value="">All</option>
+                <option value="">{translate('all')}</option>
                 {config.options?.map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label}
@@ -68,7 +71,7 @@ export const HeaderFilterMatrix: React.FC<HeaderFilterMatrixProps> = ({
                 type="number"
                 value={value}
                 onChange={(e) => onChange(config.key, e.target.value)}
-                placeholder={config.placeholder || 'Filter...'}
+                placeholder={config.placeholder || translate('filter_placeholder')}
                 className="w-full text-[11px] py-1 px-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-teal-500"
               />
             </th>
@@ -84,7 +87,7 @@ export const HeaderFilterMatrix: React.FC<HeaderFilterMatrixProps> = ({
                 type="text"
                 value={value}
                 onChange={(e) => onChange(config.key, e.target.value)}
-                placeholder={config.placeholder || 'Filter...'}
+                placeholder={config.placeholder || translate('filter_placeholder')}
                 className="w-full text-[11px] py-1 ps-6 pe-5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-teal-500"
               />
               {value && (

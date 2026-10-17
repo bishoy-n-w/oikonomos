@@ -6,13 +6,15 @@ import { useApp } from '../context/AppContext';
 import { useFilter } from '../context/FilterContext';
 import { HeaderFilterMatrix, type ColumnFilterConfig } from '../components/common/HeaderFilterMatrix';
 import { normalizeDateStr, safeRender } from '../utils/formatters';
+import { useModalEscape } from '../utils/useModalEscape';
 import type { Mister, ServiceGroup, ClassDoc } from '../types';
 import { 
   Plus, 
   Edit3, 
   Trash2, 
   X, 
-  Lock 
+  Lock,
+  RefreshCw 
 } from 'lucide-react';
 
 export const ServantsDirectoryScreen: React.FC = () => {
@@ -38,6 +40,9 @@ export const ServantsDirectoryScreen: React.FC = () => {
 
   const isAdmin = userRole === 'Admin' || userRole === 'owner';
   const currentUserEmail = user?.email?.toLowerCase() || '';
+
+  useModalEscape(() => setEditMister(null), !!editMister);
+  useModalEscape(() => setAddModalOpen(false), addModalOpen);
 
   // 1. Listen to misters
   useEffect(() => {
@@ -122,16 +127,16 @@ export const ServantsDirectoryScreen: React.FC = () => {
   // Column Filter Matrix configs
   const filterConfigs: ColumnFilterConfig[] = [
     { key: 'active', type: 'boolean' },
-    { key: 'displayName', type: 'text', placeholder: 'Name...' },
+    { key: 'displayName', type: 'text', placeholder: `${translate('search')} ${translate('student_full_name')}...` },
     { key: 'churchRole', type: 'select', options: [{ value: 'admin', label: 'Admin' }, { value: 'viewer', label: 'Viewer' }] },
-    { key: 'adminGroups', type: 'text', placeholder: 'Admin in...' },
-    { key: 'servantGroups', type: 'text', placeholder: 'Servant in...' },
-    { key: 'servantClasses', type: 'text', placeholder: 'Classes...' },
-    { key: 'email', type: 'text', placeholder: 'Email...' },
-    { key: 'phone', type: 'text', placeholder: 'Phone...' },
-    { key: 'dob', type: 'text', placeholder: 'DOB...' },
-    { key: 'job', type: 'text', placeholder: 'Job...' },
-    { key: 'address', type: 'text', placeholder: 'Address...' },
+    { key: 'adminGroups', type: 'text', placeholder: `${translate('search')} ${translate('admin_in_groups')}...` },
+    { key: 'servantGroups', type: 'text', placeholder: `${translate('search')} ${translate('servant_in_groups')}...` },
+    { key: 'servantClasses', type: 'text', placeholder: `${translate('search')} ${translate('servant_in_classes')}...` },
+    { key: 'email', type: 'text', placeholder: `${translate('search')} ${translate('google_email')}...` },
+    { key: 'phone', type: 'text', placeholder: `${translate('search')} ${translate('phone')}...` },
+    { key: 'dob', type: 'text', placeholder: `${translate('search')} ${translate('dob')}...` },
+    { key: 'job', type: 'text', placeholder: `${translate('search')} ${translate('job')}...` },
+    { key: 'address', type: 'text', placeholder: `${translate('search')} ${translate('address')}...` },
     { key: 'actions', type: 'text', placeholder: '' },
   ];
 
@@ -263,7 +268,7 @@ export const ServantsDirectoryScreen: React.FC = () => {
             </span>
           </h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-            Servants roster, church roles, service assignments, and personal contacts
+            {translate('servants_subtitle')}
           </p>
         </div>
 
@@ -273,7 +278,7 @@ export const ServantsDirectoryScreen: React.FC = () => {
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30 w-fit cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>Add Servant</span>
+            <span>{translate('add_servant')}</span>
           </button>
         )}
       </div>
@@ -284,18 +289,18 @@ export const ServantsDirectoryScreen: React.FC = () => {
           <table className="w-full text-start text-xs text-zinc-700 dark:text-zinc-300">
             <thead className="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider text-[11px] border-b border-zinc-200 dark:border-zinc-800">
               <tr>
-                <th className="px-5 py-3.5 text-start w-20">Active</th>
-                <th className="px-5 py-3.5 text-start">Full Name</th>
-                <th className="px-4 py-3.5 text-start">Church Role</th>
-                <th className="px-5 py-3.5 text-start">Admin in Groups</th>
-                <th className="px-5 py-3.5 text-start">Servant in Groups</th>
-                <th className="px-5 py-3.5 text-start">Servant in Classes</th>
-                <th className="px-5 py-3.5 text-start">Google Email</th>
-                <th className="px-4 py-3.5 text-start">Phone</th>
-                <th className="px-4 py-3.5 text-start">DOB</th>
-                <th className="px-4 py-3.5 text-start">Job</th>
-                <th className="px-5 py-3.5 text-start">Address</th>
-                <th className="px-4 py-3.5 text-end w-24">Actions</th>
+                <th className="px-5 py-3.5 text-start w-20">{translate('active_badge')}</th>
+                <th className="px-5 py-3.5 text-start">{translate('student_full_name')}</th>
+                <th className="px-4 py-3.5 text-start">{translate('church_role')}</th>
+                <th className="px-5 py-3.5 text-start">{translate('admin_in_groups')}</th>
+                <th className="px-5 py-3.5 text-start">{translate('servant_in_groups')}</th>
+                <th className="px-5 py-3.5 text-start">{translate('servant_in_classes')}</th>
+                <th className="px-5 py-3.5 text-start">{translate('google_email')}</th>
+                <th className="px-4 py-3.5 text-start">{translate('phone')}</th>
+                <th className="px-4 py-3.5 text-start">{translate('dob')}</th>
+                <th className="px-4 py-3.5 text-start">{translate('job')}</th>
+                <th className="px-5 py-3.5 text-start">{translate('address')}</th>
+                <th className="px-4 py-3.5 text-end w-24">{translate('actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -325,7 +330,7 @@ export const ServantsDirectoryScreen: React.FC = () => {
                           : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'
                       }`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${mister.active ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
-                        {mister.active ? 'Active' : 'Inactive'}
+                        {mister.active ? translate('active_badge') : translate('inactive_badge')}
                       </span>
                     </td>
 
@@ -488,10 +493,12 @@ const MisterFormModal: React.FC<MisterFormModalProps> = ({
   onClose,
   onSave,
 }) => {
+  const { translate } = useApp();
   const [email, setEmail] = useState(existingMister?.email || '');
   const [displayName, setDisplayName] = useState(existingMister?.displayName || '');
   const [churchRole, setChurchRole] = useState<'admin' | 'viewer'>(existingMister?.churchRole || 'viewer');
   const [active, setActive] = useState(existingMister ? existingMister.active !== false : true);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Personal Info state
   const [phone, setPhone] = useState(existingMister?.personalInfo?.phone || '');
@@ -503,28 +510,36 @@ const MisterFormModal: React.FC<MisterFormModalProps> = ({
 
   const canEditRoleAndActive = isAdmin && (!isSelf || existingMister === null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !displayName.trim()) {
       alert('Email and Full Name are mandatory.');
       return;
     }
 
-    onSave(
-      existingMister,
-      email,
-      displayName,
-      churchRole,
-      active,
-      {
-        phone,
-        gender,
-        dob,
-        job,
-        address,
-        notes,
-      }
-    );
+    setIsSaving(true);
+    try {
+      await onSave(
+        existingMister,
+        email,
+        displayName,
+        churchRole,
+        active,
+        {
+          phone,
+          gender,
+          dob,
+          job,
+          address,
+          notes,
+        }
+      );
+    } catch (err: any) {
+      console.error('Save servant failed:', err);
+      alert(`Error saving servant: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -532,18 +547,19 @@ const MisterFormModal: React.FC<MisterFormModalProps> = ({
       <div className="w-full max-w-lg bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800 mb-4">
           <h3 className="font-bold text-base text-zinc-900 dark:text-zinc-100">
-            {existingMister ? `Edit Servant: ${existingMister.displayName}` : 'Add New Servant'}
+            {existingMister ? `${translate('edit')} ${translate('servant')}: ${existingMister.displayName}` : translate('add_servant')}
           </h3>
-          <button onClick={onClose} className="p-1 text-zinc-400 hover:text-zinc-600">
+          <button onClick={onClose} disabled={isSaving} className="p-1 text-zinc-400 hover:text-zinc-600">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+          <fieldset disabled={isSaving} className="space-y-4">
           {/* Mandated Fields */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">Full Name *</label>
+              <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">{translate('student_full_name')} *</label>
               <input
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
@@ -552,7 +568,7 @@ const MisterFormModal: React.FC<MisterFormModalProps> = ({
               />
             </div>
             <div>
-              <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">Google Email *</label>
+              <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">{translate('google_email')} *</label>
               <input
                 type="email"
                 value={email}
@@ -569,7 +585,7 @@ const MisterFormModal: React.FC<MisterFormModalProps> = ({
           <div className="grid grid-cols-2 gap-3 p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700">
             <div>
               <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1 flex items-center gap-1">
-                <span>Church Role *</span>
+                <span>{translate('church_role')} *</span>
                 {!canEditRoleAndActive && <Lock className="w-3 h-3 text-amber-500" />}
               </label>
               <select
@@ -585,7 +601,7 @@ const MisterFormModal: React.FC<MisterFormModalProps> = ({
 
             <div>
               <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1 flex items-center gap-1">
-                <span>Active Status *</span>
+                <span>{translate('active_badge')} *</span>
                 {!canEditRoleAndActive && <Lock className="w-3 h-3 text-amber-500" />}
               </label>
               <select
@@ -594,8 +610,8 @@ const MisterFormModal: React.FC<MisterFormModalProps> = ({
                 onChange={(e) => setActive(e.target.value === 'true')}
                 className="w-full p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 font-semibold disabled:opacity-50"
               >
-                <option value="true">Active</option>
-                <option value="false">Inactive</option>
+                <option value="true">{translate('active_badge')}</option>
+                <option value="false">{translate('inactive_badge')}</option>
               </select>
             </div>
           </div>
@@ -606,7 +622,7 @@ const MisterFormModal: React.FC<MisterFormModalProps> = ({
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Phone Number</label>
+                <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">{translate('phone')}</label>
                 <input
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
@@ -616,21 +632,21 @@ const MisterFormModal: React.FC<MisterFormModalProps> = ({
               </div>
 
               <div>
-                <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Gender</label>
+                <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">{translate('gender')}</label>
                 <select
                   value={gender}
                   onChange={(e) => setGender(e.target.value as any)}
                   className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm"
                 >
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
+                  <option value="male">{translate('male')}</option>
+                  <option value="female">{translate('female')}</option>
                 </select>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Date of Birth</label>
+                <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">{translate('dob')}</label>
                 <input
                   type="date"
                   value={dob}
@@ -640,7 +656,7 @@ const MisterFormModal: React.FC<MisterFormModalProps> = ({
               </div>
 
               <div>
-                <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Job / Profession</label>
+                <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">{translate('job')}</label>
                 <input
                   value={job}
                   onChange={(e) => setJob(e.target.value)}
@@ -651,7 +667,7 @@ const MisterFormModal: React.FC<MisterFormModalProps> = ({
             </div>
 
             <div>
-              <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Home Address</label>
+              <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">{translate('address')}</label>
               <input
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
@@ -661,7 +677,7 @@ const MisterFormModal: React.FC<MisterFormModalProps> = ({
             </div>
 
             <div>
-              <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Notes</label>
+              <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">{translate('notes')}</label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
@@ -674,18 +690,22 @@ const MisterFormModal: React.FC<MisterFormModalProps> = ({
           <div className="flex justify-end gap-2 pt-4 border-t border-zinc-100 dark:border-zinc-800">
             <button
               type="button"
+              disabled={isSaving}
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl font-semibold text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+              className="px-4 py-2.5 rounded-xl font-semibold text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer disabled:opacity-50"
             >
-              Cancel
+              {translate('cancel')}
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-xl font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30 cursor-pointer"
+              disabled={isSaving}
+              className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30 cursor-pointer disabled:opacity-50"
             >
-              Save Servant
+              {isSaving && <RefreshCw className="w-4 h-4 animate-spin" />}
+              <span>{isSaving ? translate('saving') : translate('save')}</span>
             </button>
           </div>
+          </fieldset>
         </form>
       </div>
     </div>

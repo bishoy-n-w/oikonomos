@@ -6,8 +6,11 @@ import { useApp } from '../context/AppContext';
 import { useFilter } from '../context/FilterContext';
 import { HeaderFilterMatrix, type ColumnFilterConfig } from '../components/common/HeaderFilterMatrix';
 import { GoogleContactsSyncModal } from '../components/kids/GoogleContactsSyncModal';
+import { BulkAssignmentModal } from '../components/kids/BulkAssignmentModal';
+import { SmartImportModal } from '../components/kids/SmartImportModal';
 import { normalizePhoneNumber } from '../services/googleContacts';
 import { normalizeDateStr, safeRender } from '../utils/formatters';
+import { useModalEscape } from '../utils/useModalEscape';
 import type { Kid, ClassDoc, KidVersion } from '../types';
 import { 
   Plus, 
@@ -17,8 +20,10 @@ import {
   Trash2, 
   Edit3, 
   Download, 
+  Upload, 
   X, 
-  Layers 
+  Layers,
+  RefreshCw 
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -39,17 +44,16 @@ export const KidsDirectoryScreen: React.FC = () => {
   const [kids, setKids] = useState<Kid[]>([]);
   const [classesList, setClassesList] = useState<ClassDoc[]>([]);
 
-  // 5 Foldable Column Groups state (Mandated by PRD):
-  // 1. Assignment Group
-  // 2. General Profile Group
-  // 3. Address Group
-  // 4. Contacts Group
-  // 5. Notes Group
-  const [foldAssignments, setFoldAssignments] = useState(false); // unfold by default
-  const [foldProfile, setFoldProfile] = useState(false); // unfold by default
-  const [foldAddress, setFoldAddress] = useState(true); // folded by default
-  const [foldContacts, setFoldContacts] = useState(false); // unfold by default
-  const [foldNotes, setFoldNotes] = useState(true); // folded by default
+  // 5 Foldable Column Groups state:
+  // Note: fullName is permanently visible / fixed (cannot be folded/hidden)!
+  const [foldAssignments, setFoldAssignments] = useState(false);
+  const [foldProfile, setFoldProfile] = useState(false);
+  const [foldAddress, setFoldAddress] = useState(true);
+  const [foldContacts, setFoldContacts] = useState(false);
+  const [foldNotes, setFoldNotes] = useState(true);
+
+  // Multi-select state
+  const [selectedKidIds, setSelectedKidIds] = useState<string[]>([]);
 
   // Header Filtering Matrix state
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -57,9 +61,16 @@ export const KidsDirectoryScreen: React.FC = () => {
   // Modals
   const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
   const [activeKid, setActiveKid] = useState<Kid | null>(null);
 
   const isAdmin = userRole === 'Admin' || userRole === 'owner';
+
+  useModalEscape(() => setBulkModalOpen(false), bulkModalOpen);
+  useModalEscape(() => setImportModalOpen(false), importModalOpen);
+  useModalEscape(() => setSyncModalOpen(false), syncModalOpen);
+  useModalEscape(() => setEditModalOpen(false), editModalOpen && !bulkModalOpen && !importModalOpen && !syncModalOpen);
 
   // 1. Listen to Kids
   useEffect(() => {
@@ -118,45 +129,46 @@ export const KidsDirectoryScreen: React.FC = () => {
     return yearData?.displayName || yearData?.name || c.id;
   };
 
-  // Build dynamic FilterConfigs matching visible folded/unfolded columns
+  // Build dynamic FilterConfigs matching requested column order:
+  // 1. active, 2. fullName (permanently visible), 3. Assignments, 4. Profile, 5. Address, 6. Contacts, 7. Notes
   const filterConfigs: ColumnFilterConfig[] = [
     { key: 'active', type: 'boolean' },
+    { key: 'fullName', type: 'text', placeholder: `${translate('search')} ${translate('student_full_name')}...` },
     // Assignments Group
     ...(!foldAssignments ? [
-      { key: 'year', type: 'text', placeholder: 'Year...' } as ColumnFilterConfig,
-      { key: 'group', type: 'text', placeholder: 'Group...' } as ColumnFilterConfig,
-      { key: 'class', type: 'text', placeholder: 'Class...' } as ColumnFilterConfig,
+      { key: 'year', type: 'text', placeholder: `${translate('search')} ${translate('academic_year')}...` } as ColumnFilterConfig,
+      { key: 'group', type: 'text', placeholder: `${translate('search')} ${translate('service_group')}...` } as ColumnFilterConfig,
+      { key: 'class', type: 'text', placeholder: `${translate('search')} ${translate('class_label')}...` } as ColumnFilterConfig,
     ] : []),
-    // Profile Group
+    // Profile Group (Gender, DOB, School, Father of Confession)
     ...(!foldProfile ? [
-      { key: 'fullName', type: 'text', placeholder: 'Full Name...' } as ColumnFilterConfig,
-      { key: 'gender', type: 'select', options: [{ value: 'male', label: 'Male' }, { value: 'female', label: 'Female' }] } as ColumnFilterConfig,
-      { key: 'dob', type: 'text', placeholder: 'DOB...' } as ColumnFilterConfig,
-      { key: 'school', type: 'text', placeholder: 'School...' } as ColumnFilterConfig,
-      { key: 'fatherOfConfession', type: 'text', placeholder: 'Father Confession...' } as ColumnFilterConfig,
+      { key: 'gender', type: 'select', options: [{ value: 'male', label: translate('male') }, { value: 'female', label: translate('female') }] } as ColumnFilterConfig,
+      { key: 'dob', type: 'text', placeholder: `${translate('search')} ${translate('dob')}...` } as ColumnFilterConfig,
+      { key: 'school', type: 'text', placeholder: `${translate('search')} ${translate('school')}...` } as ColumnFilterConfig,
+      { key: 'fatherOfConfession', type: 'text', placeholder: `${translate('search')} ${translate('father_of_confession')}...` } as ColumnFilterConfig,
     ] : []),
     // Address Group
     ...(!foldAddress ? [
-      { key: 'street', type: 'text', placeholder: 'Street...' } as ColumnFilterConfig,
-      { key: 'building', type: 'text', placeholder: 'Building...' } as ColumnFilterConfig,
-      { key: 'floor', type: 'text', placeholder: 'Floor...' } as ColumnFilterConfig,
-      { key: 'apartment', type: 'text', placeholder: 'Apt...' } as ColumnFilterConfig,
-      { key: 'region', type: 'text', placeholder: 'Region...' } as ColumnFilterConfig,
+      { key: 'street', type: 'text', placeholder: `${translate('search')} ${translate('street')}...` } as ColumnFilterConfig,
+      { key: 'building', type: 'text', placeholder: `${translate('search')} ${translate('building')}...` } as ColumnFilterConfig,
+      { key: 'floor', type: 'text', placeholder: `${translate('search')} ${translate('floor')}...` } as ColumnFilterConfig,
+      { key: 'apartment', type: 'text', placeholder: `${translate('search')} ${translate('apartment')}...` } as ColumnFilterConfig,
+      { key: 'region', type: 'text', placeholder: `${translate('search')} ${translate('region')}...` } as ColumnFilterConfig,
     ] : []),
     // Contacts Group
     ...(!foldContacts ? [
-      { key: 'kidMob', type: 'text', placeholder: 'Kid Mobile...' } as ColumnFilterConfig,
-      { key: 'fatherName', type: 'text', placeholder: 'Father Name...' } as ColumnFilterConfig,
-      { key: 'fatherProfession', type: 'text', placeholder: 'Father Job...' } as ColumnFilterConfig,
-      { key: 'fatherMob', type: 'text', placeholder: 'Father Mobile...' } as ColumnFilterConfig,
-      { key: 'motherName', type: 'text', placeholder: 'Mother Name...' } as ColumnFilterConfig,
-      { key: 'motherProfession', type: 'text', placeholder: 'Mother Job...' } as ColumnFilterConfig,
-      { key: 'motherMob', type: 'text', placeholder: 'Mother Mobile...' } as ColumnFilterConfig,
-      { key: 'otherMob', type: 'text', placeholder: 'Other Mobile...' } as ColumnFilterConfig,
+      { key: 'kidMob', type: 'text', placeholder: `${translate('search')} ${translate('kid_mobile')}...` } as ColumnFilterConfig,
+      { key: 'fatherName', type: 'text', placeholder: `${translate('search')} ${translate('father_name')}...` } as ColumnFilterConfig,
+      { key: 'fatherProfession', type: 'text', placeholder: `${translate('search')} ${translate('father_job')}...` } as ColumnFilterConfig,
+      { key: 'fatherMob', type: 'text', placeholder: `${translate('search')} ${translate('father_mobile')}...` } as ColumnFilterConfig,
+      { key: 'motherName', type: 'text', placeholder: `${translate('search')} ${translate('mother_name')}...` } as ColumnFilterConfig,
+      { key: 'motherProfession', type: 'text', placeholder: `${translate('search')} ${translate('mother_job')}...` } as ColumnFilterConfig,
+      { key: 'motherMob', type: 'text', placeholder: `${translate('search')} ${translate('mother_mobile')}...` } as ColumnFilterConfig,
+      { key: 'otherMob', type: 'text', placeholder: `${translate('search')} ${translate('other_mobile')}...` } as ColumnFilterConfig,
     ] : []),
     // Notes Group
     ...(!foldNotes ? [
-      { key: 'notes', type: 'text', placeholder: 'Notes...' } as ColumnFilterConfig,
+      { key: 'notes', type: 'text', placeholder: `${translate('search')} ${translate('pastoral_notes')}...` } as ColumnFilterConfig,
     ] : []),
     { key: 'actions', type: 'text', placeholder: '' },
   ];
@@ -188,6 +200,9 @@ export const KidsDirectoryScreen: React.FC = () => {
     if (filters.active !== undefined && filters.active !== '') {
       if (String(kid.active) !== filters.active) return false;
     }
+    if (filters.fullName) {
+      if (!kid.info.fullName.toLowerCase().includes(filters.fullName.toLowerCase())) return false;
+    }
     if (filters.year) {
       if (!resolveYearName(asgn.academicYearId).toLowerCase().includes(filters.year.toLowerCase())) return false;
     }
@@ -196,9 +211,6 @@ export const KidsDirectoryScreen: React.FC = () => {
     }
     if (filters.class) {
       if (!resolveClassName(asgn.classId).toLowerCase().includes(filters.class.toLowerCase())) return false;
-    }
-    if (filters.fullName) {
-      if (!kid.info.fullName.toLowerCase().includes(filters.fullName.toLowerCase())) return false;
     }
     if (filters.gender) {
       if (kid.info.gender !== filters.gender) return false;
@@ -212,11 +224,29 @@ export const KidsDirectoryScreen: React.FC = () => {
     if (filters.fatherOfConfession) {
       if (!kid.info.fatherOfConfession?.toLowerCase().includes(filters.fatherOfConfession.toLowerCase())) return false;
     }
+    if (filters.street) {
+      if (!kid.address?.street?.toLowerCase().includes(filters.street.toLowerCase())) return false;
+    }
+    if (filters.building) {
+      if (!kid.address?.building?.toLowerCase().includes(filters.building.toLowerCase())) return false;
+    }
+    if (filters.floor) {
+      if (!kid.address?.floor?.toLowerCase().includes(filters.floor.toLowerCase())) return false;
+    }
+    if (filters.apartment) {
+      if (!kid.address?.apartment?.toLowerCase().includes(filters.apartment.toLowerCase())) return false;
+    }
     if (filters.region) {
       if (!kid.address?.region?.toLowerCase().includes(filters.region.toLowerCase())) return false;
     }
+    if (filters.kidMob) {
+      if (!kid.contacts?.kidMob?.includes(filters.kidMob)) return false;
+    }
     if (filters.fatherName) {
       if (!kid.contacts?.fatherName?.toLowerCase().includes(filters.fatherName.toLowerCase())) return false;
+    }
+    if (filters.fatherProfession) {
+      if (!kid.contacts?.fatherProfession?.toLowerCase().includes(filters.fatherProfession.toLowerCase())) return false;
     }
     if (filters.fatherMob) {
       if (!kid.contacts?.fatherMob?.includes(filters.fatherMob)) return false;
@@ -224,8 +254,14 @@ export const KidsDirectoryScreen: React.FC = () => {
     if (filters.motherName) {
       if (!kid.contacts?.motherName?.toLowerCase().includes(filters.motherName.toLowerCase())) return false;
     }
+    if (filters.motherProfession) {
+      if (!kid.contacts?.motherProfession?.toLowerCase().includes(filters.motherProfession.toLowerCase())) return false;
+    }
     if (filters.motherMob) {
       if (!kid.contacts?.motherMob?.includes(filters.motherMob)) return false;
+    }
+    if (filters.otherMob) {
+      if (!kid.contacts?.otherMob?.includes(filters.otherMob)) return false;
     }
     if (filters.notes) {
       if (!kid.notes?.toLowerCase().includes(filters.notes.toLowerCase())) return false;
@@ -233,6 +269,25 @@ export const KidsDirectoryScreen: React.FC = () => {
 
     return true;
   });
+
+  // Multi-select helpers
+  const allFilteredSelected = filteredKids.length > 0 && filteredKids.every((k) => selectedKidIds.includes(k.id));
+
+  const toggleSelectAll = () => {
+    if (allFilteredSelected) {
+      setSelectedKidIds([]);
+    } else {
+      setSelectedKidIds(filteredKids.map((k) => k.id));
+    }
+  };
+
+  const toggleSelectKid = (kidId: string) => {
+    if (selectedKidIds.includes(kidId)) {
+      setSelectedKidIds(selectedKidIds.filter((id) => id !== kidId));
+    } else {
+      setSelectedKidIds([...selectedKidIds, kidId]);
+    }
+  };
 
   // Save Add/Edit Kid with version audit trail and E.164 phone formatting
   const handleSaveKid = async (kidData: Partial<Kid>) => {
@@ -295,10 +350,10 @@ export const KidsDirectoryScreen: React.FC = () => {
   const handleExportExcel = () => {
     const rows = filteredKids.map((k) => ({
       'Active': k.active ? 'Yes' : 'No',
+      'Full Name': k.info.fullName,
       'Year': resolveYearName(k.activeAssignment?.academicYearId),
       'Group': resolveGroupName(k.activeAssignment?.serviceGroupId),
       'Class': resolveClassName(k.activeAssignment?.classId),
-      'Full Name': k.info.fullName,
       'Gender': k.info.gender,
       'DOB': k.info.dob || '',
       'School': k.info.school || '',
@@ -341,12 +396,23 @@ export const KidsDirectoryScreen: React.FC = () => {
             </span>
           </h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-            {activeChurchName} • {activeClassName}
+            {translate('kids_subtitle')}
           </p>
         </div>
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Smart Excel / CSV Import (Option 3 Hybrid AI) */}
+          {isAdmin && (
+            <button
+              onClick={() => setImportModalOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 hover:bg-teal-100 dark:hover:bg-teal-900/60 transition cursor-pointer"
+            >
+              <Upload className="w-4 h-4" />
+              <span>{translate('import_excel')}</span>
+            </button>
+          )}
+
           {/* Sync to Google Contacts (Star Feature) */}
           <button
             onClick={() => setSyncModalOpen(true)}
@@ -375,17 +441,17 @@ export const KidsDirectoryScreen: React.FC = () => {
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
-              <span>{translate('add')}</span>
+              <span>{translate('add_student')}</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* 5 Foldable Column Categories Bar (Desktop Table Toggle) */}
+      {/* 5 Foldable Column Categories Bar (Note: Full Name is permanently visible / fixed) */}
       <div className="hidden md:flex items-center justify-between p-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs shadow-xs">
         <span className="font-bold text-zinc-500 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
           <Layers className="w-4 h-4 text-teal-600" />
-          <span>Foldable Column Groups:</span>
+          <span>{translate('foldable_groups')}</span>
         </span>
         <div className="flex items-center gap-2">
           {/* 1. Assignment Group */}
@@ -395,7 +461,7 @@ export const KidsDirectoryScreen: React.FC = () => {
               !foldAssignments ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200 dark:border-purple-800' : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500'
             }`}
           >
-            <span>{foldAssignments ? '[+]' : '[-]'} Assignment</span>
+            <span>{foldAssignments ? '[+]' : '[-]'} {translate('assignment_group')}</span>
           </button>
 
           {/* 2. General Profile Group */}
@@ -405,7 +471,7 @@ export const KidsDirectoryScreen: React.FC = () => {
               !foldProfile ? 'bg-teal-50 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300 border-teal-200 dark:border-teal-800' : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500'
             }`}
           >
-            <span>{foldProfile ? '[+]' : '[-]'} General Profile</span>
+            <span>{foldProfile ? '[+]' : '[-]'} {translate('profile_group')}</span>
           </button>
 
           {/* 3. Address Group */}
@@ -415,7 +481,7 @@ export const KidsDirectoryScreen: React.FC = () => {
               !foldAddress ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800' : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500'
             }`}
           >
-            <span>{foldAddress ? '[+]' : '[-]'} Address</span>
+            <span>{foldAddress ? '[+]' : '[-]'} {translate('address_group')}</span>
           </button>
 
           {/* 4. Contacts Group */}
@@ -425,7 +491,7 @@ export const KidsDirectoryScreen: React.FC = () => {
               !foldContacts ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500'
             }`}
           >
-            <span>{foldContacts ? '[+]' : '[-]'} Contacts</span>
+            <span>{foldContacts ? '[+]' : '[-]'} {translate('contacts_group')}</span>
           </button>
 
           {/* 5. Notes Group */}
@@ -435,7 +501,7 @@ export const KidsDirectoryScreen: React.FC = () => {
               !foldNotes ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800' : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500'
             }`}
           >
-            <span>{foldNotes ? '[+]' : '[-]'} Notes</span>
+            <span>{foldNotes ? '[+]' : '[-]'} {translate('notes_group')}</span>
           </button>
         </div>
       </div>
@@ -463,9 +529,17 @@ export const KidsDirectoryScreen: React.FC = () => {
                     {kid.info.fullName.charAt(0)}
                   </div>
                   <div>
-                    <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
+                    {/* Click on Name opens Edit */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveKid(kid);
+                        setEditModalOpen(true);
+                      }}
+                      className="font-bold text-sm text-zinc-900 dark:text-zinc-100 hover:text-teal-600 text-start"
+                    >
                       {kid.info.fullName}
-                    </h3>
+                    </button>
                     <p className="text-xs text-zinc-400">
                       {kid.contacts?.fatherName ? `Father: ${kid.contacts.fatherName}` : (kid.address?.region || 'Sunday School')}
                     </p>
@@ -536,59 +610,75 @@ export const KidsDirectoryScreen: React.FC = () => {
           <table className="w-full text-start text-xs text-zinc-700 dark:text-zinc-300">
             <thead className="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider text-[11px] border-b border-zinc-200 dark:border-zinc-800">
               <tr>
-                <th className="px-5 py-3.5 text-start w-20">Active</th>
+                {/* 1. Active + Master Checkbox */}
+                <th className="px-4 py-3.5 text-start w-28">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={allFilteredSelected}
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 cursor-pointer"
+                      title="Select / Deselect all"
+                    />
+                    <span>{translate('active_badge')}</span>
+                  </div>
+                </th>
 
-                {/* 1. Assignment Group */}
+                {/* 2. Full Name: Permanently visible / fixed (cannot be folded or hidden) */}
+                <th className="px-5 py-3.5 text-start font-black text-zinc-900 dark:text-zinc-100">
+                  {translate('student_full_name')}
+                </th>
+
+                {/* 3. Assignment Group */}
                 {!foldAssignments && (
                   <>
-                    <th className="px-4 py-3.5 text-start">Academic Year</th>
-                    <th className="px-4 py-3.5 text-start">Service Group</th>
-                    <th className="px-4 py-3.5 text-start">Class</th>
+                    <th className="px-4 py-3.5 text-start">{translate('academic_year')}</th>
+                    <th className="px-4 py-3.5 text-start">{translate('service_group')}</th>
+                    <th className="px-4 py-3.5 text-start">{translate('class_label')}</th>
                   </>
                 )}
 
-                {/* 2. Profile Group */}
+                {/* 4. Profile Group */}
                 {!foldProfile && (
                   <>
-                    <th className="px-5 py-3.5 text-start">Full Name</th>
-                    <th className="px-3 py-3.5 text-start">Gender</th>
-                    <th className="px-4 py-3.5 text-start">DOB</th>
-                    <th className="px-4 py-3.5 text-start">School</th>
-                    <th className="px-4 py-3.5 text-start">Father of Confession</th>
+                    <th className="px-3 py-3.5 text-start">{translate('gender')}</th>
+                    <th className="px-4 py-3.5 text-start">{translate('dob')}</th>
+                    <th className="px-4 py-3.5 text-start">{translate('school')}</th>
+                    <th className="px-4 py-3.5 text-start">{translate('father_of_confession')}</th>
                   </>
                 )}
 
-                {/* 3. Address Group */}
+                {/* 5. Address Group */}
                 {!foldAddress && (
                   <>
-                    <th className="px-4 py-3.5 text-start">Street</th>
-                    <th className="px-3 py-3.5 text-start">Building</th>
-                    <th className="px-3 py-3.5 text-start">Floor</th>
-                    <th className="px-3 py-3.5 text-start">Apt</th>
-                    <th className="px-4 py-3.5 text-start">Region</th>
+                    <th className="px-4 py-3.5 text-start">{translate('street')}</th>
+                    <th className="px-3 py-3.5 text-start">{translate('building')}</th>
+                    <th className="px-3 py-3.5 text-start">{translate('floor')}</th>
+                    <th className="px-3 py-3.5 text-start">{translate('apartment')}</th>
+                    <th className="px-4 py-3.5 text-start">{translate('region')}</th>
                   </>
                 )}
 
-                {/* 4. Contacts Group */}
+                {/* 6. Contacts Group */}
                 {!foldContacts && (
                   <>
-                    <th className="px-4 py-3.5 text-start">Kid Mobile</th>
-                    <th className="px-4 py-3.5 text-start">Father Name</th>
-                    <th className="px-4 py-3.5 text-start">Father Job</th>
-                    <th className="px-4 py-3.5 text-start">Father Mobile</th>
-                    <th className="px-4 py-3.5 text-start">Mother Name</th>
-                    <th className="px-4 py-3.5 text-start">Mother Job</th>
-                    <th className="px-4 py-3.5 text-start">Mother Mobile</th>
-                    <th className="px-4 py-3.5 text-start">Other Mobile</th>
+                    <th className="px-4 py-3.5 text-start">{translate('kid_mobile')}</th>
+                    <th className="px-4 py-3.5 text-start">{translate('father_name')}</th>
+                    <th className="px-4 py-3.5 text-start">{translate('father_job')}</th>
+                    <th className="px-4 py-3.5 text-start">{translate('father_mobile')}</th>
+                    <th className="px-4 py-3.5 text-start">{translate('mother_name')}</th>
+                    <th className="px-4 py-3.5 text-start">{translate('mother_job')}</th>
+                    <th className="px-4 py-3.5 text-start">{translate('mother_mobile')}</th>
+                    <th className="px-4 py-3.5 text-start">{translate('other_mobile')}</th>
                   </>
                 )}
 
-                {/* 5. Notes Group */}
+                {/* 7. Notes Group */}
                 {!foldNotes && (
-                  <th className="px-5 py-3.5 text-start">Pastoral Notes</th>
+                  <th className="px-5 py-3.5 text-start">{translate('pastoral_notes')}</th>
                 )}
 
-                <th className="px-5 py-3.5 text-end w-24">Actions</th>
+                <th className="px-5 py-3.5 text-end w-24">{translate('actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -601,20 +691,47 @@ export const KidsDirectoryScreen: React.FC = () => {
 
               {filteredKids.map((kid) => {
                 const asgn = kid.activeAssignment || {};
+                const isSelected = selectedKidIds.includes(kid.id);
 
                 return (
                   <tr
                     key={kid.id}
-                    className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40 border-b border-zinc-100 dark:border-zinc-800/80 transition"
+                    className={`border-b border-zinc-100 dark:border-zinc-800/80 transition ${
+                      isSelected
+                        ? 'bg-purple-50/60 dark:bg-purple-950/30'
+                        : 'hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40'
+                    }`}
                   >
-                    {/* Active */}
-                    <td className="px-5 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                        kid.active ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-zinc-100 text-zinc-500'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${kid.active ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
-                        {kid.active ? 'Active' : 'Inactive'}
-                      </span>
+                    {/* Active + Checkbox */}
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectKid(kid.id)}
+                          className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 cursor-pointer"
+                        />
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          kid.active ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-zinc-100 text-zinc-500'
+                        }`}>
+                          {kid.active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Full Name: Permanently visible, click to edit! */}
+                    <td className="px-5 py-4 whitespace-nowrap font-bold text-zinc-900 dark:text-zinc-100">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveKid(kid);
+                          setEditModalOpen(true);
+                        }}
+                        className="hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start font-bold"
+                        title="Click to edit student profile"
+                      >
+                        {kid.info.fullName}
+                      </button>
                     </td>
 
                     {/* Assignment Columns */}
@@ -629,7 +746,6 @@ export const KidsDirectoryScreen: React.FC = () => {
                     {/* Profile Columns */}
                     {!foldProfile && (
                       <>
-                        <td className="px-5 py-4 whitespace-nowrap font-bold text-zinc-900 dark:text-zinc-100">{kid.info.fullName}</td>
                         <td className="px-3 py-4 whitespace-nowrap capitalize">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                             kid.info.gender === 'female' ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/60' : 'bg-blue-50 text-blue-600 dark:bg-blue-950/60'
@@ -719,6 +835,72 @@ export const KidsDirectoryScreen: React.FC = () => {
         </div>
       </div>
 
+      {/* Floating Bulk Action Bar (Visible when >= 1 student selected) */}
+      {selectedKidIds.length > 0 && (
+        <div className="fixed bottom-20 lg:bottom-6 inset-x-4 max-w-xl mx-auto z-40 p-4 rounded-3xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xl flex items-center justify-between border border-zinc-700 dark:border-zinc-300 animate-in slide-in-from-bottom duration-200">
+          <div className="flex items-center gap-2.5">
+            <span className="w-7 h-7 rounded-full bg-purple-600 text-white flex items-center justify-center font-extrabold text-xs">
+              {selectedKidIds.length}
+            </span>
+            <span className="font-bold text-xs sm:text-sm">
+              {selectedKidIds.length} Students Selected
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setBulkModalOpen(true)}
+              className="px-4 py-2 rounded-xl font-bold text-xs bg-purple-600 hover:bg-purple-700 text-white transition active:scale-95 shadow-md shadow-purple-600/30 cursor-pointer"
+            >
+              Change Classroom Assignment
+            </button>
+            <button
+              onClick={() => setSelectedKidIds([])}
+              className="px-3 py-2 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white dark:hover:text-zinc-900 transition cursor-pointer"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Assignment Modal */}
+      {bulkModalOpen && selectedChurchId && (
+        <BulkAssignmentModal
+          churchId={selectedChurchId}
+          selectedKidIds={selectedKidIds}
+          academicYears={academicYears}
+          serviceGroups={serviceGroups}
+          classes={classesList}
+          defaultYearId={selectedAcademicYearId || academicYears[0]?.id || ''}
+          defaultGroupId={selectedServiceGroupId || serviceGroups[0]?.id || ''}
+          defaultClassId={selectedClassId || ''}
+          onClose={() => setBulkModalOpen(false)}
+          onSuccess={(count) => {
+            setBulkModalOpen(false);
+            setSelectedKidIds([]);
+            alert(`Successfully reassigned ${count} students.`);
+          }}
+        />
+      )}
+
+      {/* Smart Import Wizard Modal (Option 3 Hybrid AI) */}
+      {importModalOpen && selectedChurchId && (
+        <SmartImportModal
+          churchId={selectedChurchId}
+          academicYears={academicYears}
+          serviceGroups={serviceGroups}
+          classes={classesList}
+          defaultYearId={selectedAcademicYearId || academicYears[0]?.id || ''}
+          defaultGroupId={selectedServiceGroupId || serviceGroups[0]?.id || ''}
+          defaultClassId={selectedClassId || ''}
+          onClose={() => setImportModalOpen(false)}
+          onSuccess={() => {
+            // refresh happens automatically via snapshot
+          }}
+        />
+      )}
+
       {/* Google Contacts Sync Modal */}
       <GoogleContactsSyncModal
         isOpen={syncModalOpen}
@@ -774,6 +956,7 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
   onClose,
   onSave,
 }) => {
+  const { translate } = useApp();
   const asgn = existingKid?.activeAssignment || {};
 
   const [fullName, setFullName] = useState(existingKid?.info.fullName || '');
@@ -806,46 +989,55 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
 
   // Notes
   const [notes, setNotes] = useState(existingKid?.notes || '');
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim()) {
       alert('Student Full Name is required.');
       return;
     }
 
-    onSave({
-      info: {
-        fullName,
-        gender,
-        dob,
-        school,
-        fatherOfConfession,
-      },
-      activeAssignment: {
-        academicYearId,
-        serviceGroupId,
-        classId,
-      },
-      address: {
-        street,
-        building,
-        floor,
-        apartment,
-        region,
-      },
-      contacts: {
-        kidMob,
-        fatherName,
-        fatherProfession,
-        fatherMob,
-        motherName,
-        motherProfession,
-        motherMob,
-        otherMob,
-      },
-      notes,
-    });
+    setIsSaving(true);
+    try {
+      await onSave({
+        info: {
+          fullName,
+          gender,
+          dob,
+          school,
+          fatherOfConfession,
+        },
+        activeAssignment: {
+          academicYearId,
+          serviceGroupId,
+          classId,
+        },
+        address: {
+          street,
+          building,
+          floor,
+          apartment,
+          region,
+        },
+        contacts: {
+          kidMob,
+          fatherName,
+          fatherProfession,
+          fatherMob,
+          motherName,
+          motherProfession,
+          motherMob,
+          otherMob,
+        },
+        notes,
+      });
+    } catch (err: any) {
+      console.error('Save kid failed:', err);
+      alert(`Error saving student: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -853,14 +1045,15 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
       <div className="w-full max-w-2xl bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800 mb-4">
           <h3 className="font-bold text-base text-zinc-900 dark:text-zinc-100">
-            {existingKid ? `Edit Student: ${existingKid.info.fullName}` : 'Add New Student'}
+            {existingKid ? `${translate('edit')} ${translate('kids')}: ${existingKid.info.fullName}` : translate('add_student')}
           </h3>
-          <button onClick={onClose} className="p-1 text-zinc-400 hover:text-zinc-600">
+          <button onClick={onClose} disabled={isSaving} className="p-1 text-zinc-400 hover:text-zinc-600">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5 text-xs">
+          <fieldset disabled={isSaving} className="space-y-5">
           {/* Section 1: Active Assignment */}
           <div className="p-3.5 rounded-2xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/50 space-y-2">
             <h4 className="font-bold text-purple-900 dark:text-purple-300">Classroom Assignment</h4>
@@ -1110,18 +1303,22 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
           <div className="flex justify-end gap-2 pt-4 border-t border-zinc-100 dark:border-zinc-800">
             <button
               type="button"
+              disabled={isSaving}
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl font-semibold text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+              className="px-4 py-2.5 rounded-xl font-semibold text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer disabled:opacity-50"
             >
-              Cancel
+              {translate('cancel')}
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-xl font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30 cursor-pointer"
+              disabled={isSaving}
+              className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30 cursor-pointer disabled:opacity-50"
             >
-              Save Student
+              {isSaving && <RefreshCw className="w-4 h-4 animate-spin" />}
+              <span>{isSaving ? translate('saving') : translate('save')}</span>
             </button>
           </div>
+          </fieldset>
         </form>
       </div>
     </div>

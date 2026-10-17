@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { useFilter } from '../context/FilterContext';
 import { HeaderFilterMatrix, type ColumnFilterConfig } from '../components/common/HeaderFilterMatrix';
+import { useModalEscape } from '../utils/useModalEscape';
 import type { ServiceGroup, Mister, Church } from '../types';
 import { 
   Plus, 
@@ -14,7 +15,8 @@ import {
   Search, 
   Check, 
   ShieldCheck, 
-  Users 
+  Users,
+  RefreshCw 
 } from 'lucide-react';
 
 export const ServiceGroupsScreen: React.FC = () => {
@@ -32,8 +34,12 @@ export const ServiceGroupsScreen: React.FC = () => {
   // Modals
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editGroup, setEditGroup] = useState<ServiceGroup | null>(null);
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
 
   const isAdmin = userRole === 'Admin' || userRole === 'owner';
+
+  useModalEscape(() => setEditGroup(null), !!editGroup);
+  useModalEscape(() => setAddModalOpen(false), addModalOpen);
 
   // 1. Listen to current church doc (for grade assignments)
   useEffect(() => {
@@ -101,10 +107,10 @@ export const ServiceGroupsScreen: React.FC = () => {
   // Column Filter Matrix configs
   const filterConfigs: ColumnFilterConfig[] = [
     { key: 'active', type: 'boolean' },
-    { key: 'displayName', type: 'text', placeholder: 'Filter Group...' },
-    { key: 'admins', type: 'text', placeholder: 'Filter Admin...' },
-    { key: 'servantsCount', type: 'number', placeholder: 'Min servants...' },
-    { key: 'grades', type: 'text', placeholder: 'Filter Grade...' },
+    { key: 'displayName', type: 'text', placeholder: `${translate('search')} ${translate('group_name')}...` },
+    { key: 'admins', type: 'text', placeholder: `${translate('search')} ${translate('admins_coordinators')}...` },
+    { key: 'servantsCount', type: 'number', placeholder: translate('min_servants') },
+    { key: 'grades', type: 'text', placeholder: `${translate('search')} ${translate('assigned_grades')}...` },
     { key: 'actions', type: 'text', placeholder: '' },
   ];
 
@@ -149,20 +155,28 @@ export const ServiceGroupsScreen: React.FC = () => {
   // Create new service group (mandating active, displayName)
   const handleCreateGroup = async (displayName: string, active: boolean) => {
     if (!selectedChurchId) return;
-    const docId = displayName.trim().toLowerCase().replace(/\s+/g, '_');
-    const groupRef = doc(db, 'churches', selectedChurchId, 'serviceGroups', docId);
+    setIsCreatingGroup(true);
+    try {
+      const docId = displayName.trim().toLowerCase().replace(/\s+/g, '_');
+      const groupRef = doc(db, 'churches', selectedChurchId, 'serviceGroups', docId);
 
-    await setDoc(groupRef, {
-      displayName,
-      active,
-      misters: {},
-      admins: [],
-      servants: [],
-      createdAt: new Date().toISOString(),
-      createdBy: user?.email,
-    });
+      await setDoc(groupRef, {
+        displayName,
+        active,
+        misters: {},
+        admins: [],
+        servants: [],
+        createdAt: new Date().toISOString(),
+        createdBy: user?.email,
+      });
 
-    setAddModalOpen(false);
+      setAddModalOpen(false);
+    } catch (err: any) {
+      console.error('Create group failed:', err);
+      alert(`Error creating group: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsCreatingGroup(false);
+    }
   };
 
   // Save edited group
@@ -210,7 +224,7 @@ export const ServiceGroupsScreen: React.FC = () => {
             </span>
           </h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-            Pastoral service departments, coordinators, assigned servants, and grade brackets
+            {translate('service_groups_subtitle')}
           </p>
         </div>
 
@@ -220,7 +234,7 @@ export const ServiceGroupsScreen: React.FC = () => {
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30 w-fit cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>Add Service Group</span>
+            <span>{translate('add_service_group')}</span>
           </button>
         )}
       </div>
@@ -231,12 +245,12 @@ export const ServiceGroupsScreen: React.FC = () => {
           <table className="w-full text-start text-xs text-zinc-700 dark:text-zinc-300">
             <thead className="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider text-[11px] border-b border-zinc-200 dark:border-zinc-800">
               <tr>
-                <th className="px-6 py-3.5 text-start w-24">Active</th>
-                <th className="px-6 py-3.5 text-start">Group Name</th>
-                <th className="px-6 py-3.5 text-start">Admins (Coordinators)</th>
-                <th className="px-6 py-3.5 text-start">Servants (Total)</th>
-                <th className="px-6 py-3.5 text-start">Assigned Grades</th>
-                <th className="px-6 py-3.5 text-end w-28">Actions</th>
+                <th className="px-6 py-3.5 text-start w-24">{translate('active_badge')}</th>
+                <th className="px-6 py-3.5 text-start">{translate('group_name')}</th>
+                <th className="px-6 py-3.5 text-start">{translate('admins_coordinators')}</th>
+                <th className="px-6 py-3.5 text-start">{translate('servants_total')}</th>
+                <th className="px-6 py-3.5 text-start">{translate('assigned_grades')}</th>
+                <th className="px-6 py-3.5 text-end w-28">{translate('actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -265,7 +279,7 @@ export const ServiceGroupsScreen: React.FC = () => {
                           : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'
                       }`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${group.active ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
-                        {group.active ? 'Active' : 'Inactive'}
+                        {group.active ? translate('active_badge') : translate('inactive_badge')}
                       </span>
                     </td>
 
@@ -277,7 +291,7 @@ export const ServiceGroupsScreen: React.FC = () => {
                     {/* 3. Admins (Stacked chips) */}
                     <td className="px-6 py-4">
                       <div className="flex flex-wrap gap-1.5 max-w-xs">
-                        {adminsList.length === 0 && <span className="text-zinc-400 text-[11px]">No Admins</span>}
+                        {adminsList.length === 0 && <span className="text-zinc-400 text-[11px]">{translate('no_admins')}</span>}
                         {adminsList.map((adminEmail) => {
                           const m = allMisters.find((mis) => mis.email.toLowerCase() === adminEmail.toLowerCase());
                           const name = m?.displayName || adminEmail;
@@ -298,14 +312,14 @@ export const ServiceGroupsScreen: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-zinc-100 dark:bg-zinc-800 font-bold text-zinc-800 dark:text-zinc-200">
                         <Users className="w-3.5 h-3.5 text-blue-600" />
-                        <span>{servantsCount} Servants</span>
+                        <span>{servantsCount} {translate('servants')}</span>
                       </span>
                     </td>
 
                     {/* 5. Grades (Assigned from church) */}
                     <td className="px-6 py-4">
                       <div className="flex flex-wrap gap-1 max-w-xs">
-                        {groupGrades.length === 0 && <span className="text-zinc-400 text-[11px]">No grades linked</span>}
+                        {groupGrades.length === 0 && <span className="text-zinc-400 text-[11px]">{translate('no_grades_linked')}</span>}
                         {groupGrades.map((gr) => (
                           <span
                             key={gr}
@@ -381,43 +395,48 @@ export const ServiceGroupsScreen: React.FC = () => {
               }}
               className="space-y-4 text-xs"
             >
-              <div>
-                <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">Group Display Name *</label>
-                <input
-                  name="displayName"
-                  required
-                  placeholder="e.g. High School Service Group"
-                  className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm"
-                />
-              </div>
+              <fieldset disabled={isCreatingGroup} className="space-y-4">
+                <div>
+                  <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">{translate('group_name')} *</label>
+                  <input
+                    name="displayName"
+                    required
+                    placeholder="e.g. High School Service Group"
+                    className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm"
+                  />
+                </div>
 
-              <div>
-                <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">Active Status</label>
-                <select
-                  name="active"
-                  defaultValue="true"
-                  className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm"
-                >
-                  <option value="true">Active</option>
-                  <option value="false">Inactive</option>
-                </select>
-              </div>
+                <div>
+                  <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">{translate('active_badge')}</label>
+                  <select
+                    name="active"
+                    defaultValue="true"
+                    className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm"
+                  >
+                    <option value="true">{translate('active_badge')}</option>
+                    <option value="false">{translate('inactive_badge')}</option>
+                  </select>
+                </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-800">
-                <button
-                  type="button"
-                  onClick={() => setAddModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl font-semibold text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30"
-                >
-                  Create Group
-                </button>
-              </div>
+                <div className="flex justify-end gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                  <button
+                    type="button"
+                    disabled={isCreatingGroup}
+                    onClick={() => setAddModalOpen(false)}
+                    className="px-4 py-2.5 rounded-xl font-semibold text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer disabled:opacity-50"
+                  >
+                    {translate('cancel')}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isCreatingGroup}
+                    className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30 cursor-pointer disabled:opacity-50"
+                  >
+                    {isCreatingGroup && <RefreshCw className="w-4 h-4 animate-spin" />}
+                    <span>{isCreatingGroup ? translate('saving') : translate('add_service_group')}</span>
+                  </button>
+                </div>
+              </fieldset>
             </form>
           </div>
         </div>
@@ -442,11 +461,25 @@ const EditServiceGroupModal: React.FC<EditServiceGroupModalProps> = ({
   onClose,
   onSave,
 }) => {
+  const { translate } = useApp();
   const [displayName, setDisplayName] = useState(group.displayName);
   const [active, setActive] = useState(group.active !== false);
   const [mistersMap, setMistersMap] = useState<Record<string, 'admin' | 'servant'>>({
     ...(group.misters || {}),
   });
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await onSave(displayName, active, mistersMap);
+    } catch (err: any) {
+      console.error('Save group failed:', err);
+      alert(`Error saving group: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Servant picker popup state
   const [pickerRole, setPickerRole] = useState<'admin' | 'servant' | null>(null);
@@ -480,18 +513,18 @@ const EditServiceGroupModal: React.FC<EditServiceGroupModalProps> = ({
       <div className="w-full max-w-xl bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800 mb-4">
           <h3 className="font-bold text-base text-zinc-900 dark:text-zinc-100">
-            Edit Service Group: {group.displayName}
+            {translate('edit')} {translate('service_group')}: {group.displayName}
           </h3>
-          <button onClick={onClose} className="p-1 text-zinc-400 hover:text-zinc-600">
+          <button onClick={onClose} disabled={isSaving} className="p-1 text-zinc-400 hover:text-zinc-600">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="space-y-4 text-xs">
+        <fieldset disabled={isSaving} className="space-y-4 text-xs">
           {/* Name & Active */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">Group Name *</label>
+              <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">{translate('group_name')} *</label>
               <input
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
@@ -500,14 +533,14 @@ const EditServiceGroupModal: React.FC<EditServiceGroupModalProps> = ({
               />
             </div>
             <div>
-              <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">Active Status</label>
+              <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">{translate('active_badge')}</label>
               <select
                 value={active ? 'true' : 'false'}
                 onChange={(e) => setActive(e.target.value === 'true')}
                 className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm"
               >
-                <option value="true">Active</option>
-                <option value="false">Inactive</option>
+                <option value="true">{translate('active_badge')}</option>
+                <option value="false">{translate('inactive_badge')}</option>
               </select>
             </div>
           </div>
@@ -517,7 +550,7 @@ const EditServiceGroupModal: React.FC<EditServiceGroupModalProps> = ({
             <div className="flex items-center justify-between">
               <label className="font-bold text-purple-800 dark:text-purple-300 flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-purple-600" />
-                <span>Group Coordinators / Admins ({admins.length})</span>
+                <span>{translate('admins_coordinators')} ({admins.length})</span>
               </label>
               <button
                 type="button"
@@ -525,12 +558,12 @@ const EditServiceGroupModal: React.FC<EditServiceGroupModalProps> = ({
                 className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold text-[11px] transition cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Add Admin</span>
+                <span>{translate('add')} {translate('role_admin')}</span>
               </button>
             </div>
 
             <div className="flex flex-wrap gap-1.5 min-h-[36px] p-2 rounded-xl bg-white dark:bg-zinc-900 border border-purple-200 dark:border-purple-800/60">
-              {admins.length === 0 && <span className="text-zinc-400 text-xs my-auto">No coordinators assigned</span>}
+              {admins.length === 0 && <span className="text-zinc-400 text-xs my-auto">{translate('no_admins')}</span>}
               {admins.map((email) => {
                 const m = allMisters.find((mis) => mis.email.toLowerCase() === email.toLowerCase());
                 const name = m?.displayName || email;
@@ -558,7 +591,7 @@ const EditServiceGroupModal: React.FC<EditServiceGroupModalProps> = ({
             <div className="flex items-center justify-between">
               <label className="font-bold text-blue-800 dark:text-blue-300 flex items-center gap-1.5">
                 <Users className="w-4 h-4 text-blue-600" />
-                <span>Assigned Servants ({servants.length})</span>
+                <span>{translate('servants')} ({servants.length})</span>
               </label>
               <button
                 type="button"
@@ -566,12 +599,12 @@ const EditServiceGroupModal: React.FC<EditServiceGroupModalProps> = ({
                 className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] transition cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Add Servant</span>
+                <span>{translate('add')} {translate('servant')}</span>
               </button>
             </div>
 
             <div className="flex flex-wrap gap-1.5 min-h-[36px] p-2 rounded-xl bg-white dark:bg-zinc-900 border border-blue-200 dark:border-blue-800/60 max-h-40 overflow-y-auto">
-              {servants.length === 0 && <span className="text-zinc-400 text-xs my-auto">No servants assigned</span>}
+              {servants.length === 0 && <span className="text-zinc-400 text-xs my-auto">{translate('no_servants')}</span>}
               {servants.map((email) => {
                 const m = allMisters.find((mis) => mis.email.toLowerCase() === email.toLowerCase());
                 const name = m?.displayName || email;
@@ -597,20 +630,23 @@ const EditServiceGroupModal: React.FC<EditServiceGroupModalProps> = ({
           <div className="flex justify-end gap-2 pt-4 border-t border-zinc-100 dark:border-zinc-800">
             <button
               type="button"
+              disabled={isSaving}
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl font-semibold text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+              className="px-4 py-2.5 rounded-xl font-semibold text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer disabled:opacity-50"
             >
-              Cancel
+              {translate('cancel')}
             </button>
             <button
               type="button"
-              onClick={() => onSave(displayName, active, mistersMap)}
-              className="px-5 py-2.5 rounded-xl font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30 cursor-pointer"
+              disabled={isSaving}
+              onClick={handleSave}
+              className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30 cursor-pointer disabled:opacity-50"
             >
-              Save Group & Servants
+              {isSaving && <RefreshCw className="w-4 h-4 animate-spin" />}
+              <span>{isSaving ? translate('saving') : translate('save')}</span>
             </button>
           </div>
-        </div>
+        </fieldset>
       </div>
 
       {/* Multi-Select Servant Picker Popup */}

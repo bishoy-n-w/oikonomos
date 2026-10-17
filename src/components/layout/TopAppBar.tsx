@@ -115,7 +115,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({ activeTab, onOpenMobileFil
             )}
             {academicYears.map((y) => (
               <option key={y.id} value={y.id}>
-                {y.isActiveYear ? `⭐ ${y.displayName} (Active)` : y.displayName}
+                {y.isActiveYear ? `⭐ ${y.displayName} ${translate('active_term_badge')}` : y.displayName}
               </option>
             ))}
           </select>

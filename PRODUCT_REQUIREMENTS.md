@@ -275,3 +275,52 @@ Enables Sunday School servants and administrators to synchronize church contact 
 *   **Web App Manifest:** Configured for `display: "standalone"`, branding with primary teal colors, and responsive adaptive icon sets.
 *   **Service Worker:** Caches application shell, translations, and static assets for instant load and offline session warnings.
 
+---
+
+## 12. Kids View Fixed Full Name Column & 5-Category Collapsible Sections
+
+*   **Permanently Visible Full Name Column:** The `info/fullName` column is fixed in visibility (cannot be hidden or folded by any category toggle). Clicking on the student's name directly opens the Edit Student modal.
+*   **Column Order (22 Fields):**
+    1. Active & Multi-select Checkbox
+    2. Student Full Name (Fixed visibility, click-to-edit)
+    3. **Assignment Group:** Academic Year, Service Group, Class
+    4. **General Profile Group:** Gender, DOB, School, Father of Confession
+    5. **Address Group:** Street, Building, Floor, Apartment, Region
+    6. **Contacts Group:** Kid Mobile, Father Name, Father Profession, Father Mobile, Mother Name, Mother Profession, Mother Mobile, Other Mobile
+    7. **Notes Group:** Pastoral Notes
+    8. **Actions:** Edit & Delete
+*   **Header Filtering Matrix:** Every visible column provides inline header filtering inputs matched to data type.
+
+---
+
+## 13. Multi-Select & Bulk Classroom Reassignment
+
+*   **Selection Controls:** Master checkbox in the table header to select/deselect all visible filtered students, alongside per-row checkboxes.
+*   **Floating Bulk Action Bar:** Appears at viewport bottom when $\ge 1$ student is selected, showing count and action triggers.
+*   **Bulk Assignment Execution:** Reassigns `activeAssignment.academicYearId`, `activeAssignment.serviceGroupId`, and `activeAssignment.classId` across all selected students via atomic Firestore batch transactions.
+
+---
+
+## 14. Smart Excel/CSV Import Engine with Hybrid AI Mapping & 1-Click Rollback
+
+*   **File Formats:** Supports `.xlsx`, `.xls`, and `.csv`.
+*   **Header Row Index Selector:** Interactive preview of first 5 rows allowing the user to designate which row contains column headers.
+*   **Option 3 Hybrid AI Mapping:**
+    *   **Layer 1 (Offline Heuristic):** High-speed bilingual dictionary matching Arabic (including Egyptian colloquial terms) and English column headers.
+    *   **Layer 2 (Gemini AI Enhancement):** Optional free-tier Google Gemini integration (`gemini-2.5-flash`) to disambiguate unmapped or custom headers.
+*   **Assignment & Phone Normalization:** All phone numbers auto-formatted to international E.164 (`+20...`). Target classroom assignment selected by user.
+*   **One-Click Batch Rollback:** All imported records are tagged with a unique `importBatchId`. The post-import completion report provides an instant **"Revert This Import"** button that atomically deletes all records from that batch in one click.
+
+---
+
+## 15. Modal Save Loading States, Input Freezing & Escape Dismissal
+
+*   **Approach 2 Save Loading States:** When saving any entity across the application (Churches, Academic Years, Service Groups, Classes, Servants, Kids, Attendance, and Bulk Assignments):
+    *   Form fields and action buttons are immediately disabled (`<fieldset disabled={isSaving}>`).
+    *   The Save button displays an animated spinner with localized status (`Saving...` in English / `جاري الحفظ...` in Arabic).
+    *   Multi-document transactions (e.g. Church + Academic Years) execute via atomic Firestore `writeBatch` in a single network round-trip.
+    *   The modal automatically dismisses upon successful cloud confirmation.
+*   **Global Escape Key Dismissal:** Pressing `Escape` cleanly dismisses the top-most active modal or picker without saving changes, preserving underlying parent dialogs when nested.
+
+
+

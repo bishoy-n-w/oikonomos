@@ -8,7 +8,8 @@ import {
   Check, 
   X, 
   Clock, 
-  Save 
+  Save,
+  RefreshCw 
 } from 'lucide-react';
 
 export const AttendanceTrackerScreen: React.FC = () => {
@@ -131,8 +132,8 @@ export const AttendanceTrackerScreen: React.FC = () => {
             disabled={saving || !selectedClassId}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 active:scale-98 transition shadow-md shadow-teal-600/30 disabled:opacity-50 cursor-pointer"
           >
-            <Save className="w-4 h-4" />
-            <span>{saving ? 'Saving...' : savedSuccess ? 'Saved!' : translate('save')}</span>
+            {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            <span>{saving ? translate('saving') : savedSuccess ? 'Saved!' : translate('save')}</span>
           </button>
         </div>
       </div>

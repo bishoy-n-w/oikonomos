@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { useFilter } from '../context/FilterContext';
 import { HeaderFilterMatrix, type ColumnFilterConfig } from '../components/common/HeaderFilterMatrix';
+import { useModalEscape } from '../utils/useModalEscape';
 import type { ClassDoc, Church, Mister, Kid, ClassYearData } from '../types';
 import { 
   Plus, 
@@ -14,7 +15,8 @@ import {
   Search, 
   Check, 
   Users, 
-  Baby 
+  Baby,
+  RefreshCw 
 } from 'lucide-react';
 
 export const ClassesScreen: React.FC = () => {
@@ -41,6 +43,9 @@ export const ClassesScreen: React.FC = () => {
   const [editClass, setEditClass] = useState<ClassDoc | null>(null);
 
   const isAdmin = userRole === 'Admin' || userRole === 'owner';
+
+  useModalEscape(() => setEditClass(null), !!editClass);
+  useModalEscape(() => setAddModalOpen(false), addModalOpen);
 
   // 1. Listen to Church (for grades taxonomy)
   useEffect(() => {
@@ -91,11 +96,11 @@ export const ClassesScreen: React.FC = () => {
   // Column Filter Matrix configs
   const filterConfigs: ColumnFilterConfig[] = [
     { key: 'active', type: 'boolean' },
-    { key: 'className', type: 'text', placeholder: 'Filter Class...' },
-    { key: 'groupName', type: 'text', placeholder: 'Filter Group...' },
-    { key: 'gradeName', type: 'text', placeholder: 'Filter Grade...' },
-    { key: 'kidsCount', type: 'number', placeholder: 'Min kids...' },
-    { key: 'mistersCount', type: 'number', placeholder: 'Min servants...' },
+    { key: 'className', type: 'text', placeholder: `${translate('search')} ${translate('class_name')}...` },
+    { key: 'groupName', type: 'text', placeholder: `${translate('search')} ${translate('service_group')}...` },
+    { key: 'gradeName', type: 'text', placeholder: `${translate('search')} ${translate('grade_level')}...` },
+    { key: 'kidsCount', type: 'number', placeholder: translate('min_kids') },
+    { key: 'mistersCount', type: 'number', placeholder: translate('min_servants') },
     { key: 'actions', type: 'text', placeholder: '' },
   ];
 
@@ -213,7 +218,7 @@ export const ClassesScreen: React.FC = () => {
             </span>
           </h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-            Active classrooms, grade levels, student enrollments, and teacher assignments
+            {translate('classes_subtitle')}
           </p>
         </div>
 
@@ -223,7 +228,7 @@ export const ClassesScreen: React.FC = () => {
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30 w-fit cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>Add Class</span>
+            <span>{translate('add_class')}</span>
           </button>
         )}
       </div>
@@ -234,13 +239,13 @@ export const ClassesScreen: React.FC = () => {
           <table className="w-full text-start text-xs text-zinc-700 dark:text-zinc-300">
             <thead className="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider text-[11px] border-b border-zinc-200 dark:border-zinc-800">
               <tr>
-                <th className="px-6 py-3.5 text-start w-24">Active</th>
-                <th className="px-6 py-3.5 text-start">Class Name</th>
-                <th className="px-6 py-3.5 text-start">Service Group</th>
-                <th className="px-6 py-3.5 text-start">Grade Level</th>
-                <th className="px-6 py-3.5 text-start">Enrolled Kids</th>
-                <th className="px-6 py-3.5 text-start">Servants</th>
-                <th className="px-6 py-3.5 text-end w-28">Actions</th>
+                <th className="px-6 py-3.5 text-start w-24">{translate('active_badge')}</th>
+                <th className="px-6 py-3.5 text-start">{translate('class_name')}</th>
+                <th className="px-6 py-3.5 text-start">{translate('service_group')}</th>
+                <th className="px-6 py-3.5 text-start">{translate('grade_level')}</th>
+                <th className="px-6 py-3.5 text-start">{translate('enrolled_kids')}</th>
+                <th className="px-6 py-3.5 text-start">{translate('servants')}</th>
+                <th className="px-6 py-3.5 text-end w-28">{translate('actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -273,7 +278,7 @@ export const ClassesScreen: React.FC = () => {
                           : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'
                       }`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${cls.active ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
-                        {cls.active ? 'Active' : 'Inactive'}
+                        {cls.active ? translate('active_badge') : translate('inactive_badge')}
                       </span>
                     </td>
 
@@ -298,7 +303,7 @@ export const ClassesScreen: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-zinc-100 dark:bg-zinc-800 font-bold text-zinc-800 dark:text-zinc-200">
                         <Baby className="w-3.5 h-3.5 text-teal-600" />
-                        <span>{kidsCount} Kids</span>
+                        <span>{kidsCount} {translate('kids')}</span>
                       </span>
                     </td>
 
@@ -306,7 +311,7 @@ export const ClassesScreen: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-zinc-100 dark:bg-zinc-800 font-bold text-zinc-800 dark:text-zinc-200">
                         <Users className="w-3.5 h-3.5 text-blue-600" />
-                        <span>{servantsCount} Servants</span>
+                        <span>{servantsCount} {translate('servants')}</span>
                       </span>
                     </td>
 
@@ -396,6 +401,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
   onClose,
   onSave,
 }) => {
+  const { translate } = useApp();
   const existingYearData = existingClass ? (existingClass.academicYears[initialYearId] || Object.values(existingClass.academicYears)[0]) : null;
 
   const [active, setActive] = useState(existingClass ? existingClass.active !== false : true);
@@ -403,6 +409,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
   const [displayName, setDisplayName] = useState(existingYearData?.displayName || existingYearData?.name || '');
   const [selectedGroupId, setSelectedGroupId] = useState(existingYearData?.serviceGroupId || initialGroupId);
   const [selectedGradeId, setSelectedGradeId] = useState(existingYearData?.gradeId || '');
+  const [isSaving, setIsSaving] = useState(false);
 
   // Misters & Kids chips state
   const [selectedMisterIds, setSelectedMisterIds] = useState<string[]>(
@@ -446,7 +453,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!displayName.trim()) {
       alert('Class name is mandatory.');
@@ -457,16 +464,24 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
       return;
     }
 
-    onSave(
-      existingClass ? existingClass.id : null,
-      selectedYearId,
-      displayName,
-      selectedGroupId,
-      selectedGradeId,
-      selectedKidIds,
-      selectedMisterIds,
-      active
-    );
+    setIsSaving(true);
+    try {
+      await onSave(
+        existingClass ? existingClass.id : null,
+        selectedYearId,
+        displayName,
+        selectedGroupId,
+        selectedGradeId,
+        selectedKidIds,
+        selectedMisterIds,
+        active
+      );
+    } catch (err: any) {
+      console.error('Save class failed:', err);
+      alert(`Error saving class: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -474,31 +489,32 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
       <div className="w-full max-w-xl bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800 mb-4">
           <h3 className="font-bold text-base text-zinc-900 dark:text-zinc-100">
-            {existingClass ? 'Edit Class' : 'Add New Class'}
+            {existingClass ? `${translate('edit')} ${translate('class_label')}` : translate('add_class')}
           </h3>
-          <button onClick={onClose} className="p-1 text-zinc-400 hover:text-zinc-600">
+          <button onClick={onClose} disabled={isSaving} className="p-1 text-zinc-400 hover:text-zinc-600">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+          <fieldset disabled={isSaving} className="space-y-4">
           {/* Active Status */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">Active Status *</label>
+              <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">{translate('active_badge')} *</label>
               <select
                 value={active ? 'true' : 'false'}
                 onChange={(e) => setActive(e.target.value === 'true')}
                 className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm font-semibold"
               >
-                <option value="true">Active</option>
-                <option value="false">Inactive</option>
+                <option value="true">{translate('active_badge')}</option>
+                <option value="false">{translate('inactive_badge')}</option>
               </select>
             </div>
 
             {/* Academic Year */}
             <div>
-              <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">Academic Year *</label>
+              <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">{translate('academic_year')} *</label>
               <select
                 value={selectedYearId}
                 onChange={(e) => setSelectedYearId(e.target.value)}
@@ -515,7 +531,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
 
           {/* Class Display Name */}
           <div>
-            <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">Class Display Name *</label>
+            <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">{translate('class_name')} *</label>
             <input
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
@@ -528,7 +544,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
           {/* Service Group & Dynamically Bound Grade Level */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">Service Group *</label>
+              <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">{translate('service_group')} *</label>
               <select
                 value={selectedGroupId}
                 onChange={(e) => setSelectedGroupId(e.target.value)}
@@ -544,7 +560,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
 
             <div>
               <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">
-                Grade Level * (Dynamic)
+                {translate('grade_level')} *
               </label>
               <select
                 value={selectedGradeId}
@@ -552,7 +568,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
                 className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm font-semibold"
               >
                 {availableGrades.length === 0 && (
-                  <option value="" disabled>No grades linked to group</option>
+                  <option value="" disabled>{translate('no_grades_linked')}</option>
                 )}
                 {availableGrades.map((gr) => (
                   <option key={gr.id} value={gr.id}>
@@ -568,7 +584,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
             <div className="flex items-center justify-between">
               <label className="font-bold text-blue-800 dark:text-blue-300 flex items-center gap-1.5">
                 <Users className="w-4 h-4 text-blue-600" />
-                <span>Class Servants ({selectedMisterIds.length})</span>
+                <span>{translate('servants')} ({selectedMisterIds.length})</span>
               </label>
               <button
                 type="button"
@@ -579,13 +595,13 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
                 className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] transition cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Add Servant</span>
+                <span>{translate('add')} {translate('servant')}</span>
               </button>
             </div>
 
             <div className="flex flex-wrap gap-1.5 min-h-[36px] p-2 rounded-xl bg-white dark:bg-zinc-900 border border-blue-200 dark:border-blue-800/60 max-h-32 overflow-y-auto">
               {selectedMisterIds.length === 0 && (
-                <span className="text-zinc-400 text-xs my-auto">No servants added yet</span>
+                <span className="text-zinc-400 text-xs my-auto">{translate('no_servants')}</span>
               )}
               {selectedMisterIds.map((email) => {
                 const m = allMisters.find((mis) => mis.email.toLowerCase() === email.toLowerCase());
@@ -614,7 +630,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
             <div className="flex items-center justify-between">
               <label className="font-bold text-teal-800 dark:text-teal-300 flex items-center gap-1.5">
                 <Baby className="w-4 h-4 text-teal-600" />
-                <span>Enrolled Kids ({selectedKidIds.length})</span>
+                <span>{translate('enrolled_kids')} ({selectedKidIds.length})</span>
               </label>
               <button
                 type="button"
@@ -625,13 +641,13 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
                 className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-bold text-[11px] transition cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Add Kid</span>
+                <span>{translate('add')} {translate('kids')}</span>
               </button>
             </div>
 
             <div className="flex flex-wrap gap-1.5 min-h-[36px] p-2 rounded-xl bg-white dark:bg-zinc-900 border border-teal-200 dark:border-teal-800/60 max-h-36 overflow-y-auto">
               {selectedKidIds.length === 0 && (
-                <span className="text-zinc-400 text-xs my-auto">No kids added yet</span>
+                <span className="text-zinc-400 text-xs my-auto">{translate('no_kids_assigned')}</span>
               )}
               {selectedKidIds.map((kId) => {
                 const k = allKids.find((kid) => kid.id === kId);
@@ -659,18 +675,22 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
           <div className="flex justify-end gap-2 pt-4 border-t border-zinc-100 dark:border-zinc-800">
             <button
               type="button"
+              disabled={isSaving}
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl font-semibold text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+              className="px-4 py-2.5 rounded-xl font-semibold text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer disabled:opacity-50"
             >
-              Cancel
+              {translate('cancel')}
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-xl font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30 cursor-pointer"
+              disabled={isSaving}
+              className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30 cursor-pointer disabled:opacity-50"
             >
-              Save Class
+              {isSaving && <RefreshCw className="w-4 h-4 animate-spin" />}
+              <span>{isSaving ? translate('saving') : translate('save')}</span>
             </button>
           </div>
+          </fieldset>
         </form>
       </div>
 

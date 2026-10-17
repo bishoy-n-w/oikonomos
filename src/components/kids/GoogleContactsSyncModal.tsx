@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { Kid } from '../../types';
 import { syncKidsToGoogleContacts, type SyncResult } from '../../services/googleContacts';
 import { useApp } from '../../context/AppContext';
+import { useModalEscape } from '../../utils/useModalEscape';
 import { X, RefreshCw, CheckCircle, AlertCircle, BookUser } from 'lucide-react';
 
 interface GoogleContactsSyncModalProps {
@@ -22,6 +23,7 @@ export const GoogleContactsSyncModal: React.FC<GoogleContactsSyncModalProps> = (
   yearName,
 }) => {
   const { translate } = useApp();
+  useModalEscape(onClose, isOpen);
   const [syncing, setSyncing] = useState(false);
   const [result, setResult] = useState<SyncResult | null>(null);
 

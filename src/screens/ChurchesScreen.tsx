@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { useFilter } from '../context/FilterContext';
 import { HeaderFilterMatrix, type ColumnFilterConfig } from '../components/common/HeaderFilterMatrix';
 import { normalizeDateStr } from '../utils/formatters';
+import { useModalEscape } from '../utils/useModalEscape';
 import type { Church, AcademicYear, GradeItem } from '../types';
 import { 
   Plus, 
   Edit3, 
   Trash2, 
   X, 
-  GraduationCap
+  GraduationCap,
+  RefreshCw
 } from 'lucide-react';
 
 export const ChurchesScreen: React.FC = () => {
@@ -36,7 +38,15 @@ export const ChurchesScreen: React.FC = () => {
   const [editYears, setEditYears] = useState<AcademicYear[]>([]);
   const [classesByChurch, setClassesByChurch] = useState<any[]>([]);
 
+  // Loading states for saving (Approach 2)
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [isCreatingChurch, setIsCreatingChurch] = useState(false);
+
   const isOwner = userRole === 'owner';
+
+  // Dismiss modals on Escape key without saving
+  useModalEscape(() => setEditChurch(null), !!editChurch && !gradesModalChurch);
+  useModalEscape(() => setAddChurchOpen(false), addChurchOpen && !gradesModalChurch);
 
   // 1. Listen to all churches the user belongs to
   useEffect(() => {
@@ -98,9 +108,9 @@ export const ChurchesScreen: React.FC = () => {
   // Column Filter Matrix configs
   const filterConfigs: ColumnFilterConfig[] = [
     { key: 'active', type: 'boolean' },
-    { key: 'displayName', type: 'text', placeholder: 'Filter Church...' },
-    { key: 'activeYear', type: 'text', placeholder: 'Filter Active Year...' },
-    { key: 'gradesCount', type: 'number', placeholder: 'Min grades...' },
+    { key: 'displayName', type: 'text', placeholder: `${translate('search')} ${translate('church_name')}...` },
+    { key: 'activeYear', type: 'text', placeholder: `${translate('search')} ${translate('active_academic_year')}...` },
+    { key: 'gradesCount', type: 'number', placeholder: translate('min_grades') },
     { key: 'actions', type: 'text', placeholder: '' },
   ];
 
@@ -150,26 +160,36 @@ export const ChurchesScreen: React.FC = () => {
       return;
     }
 
-    const churchRef = doc(db, 'churches', editChurch.id);
-    await setDoc(churchRef, {
-      displayName,
-      active,
-      activeAcademicYearId,
-      lastEditAt: new Date().toISOString(),
-      lastEditBy: user?.email,
-    }, { merge: true });
-
-    // Update in-place academic years
-    for (const y of editYears) {
-      const yearRef = doc(db, 'churches', editChurch.id, 'academicYears', y.id);
-      await setDoc(yearRef, {
-        displayName: y.displayName,
-        active: y.id === activeAcademicYearId ? true : y.active,
-        startDate: y.startDate || '',
+    setIsSavingEdit(true);
+    try {
+      const batch = writeBatch(db);
+      const churchRef = doc(db, 'churches', editChurch.id);
+      batch.set(churchRef, {
+        displayName,
+        active,
+        activeAcademicYearId,
+        lastEditAt: new Date().toISOString(),
+        lastEditBy: user?.email,
       }, { merge: true });
-    }
 
-    setEditChurch(null);
+      // Update in-place academic years in single atomic batch
+      for (const y of editYears) {
+        const yearRef = doc(db, 'churches', editChurch.id, 'academicYears', y.id);
+        batch.set(yearRef, {
+          displayName: y.displayName,
+          active: y.id === activeAcademicYearId ? true : y.active,
+          startDate: y.startDate || '',
+        }, { merge: true });
+      }
+
+      await batch.commit();
+      setEditChurch(null);
+    } catch (err: any) {
+      console.error('Save church failed:', err);
+      alert(`Error saving church: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsSavingEdit(false);
+    }
   };
 
   // Delete an Academic Year with constraints
@@ -215,31 +235,41 @@ export const ChurchesScreen: React.FC = () => {
 
   // Add a New Church (mandating active, displayName, and 1 initial active academicYear with YYYY-MM startDate)
   const handleCreateChurch = async (displayName: string, yearName: string, startDate: string) => {
-    const docId = displayName.trim().toLowerCase().replace(/\s+/g, '_');
-    const yearId = yearName.trim().toLowerCase().replace(/\s+/g, '_');
+    setIsCreatingChurch(true);
+    try {
+      const docId = displayName.trim().toLowerCase().replace(/\s+/g, '_');
+      const yearId = yearName.trim().toLowerCase().replace(/\s+/g, '_');
+      const batch = writeBatch(db);
 
-    const churchRef = doc(db, 'churches', docId);
-    const yearRef = doc(db, 'churches', docId, 'academicYears', yearId);
+      const churchRef = doc(db, 'churches', docId);
+      const yearRef = doc(db, 'churches', docId, 'academicYears', yearId);
 
-    await setDoc(churchRef, {
-      displayName,
-      active: true,
-      activeAcademicYearId: yearId,
-      grades: {},
-      createdAt: new Date().toISOString(),
-      createdBy: user?.email,
-    });
+      batch.set(churchRef, {
+        displayName,
+        active: true,
+        activeAcademicYearId: yearId,
+        grades: {},
+        createdAt: new Date().toISOString(),
+        createdBy: user?.email,
+      });
 
-    await setDoc(yearRef, {
-      displayName: yearName,
-      active: true,
-      startDate, // YYYY-MM
-      createdAt: new Date().toISOString(),
-      createdBy: user?.email,
-    });
+      batch.set(yearRef, {
+        displayName: yearName,
+        active: true,
+        startDate, // YYYY-MM
+        createdAt: new Date().toISOString(),
+        createdBy: user?.email,
+      });
 
-    setChurch(docId);
-    setAddChurchOpen(false);
+      await batch.commit();
+      setChurch(docId);
+      setAddChurchOpen(false);
+    } catch (err: any) {
+      console.error('Create church failed:', err);
+      alert(`Error creating church: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsCreatingChurch(false);
+    }
   };
 
   const handleDeleteChurch = async (churchId: string, name: string) => {
@@ -261,7 +291,7 @@ export const ChurchesScreen: React.FC = () => {
             </span>
           </h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-            Church tenants, active academic timelines, and grade-to-group taxonomy
+            {translate('churches_subtitle')}
           </p>
         </div>
 
@@ -271,7 +301,7 @@ export const ChurchesScreen: React.FC = () => {
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30 w-fit cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>Add Church</span>
+            <span>{translate('add_church')}</span>
           </button>
         )}
       </div>
@@ -282,11 +312,11 @@ export const ChurchesScreen: React.FC = () => {
           <table className="w-full text-start text-xs text-zinc-700 dark:text-zinc-300">
             <thead className="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider text-[11px] border-b border-zinc-200 dark:border-zinc-800">
               <tr>
-                <th className="px-6 py-3.5 text-start w-24">Active</th>
-                <th className="px-6 py-3.5 text-start">Church Name</th>
-                <th className="px-6 py-3.5 text-start">Active Academic Year</th>
-                <th className="px-6 py-3.5 text-start">Grades</th>
-                <th className="px-6 py-3.5 text-end w-32">Actions</th>
+                <th className="px-6 py-3.5 text-start w-24">{translate('active_badge')}</th>
+                <th className="px-6 py-3.5 text-start">{translate('church_name')}</th>
+                <th className="px-6 py-3.5 text-start">{translate('active_academic_year')}</th>
+                <th className="px-6 py-3.5 text-start">{translate('grades')}</th>
+                <th className="px-6 py-3.5 text-end w-32">{translate('actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -317,7 +347,7 @@ export const ChurchesScreen: React.FC = () => {
                           : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'
                       }`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${church.active ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
-                        {church.active ? 'Active' : 'Inactive'}
+                        {church.active ? translate('active_badge') : translate('inactive_badge')}
                       </span>
                     </td>
 
@@ -343,7 +373,7 @@ export const ChurchesScreen: React.FC = () => {
                         title="Click to view and configure grade-to-group mappings"
                       >
                         <GraduationCap className="w-3.5 h-3.5 text-teal-600" />
-                        <span>{gradesCount} Grades</span>
+                        <span>{gradesCount} {translate('grades')}</span>
                       </button>
                     </td>
 
@@ -376,23 +406,13 @@ export const ChurchesScreen: React.FC = () => {
         </div>
       </div>
 
-      {/* Grades Management Popup Modal */}
-      {gradesModalChurch && (
-        <GradesMappingModal
-          church={gradesModalChurch}
-          serviceGroups={serviceGroupsMap[gradesModalChurch.id] || []}
-          onClose={() => setGradesModalChurch(null)}
-          onSave={(grades) => handleSaveGrades(gradesModalChurch.id, grades)}
-        />
-      )}
-
       {/* Edit Church Modal (with in-place Academic Years management) */}
       {editChurch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
           <div className="w-full max-w-2xl bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800 mb-4">
               <h3 className="font-bold text-base text-zinc-900 dark:text-zinc-100">
-                Edit Church & Academic Years: {editChurch.displayName}
+                {translate('edit')} {translate('churches_config')}: {editChurch.displayName}
               </h3>
               <button onClick={() => setEditChurch(null)} className="p-1 text-zinc-400 hover:text-zinc-600">
                 <X className="w-5 h-5" />
@@ -411,129 +431,134 @@ export const ChurchesScreen: React.FC = () => {
               }}
               className="space-y-5 text-xs"
             >
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">Church Name *</label>
-                  <input
-                    name="displayName"
-                    defaultValue={editChurch.displayName}
-                    required
-                    className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">Active Status</label>
-                  <select
-                    name="active"
-                    defaultValue={editChurch.active ? 'true' : 'false'}
-                    className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm"
-                  >
-                    <option value="true">Active</option>
-                    <option value="false">Inactive</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Grades shortcut */}
-              <div className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
-                <div>
-                  <p className="font-bold text-zinc-800 dark:text-zinc-200">Grades Taxonomy</p>
-                  <p className="text-zinc-400 text-[11px]">{Object.keys(editChurch.grades || {}).length} Grades configured</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setGradesModalChurch(editChurch)}
-                  className="px-3 py-1.5 rounded-xl bg-teal-600 text-white font-bold hover:bg-teal-700 transition"
-                >
-                  Configure Grades
-                </button>
-              </div>
-
-              {/* In-Place Academic Years Manager */}
-              <div className="space-y-3 pt-2">
-                <div className="flex items-center justify-between">
+              <fieldset disabled={isSavingEdit} className="space-y-5">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
-                      Academic Years (Timelines)
-                    </h4>
-                    <p className="text-[11px] text-zinc-400">
-                      Must retain at least one year; active year and referenced years cannot be deleted.
-                    </p>
+                    <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">{translate('church_name')} *</label>
+                    <input
+                      name="displayName"
+                      defaultValue={editChurch.displayName}
+                      required
+                      className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">{translate('active_badge')}</label>
+                    <select
+                      name="active"
+                      defaultValue={editChurch.active ? 'true' : 'false'}
+                      className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm"
+                    >
+                      <option value="true">{translate('active_badge')}</option>
+                      <option value="false">{translate('inactive_badge')}</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Grades shortcut */}
+                <div className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
+                  <div>
+                    <p className="font-bold text-zinc-800 dark:text-zinc-200">{translate('assigned_grades')}</p>
+                    <p className="text-zinc-400 text-[11px]">{Object.keys(editChurch.grades || {}).length} {translate('grades')}</p>
                   </div>
                   <button
                     type="button"
-                    onClick={handleAddYearInEdit}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 font-bold transition"
+                    onClick={() => setGradesModalChurch(editChurch)}
+                    className="px-3.5 py-1.5 rounded-xl bg-teal-600 text-white font-bold hover:bg-teal-700 transition cursor-pointer"
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Year</span>
+                    {translate('grades')}
                   </button>
                 </div>
 
-                <div className="space-y-2">
-                  {editYears.map((y, idx) => (
-                    <div
-                      key={y.id}
-                      className="flex items-center gap-3 p-3 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/40"
-                    >
-                      <input
-                        type="radio"
-                        name="activeAcademicYearId"
-                        value={y.id}
-                        defaultChecked={y.id === editChurch.activeAcademicYearId}
-                        className="w-4 h-4 text-teal-600 focus:ring-teal-500"
-                        title="Set as currently active academic year"
-                      />
-                      <input
-                        type="text"
-                        value={y.displayName}
-                        onChange={(e) => {
-                          const updated = [...editYears];
-                          updated[idx].displayName = e.target.value;
-                          setEditYears(updated);
-                        }}
-                        placeholder="Year Display Name"
-                        className="flex-1 p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold"
-                      />
-                      <input
-                        type="month"
-                        value={y.startDate?.substring(0, 7) || ''}
-                        onChange={(e) => {
-                          const updated = [...editYears];
-                          updated[idx].startDate = e.target.value;
-                          setEditYears(updated);
-                        }}
-                        className="w-32 p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold"
-                        title="Start Date (Year & Month)"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteYearInEdit(y.id)}
-                        className="p-2 rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
-                        title="Delete this year"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                {/* In-Place Academic Years Manager */}
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
+                        {translate('academic_year')}
+                      </h4>
+                      <p className="text-[11px] text-zinc-400">
+                        Must retain at least one year; active year and referenced years cannot be deleted.
+                      </p>
                     </div>
-                  ))}
-                </div>
-              </div>
+                    <button
+                      type="button"
+                      onClick={handleAddYearInEdit}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 font-bold transition cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>{translate('add')} {translate('academic_year')}</span>
+                    </button>
+                  </div>
 
-              <div className="flex justify-end gap-2 pt-4 border-t border-zinc-100 dark:border-zinc-800">
-                <button
-                  type="button"
-                  onClick={() => setEditChurch(null)}
-                  className="px-4 py-2.5 rounded-xl font-semibold text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30"
-                >
-                  Save Changes
-                </button>
-              </div>
+                  <div className="space-y-2">
+                    {editYears.map((y, idx) => (
+                      <div
+                        key={y.id}
+                        className="flex items-center gap-3 p-3 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/40"
+                      >
+                        <input
+                          type="radio"
+                          name="activeAcademicYearId"
+                          value={y.id}
+                          defaultChecked={y.id === editChurch.activeAcademicYearId}
+                          className="w-4 h-4 text-teal-600 focus:ring-teal-500"
+                          title="Set as currently active academic year"
+                        />
+                        <input
+                          type="text"
+                          value={y.displayName}
+                          onChange={(e) => {
+                            const updated = [...editYears];
+                            updated[idx].displayName = e.target.value;
+                            setEditYears(updated);
+                          }}
+                          placeholder={translate('academic_year')}
+                          className="flex-1 p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold"
+                        />
+                        <input
+                          type="month"
+                          value={y.startDate?.substring(0, 7) || ''}
+                          onChange={(e) => {
+                            const updated = [...editYears];
+                            updated[idx].startDate = e.target.value;
+                            setEditYears(updated);
+                          }}
+                          className="w-32 p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold"
+                          title="Start Date (Year & Month)"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteYearInEdit(y.id)}
+                          className="p-2 rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                          title="Delete this year"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                  <button
+                    type="button"
+                    disabled={isSavingEdit}
+                    onClick={() => setEditChurch(null)}
+                    className="px-4 py-2.5 rounded-xl font-semibold text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer disabled:opacity-50"
+                  >
+                    {translate('cancel')}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingEdit}
+                    className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30 cursor-pointer disabled:opacity-50"
+                  >
+                    {isSavingEdit && <RefreshCw className="w-4 h-4 animate-spin" />}
+                    <span>{isSavingEdit ? translate('saving') : translate('save')}</span>
+                  </button>
+                </div>
+              </fieldset>
             </form>
           </div>
         </div>
@@ -545,9 +570,9 @@ export const ChurchesScreen: React.FC = () => {
           <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800">
             <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800 mb-4">
               <h3 className="font-bold text-base text-zinc-900 dark:text-zinc-100">
-                Onboard New Church
+                {translate('add_church')}
               </h3>
-              <button onClick={() => setAddChurchOpen(false)} className="p-1 text-zinc-400 hover:text-zinc-600">
+              <button onClick={() => setAddChurchOpen(false)} disabled={isCreatingChurch} className="p-1 text-zinc-400 hover:text-zinc-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -564,55 +589,70 @@ export const ChurchesScreen: React.FC = () => {
               }}
               className="space-y-4 text-xs"
             >
-              <div>
-                <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">Church Display Name *</label>
-                <input
-                  name="displayName"
-                  required
-                  placeholder="e.g. St. Mark Church"
-                  className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm"
-                />
-              </div>
+              <fieldset disabled={isCreatingChurch} className="space-y-4">
+                <div>
+                  <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">{translate('church_name')} *</label>
+                  <input
+                    name="displayName"
+                    required
+                    placeholder="e.g. St. Mark Church"
+                    className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm"
+                  />
+                </div>
 
-              <div>
-                <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">Initial Academic Year Name *</label>
-                <input
-                  name="yearName"
-                  defaultValue="Academic Year 2026-2027"
-                  required
-                  className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm"
-                />
-              </div>
+                <div>
+                  <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">{translate('active_academic_year')} *</label>
+                  <input
+                    name="yearName"
+                    defaultValue="Academic Year 2026-2027"
+                    required
+                    className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm"
+                  />
+                </div>
 
-              <div>
-                <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">Start Date (Year & Month) *</label>
-                <input
-                  type="month"
-                  name="startDate"
-                  defaultValue={new Date().toISOString().substring(0, 7)}
-                  required
-                  className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm"
-                />
-              </div>
+                <div>
+                  <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">{translate('dob')} / {translate('academic_year')} *</label>
+                  <input
+                    type="month"
+                    name="startDate"
+                    defaultValue={new Date().toISOString().substring(0, 7)}
+                    required
+                    className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm"
+                  />
+                </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-800">
-                <button
-                  type="button"
-                  onClick={() => setAddChurchOpen(false)}
-                  className="px-4 py-2.5 rounded-xl font-semibold text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30"
-                >
-                  Create Church
-                </button>
-              </div>
+                <div className="flex justify-end gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                  <button
+                    type="button"
+                    disabled={isCreatingChurch}
+                    onClick={() => setAddChurchOpen(false)}
+                    className="px-4 py-2.5 rounded-xl font-semibold text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer disabled:opacity-50"
+                  >
+                    {translate('cancel')}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isCreatingChurch}
+                    className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30 cursor-pointer disabled:opacity-50"
+                  >
+                    {isCreatingChurch && <RefreshCw className="w-4 h-4 animate-spin" />}
+                    <span>{isCreatingChurch ? translate('saving') : translate('add_church')}</span>
+                  </button>
+                </div>
+              </fieldset>
             </form>
           </div>
         </div>
+      )}
+
+      {/* Grades Management Popup Modal (z-60 to render on top of edit modal!) */}
+      {gradesModalChurch && (
+        <GradesMappingModal
+          church={gradesModalChurch}
+          serviceGroups={serviceGroupsMap[gradesModalChurch.id] || []}
+          onClose={() => setGradesModalChurch(null)}
+          onSave={(grades) => handleSaveGrades(gradesModalChurch.id, grades)}
+        />
       )}
     </div>
   );
@@ -632,6 +672,9 @@ const GradesMappingModal: React.FC<GradesMappingModalProps> = ({
   onClose,
   onSave,
 }) => {
+  const { translate } = useApp();
+  useModalEscape(onClose, true);
+
   const [gradesMap, setGradesMap] = useState<Record<string, GradeItem>>({
     ...(church.grades || {}),
   });
@@ -668,15 +711,15 @@ const GradesMappingModal: React.FC<GradesMappingModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+    <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
       <div className="w-full max-w-lg bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800 mb-4">
           <div>
             <h3 className="font-bold text-base text-zinc-900 dark:text-zinc-100">
-              Grades Configuration: {church.displayName}
+              {translate('assigned_grades')}: {church.displayName}
             </h3>
             <p className="text-[11px] text-zinc-400">
-              Integer IDs are auto-incremented. Multiple grades can be assigned to the same Service Group.
+              {translate('service_groups_subtitle')}
             </p>
           </div>
           <button onClick={onClose} className="p-1 text-zinc-400 hover:text-zinc-600">
@@ -686,7 +729,7 @@ const GradesMappingModal: React.FC<GradesMappingModalProps> = ({
 
         <div className="space-y-2.5 max-h-[50vh] overflow-y-auto pe-1">
           {Object.entries(gradesMap).length === 0 && (
-            <p className="text-xs text-zinc-400 text-center py-6">No grades defined yet. Click "Add Grade" below.</p>
+            <p className="text-xs text-zinc-400 text-center py-6">{translate('no_grades_linked')}</p>
           )}
 
           {Object.entries(gradesMap)
@@ -706,7 +749,7 @@ const GradesMappingModal: React.FC<GradesMappingModalProps> = ({
                   type="text"
                   value={item.name}
                   onChange={(e) => handleUpdateGrade(intKey, 'name', e.target.value)}
-                  placeholder="Grade Name"
+                  placeholder={translate('grade_level')}
                   className="flex-1 p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold"
                 />
 
@@ -716,7 +759,7 @@ const GradesMappingModal: React.FC<GradesMappingModalProps> = ({
                   onChange={(e) => handleUpdateGrade(intKey, 'serviceGroupId', e.target.value)}
                   className="w-36 p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold"
                 >
-                  <option value="" disabled>Select Group</option>
+                  <option value="" disabled>{translate('service_group')}</option>
                   {serviceGroups.map((g) => (
                     <option key={g.id} value={g.id}>
                       {g.displayName}
@@ -728,7 +771,7 @@ const GradesMappingModal: React.FC<GradesMappingModalProps> = ({
                 <button
                   type="button"
                   onClick={() => handleRemoveGrade(intKey)}
-                  className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                  className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
                   title="Remove Grade"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -741,26 +784,26 @@ const GradesMappingModal: React.FC<GradesMappingModalProps> = ({
           <button
             type="button"
             onClick={handleAddGrade}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 transition cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Add Grade</span>
+            <span>{translate('add')} {translate('grade_level')}</span>
           </button>
 
           <div className="flex gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
             >
-              Cancel
+              {translate('cancel')}
             </button>
             <button
               type="button"
               onClick={() => onSave(gradesMap)}
-              className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30"
+              className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30 cursor-pointer"
             >
-              Save Grades
+              {translate('save')}
             </button>
           </div>
         </div>
