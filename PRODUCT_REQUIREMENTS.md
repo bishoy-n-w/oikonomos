@@ -233,3 +233,45 @@ The platform enforces a mandatory automated validation policy. Every core mechan
 8.  **Church Year Deletion Integrity Checks:** Blocks year deletion if referenced in classes.
 9.  **Kids Foldable Columns & Expansion Layouts:** Sizing recalculations based on toggled header states.
 10. **Classes Dynamic Grade Bindings:** Restricts grade dropdown configurations based on selected service group dynamically.
+
+---
+
+## 9. Responsive Dual-Mode UI Specifications (Web Application)
+
+The web application adapts seamlessly between desktop and mobile devices via standard DOM, CSS logical properties, and responsive layout breakpoints.
+
+### 📱 A. Viewport Breakpoints & Core Architecture
+*   **Desktop Viewport (`>= 1024px`):** Persistent collapsible sidebar navigation, high-density multi-column data tables, floating modal dialogs, and a persistent horizontal cascading filter toolbar.
+*   **Tablet Viewport (`768px - 1023px`):** Collapsed icon-only sidebar or slide-over drawer, horizontally scrollable data tables with sticky freeze columns.
+*   **Mobile Viewport (`< 768px`):** 
+    *   **Navigation:** Floating bottom navigation bar for primary daily flows (Dashboard, Attendance, Kids, Visits) plus a slide-over drawer for administrative metadata configurations.
+    *   **Global Filters:** Replaced with a compact, sticky contextual "Filter" pill chip that opens an accessible modal Bottom Sheet.
+    *   **Data Layout:** Multi-column tables automatically transform into touch-friendly **Adaptive Card Lists**, highlighting child name, avatar, contact shortcuts, and status.
+
+### 🌐 B. RTL & Localization Architecture
+*   Arabic language toggling applies HTML `dir="rtl"` dynamically.
+*   All layouts use CSS logical properties (`margin-inline-start`, `padding-inline-end`, `border-inline-start`), eliminating manual coordinate recalculations and ensuring 100% natural mirror animations.
+
+---
+
+## 10. Google Contacts Cloud Synchronization
+
+Enables Sunday School servants and administrators to synchronize church contact records directly to their connected Google Account without requiring an installed native mobile app.
+
+### 🔄 A. Synchronization Scope & Permissions
+*   **OAuth Scopes:** Requests incremental consent for `https://www.googleapis.com/auth/contacts` upon invoking the sync feature.
+*   **Target Grouping:** Creates/updates a dedicated Google Contact Group / Label formatted as: `[Oikonomos] <Church Name> - <Class Name> (<Year>)`.
+
+### 👥 B. Contact Schema Mapping
+*   **Display Name:** `[SS] <Kid Full Name>` (with parent names tagged in phonetic/nickname notes).
+*   **Phone Numbers:** Formatted strictly in E.164 standard. Father mobile labeled as `Father`, Mother mobile labeled as `Mother`, Kid mobile labeled as `Mobile`.
+*   **Job & Organization:** Set to Church Name and Sunday School Class title.
+*   **Idempotency & Deduplication:** Checks existing contacts within the designated Oikonomos label by matching normalized phone numbers or stored external IDs, updating records rather than generating duplicates.
+
+---
+
+## 11. Progressive Web App (PWA) & Offline Integration
+
+*   **Web App Manifest:** Configured for `display: "standalone"`, branding with primary teal colors, and responsive adaptive icon sets.
+*   **Service Worker:** Caches application shell, translations, and static assets for instant load and offline session warnings.
+

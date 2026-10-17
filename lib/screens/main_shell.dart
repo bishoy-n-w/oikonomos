@@ -790,7 +790,7 @@ class _MainShellState extends State<MainShell> {
                 child: Text('None'),
               )
           ] : [
-            if (items.length > 0 && allowAll)
+            if (items.isNotEmpty && allowAll)
               const DropdownMenuItem<String?>(
                 value: null,
                 child: Text('All'),

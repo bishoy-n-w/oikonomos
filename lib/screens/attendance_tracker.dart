@@ -29,7 +29,7 @@ class _AttendanceTrackerScreenState extends State<AttendanceTrackerScreen> {
   // Current Form state
   final _titleController = TextEditingController(text: 'Sunday School');
   DateTime _eventDate = DateTime.now();
-  String _eventType = 'Sunday School';
+  final String _eventType = 'Sunday School';
 
   // Active taking attendance map state
   Map<String, String> _statuses = {}; // kidId -> 'present' | 'absent' | 'excused'
