@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Deploy Web App to GitHub Pages
 
 on:
   push:
@@ -10,34 +10,70 @@ permissions:
   pages: write
   id-token: write
 
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
   build-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Flutter
-        uses: subosito/flutter-action@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          channel: 'stable'
-          # flutter-version: '3.19.0' # Optional: pin a version
+          node-version: 22
+          cache: 'npm'
 
-      - name: Get Dependencies
-        run: flutter pub get
+      - name: Install Dependencies
+        run: npm ci
 
-      - name: Create firebase_options.dart from GitHub Secret
+      # Automatically extracts web Firebase config from your existing GitHub Secret
+      - name: Extract Firebase Web Config from FIREBASE_OPTIONS_DART
         env:
           FIREBASE_OPTIONS_DART: ${{ secrets.FIREBASE_OPTIONS_DART }}
         run: |
-          printf "%s\n" "$FIREBASE_OPTIONS_DART" > lib/firebase_options.dart
-        shell: bash
+          node -e '
+            const fs = require("fs");
+            const secret = process.env.FIREBASE_OPTIONS_DART || "";
+            const match = secret.match(/static const FirebaseOptions web = FirebaseOptions\(([\s\S]*?)\);/);
+            if (match) {
+              const block = match[1];
+              const extract = (key) => {
+                const m = block.match(new RegExp(key + ":\\s*[\x27\x22]([^\x27\x22]+)[\x27\x22]"));
+                return m ? m[1] : "";
+              };
+              const env = [
+                `VITE_FIREBASE_API_KEY=${extract("apiKey")}`,
+                `VITE_FIREBASE_APP_ID=${extract("appId")}`,
+                `VITE_FIREBASE_MESSAGING_SENDER_ID=${extract("messagingSenderId")}`,
+                `VITE_FIREBASE_PROJECT_ID=${extract("projectId")}`,
+                `VITE_FIREBASE_AUTH_DOMAIN=${extract("authDomain")}`,
+                `VITE_FIREBASE_STORAGE_BUCKET=${extract("storageBucket")}`
+              ].join("\n");
+              fs.writeFileSync(".env.local", env);
+              console.log("Successfully extracted Firebase web credentials from FIREBASE_OPTIONS_DART");
+            } else {
+              console.warn("Could not find web options in FIREBASE_OPTIONS_DART. Ensure the secret is set in repository settings.");
+            }
+          '
 
-      # KEY STEP: Build with the correct base-href
-      # Replace 'your-repo-name' with your actual repository name (e.g., /my-app/)
-      # Keep the slashes at the start and end.
-      - name: Build Web
-        run: flutter build web --release --base-href "/oikonomos/"
+      - name: Run Tests
+        run: npm test
+
+      - name: Build Web App
+        run: npm run build
+        env:
+          BASE_PATH: /oikonomos/
+
+      # SPA routing fallback for GitHub Pages
+      - name: Create 404.html fallback
+        run: cp dist/index.html dist/404.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -45,7 +81,7 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: build/web
+          path: dist
 
       - name: Deploy to GitHub Pages
         id: deployment
