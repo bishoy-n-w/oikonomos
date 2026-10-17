@@ -1,38 +1,58 @@
 export type UserRole = 'owner' | 'Admin' | 'viewer';
 
+export interface GradeItem {
+  name: string;
+  serviceGroupId: string;
+}
+
 export interface Church {
   id: string;
   displayName: string;
   active: boolean;
   activeAcademicYearId?: string;
-  grades?: Record<string, { name: string; serviceGroupId: string }>;
+  grades?: Record<string, GradeItem>; // e.g. { "1": { name: "Grade 1", serviceGroupId: "..." } }
+  createdAt?: string;
+  createdBy?: string;
 }
 
 export interface AcademicYear {
   id: string;
   displayName: string;
   active: boolean;
-  startDate?: string;
+  startDate?: string; // YYYY-MM
+  createdAt?: string;
+  createdBy?: string;
 }
 
 export interface ServiceGroup {
   id: string;
   displayName: string;
   active: boolean;
-  admins: string[]; // list of emails
-  servants: string[]; // list of emails
+  misters?: Record<string, 'admin' | 'servant'>; // email -> 'admin' | 'servant'
+  admins?: string[]; // compatibility helper
+  servants?: string[]; // compatibility helper
+  createdAt?: string;
+  createdBy?: string;
+}
+
+export interface ClassYearData {
+  displayName: string;
+  name?: string; // fallback helper
+  serviceGroupId: string;
+  gradeId?: string;
+  KidIds?: string[];
+  kids?: string[]; // fallback helper
+  MistersIds?: string[];
+  servants?: string[]; // fallback helper
 }
 
 export interface ClassDoc {
   id: string;
-  serviceGroupId: string;
-  gradeLevelId?: string;
   active: boolean;
-  academicYears: Record<string, {
-    name: string;
-    kids: string[];
-    servants: string[];
-  }>;
+  serviceGroupId?: string; // default group
+  academicYears: Record<string, ClassYearData>;
+  createdAt?: string;
+  createdBy?: string;
 }
 
 export interface KidContacts {
@@ -62,36 +82,65 @@ export interface KidInfo {
   fatherOfConfession?: string;
 }
 
-export interface Kid {
-  id: string;
-  active: boolean;
-  info: KidInfo;
-  address?: KidAddress;
-  contacts?: KidContacts;
-  notes?: string;
-  // Dynamic current assignments
+export interface KidActiveAssignment {
   academicYearId?: string;
   serviceGroupId?: string;
   classId?: string;
 }
 
+export interface KidVersion {
+  changes: Record<string, any>;
+  editAt: string;
+  editBy: string;
+}
+
+export interface Kid {
+  id: string;
+  active: boolean;
+  activeAssignment?: KidActiveAssignment;
+  info: KidInfo;
+  address?: KidAddress;
+  contacts?: KidContacts;
+  notes?: string;
+  versions?: Record<string, KidVersion>;
+  createdAt?: string;
+  createdBy?: string;
+  lastEditAt?: string;
+  lastEditBy?: string;
+  // Flattened helpers for backward compatibility
+  academicYearId?: string;
+  serviceGroupId?: string;
+  classId?: string;
+}
+
+export interface MisterPersonalInfo {
+  phone?: string;
+  gender?: 'male' | 'female';
+  dob?: string;
+  job?: string;
+  address?: string;
+  notes?: string;
+  createdAt?: string;
+  createdBy?: string;
+  lastEditAt?: string;
+  lastEditBy?: string;
+}
+
 export interface Mister {
   id: string; // usually email
+  authUid?: string;
   email: string;
   displayName: string;
   active: boolean;
   churchRole: 'admin' | 'viewer';
-  personalInfo?: {
-    phone?: string;
-    dob?: string;
-    job?: string;
-    address?: string;
-    notes?: string;
-    gender?: 'male' | 'female';
-  };
+  personalInfo?: MisterPersonalInfo;
   adminInGroups?: string[];
   servantInGroups?: string[];
   servantInClasses?: string[];
+  createdAt?: string;
+  createdBy?: string;
+  lastEditAt?: string;
+  lastEditBy?: string;
 }
 
 export type AttendanceStatus = 'present' | 'absent' | 'excused';
@@ -110,4 +159,5 @@ export interface DropdownItem {
   id: string;
   displayName: string;
   data?: any;
+  isActiveYear?: boolean;
 }

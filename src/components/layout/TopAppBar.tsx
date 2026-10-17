@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import { useFilter } from '../../context/FilterContext';
+import type { ActiveTab } from './MainShell';
 import { 
   Sun, 
   Moon, 
@@ -14,10 +15,11 @@ import {
 } from 'lucide-react';
 
 interface TopAppBarProps {
+  activeTab?: ActiveTab;
   onOpenMobileFilters: () => void;
 }
 
-export const TopAppBar: React.FC<TopAppBarProps> = ({ onOpenMobileFilters }) => {
+export const TopAppBar: React.FC<TopAppBarProps> = ({ activeTab, onOpenMobileFilters }) => {
   const { user, userRole, logout, login } = useAuth();
   const { language, setLanguage, theme, toggleTheme, translate } = useApp();
   const { 
@@ -37,6 +39,16 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({ onOpenMobileFilters }) => 
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Context-aware dimming rules as mandated by specs:
+  // - Church Admin: dim church, academic year, class group, and class
+  // - Service Groups: church active; dim year, group, and class
+  // - Classes: church, year, group active; dim class
+  // - Kids, Misters, Attendance, Dashboard: all active
+  const dimChurch = activeTab === 'churches_config';
+  const dimYear = activeTab === 'churches_config' || activeTab === 'service_groups';
+  const dimGroup = activeTab === 'churches_config' || activeTab === 'service_groups';
+  const dimClass = activeTab === 'churches_config' || activeTab === 'service_groups' || activeTab === 'classes';
 
   // Close menu on click outside
   useEffect(() => {
@@ -67,45 +79,56 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({ onOpenMobileFilters }) => 
       </div>
 
       {/* Desktop Cascading Filters (Hidden on Mobile) */}
-      <div className="hidden lg:flex items-center gap-2">
-        {/* 1. Church Dropdown (Anchor) */}
-        <div className="relative">
-          <select
-            value={selectedChurchId || ''}
-            onChange={(e) => setChurch(e.target.value)}
-            className="appearance-none font-bold text-sm bg-teal-600 text-white px-4 py-2 pe-8 rounded-xl shadow-sm hover:bg-teal-700 transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
-          >
-            {churches.map((c) => (
-              <option key={c.id} value={c.id} className="text-zinc-900 bg-white">
-                {c.displayName}
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="w-4 h-4 text-white/80 absolute end-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+      <div className="hidden lg:flex items-center gap-2.5">
+        {/* 1. Church Dropdown (Bigger, Unique Shape, Never accepts All) */}
+        <div className={`relative transition-all ${dimChurch ? 'opacity-30 pointer-events-none' : ''}`}>
+          <div className="flex items-center">
+            <select
+              value={selectedChurchId || ''}
+              disabled={dimChurch || churches.length === 0}
+              onChange={(e) => setChurch(e.target.value)}
+              className="appearance-none font-black text-sm bg-gradient-to-r from-teal-600 to-teal-700 text-white ps-4 pe-9 py-2.5 rounded-2xl shadow-md shadow-teal-700/20 border-2 border-teal-500/80 hover:from-teal-700 hover:to-teal-800 transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-400"
+            >
+              {churches.length === 0 && (
+                <option value="" disabled className="text-zinc-800 bg-white">No Church Assigned</option>
+              )}
+              {churches.map((c) => (
+                <option key={c.id} value={c.id} className="text-zinc-900 bg-white font-bold">
+                  {c.displayName}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="w-4 h-4 text-white/90 absolute end-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
         </div>
 
-        {/* 2. Academic Year Dropdown */}
-        <div className="relative">
+        {/* 2. Academic Year Dropdown (2nd in size, to the right, with Active icon, Never accepts All) */}
+        <div className={`relative transition-all ${dimYear ? 'opacity-30 pointer-events-none' : ''}`}>
           <select
             value={selectedAcademicYearId || ''}
+            disabled={dimYear || academicYears.length === 0}
             onChange={(e) => setAcademicYear(e.target.value)}
-            className="appearance-none text-xs font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-3 py-2 pe-7 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600 transition cursor-pointer focus:outline-none"
+            className="appearance-none font-bold text-xs md:text-sm bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 ps-3.5 pe-8 py-2 rounded-xl border-2 border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600 transition cursor-pointer focus:outline-none"
           >
+            {academicYears.length === 0 && (
+              <option value="" disabled>No Year Found</option>
+            )}
             {academicYears.map((y) => (
               <option key={y.id} value={y.id}>
-                {y.displayName}
+                {y.isActiveYear ? `⭐ ${y.displayName} (Active)` : y.displayName}
               </option>
             ))}
           </select>
-          <ChevronDown className="w-3.5 h-3.5 text-zinc-500 absolute end-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <ChevronDown className="w-3.5 h-3.5 text-zinc-500 absolute end-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
-        {/* 3. Service Group Dropdown */}
-        <div className="relative">
+        {/* 3. Service Group Dropdown (Accepts All) */}
+        <div className={`relative transition-all ${dimGroup ? 'opacity-30 pointer-events-none' : ''}`}>
           <select
             value={selectedServiceGroupId || ''}
+            disabled={dimGroup}
             onChange={(e) => setServiceGroup(e.target.value ? e.target.value : null)}
-            className="appearance-none text-xs bg-zinc-50 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 px-3 py-2 pe-7 rounded-full border border-zinc-200 dark:border-zinc-700 hover:border-teal-500 transition cursor-pointer focus:outline-none"
+            className="appearance-none text-xs font-semibold bg-zinc-50 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 ps-3 pe-7 py-1.5 rounded-full border border-zinc-200 dark:border-zinc-700 hover:border-teal-500 transition cursor-pointer focus:outline-none"
           >
             <option value="">{translate('all')} {translate('service_groups')}</option>
             {serviceGroups.map((g) => (
@@ -114,15 +137,16 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({ onOpenMobileFilters }) => 
               </option>
             ))}
           </select>
-          <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute end-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <ChevronDown className="w-3 h-3 text-zinc-400 absolute end-2 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
-        {/* 4. Class Dropdown */}
-        <div className="relative">
+        {/* 4. Class Dropdown (Accepts All) */}
+        <div className={`relative transition-all ${dimClass ? 'opacity-30 pointer-events-none' : ''}`}>
           <select
             value={selectedClassId || ''}
+            disabled={dimClass}
             onChange={(e) => setClass(e.target.value ? e.target.value : null)}
-            className="appearance-none text-xs bg-zinc-50 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 px-3 py-2 pe-7 rounded-full border border-zinc-200 dark:border-zinc-700 hover:border-teal-500 transition cursor-pointer focus:outline-none"
+            className="appearance-none text-xs font-semibold bg-zinc-50 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 ps-3 pe-7 py-1.5 rounded-full border border-zinc-200 dark:border-zinc-700 hover:border-teal-500 transition cursor-pointer focus:outline-none"
           >
             <option value="">{translate('all')} {translate('classes')}</option>
             {classes.map((c) => (
@@ -131,7 +155,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({ onOpenMobileFilters }) => 
               </option>
             ))}
           </select>
-          <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute end-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <ChevronDown className="w-3 h-3 text-zinc-400 absolute end-2 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
       </div>
 

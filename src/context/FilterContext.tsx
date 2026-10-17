@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
+import { useAuth } from './AuthContext';
 import type { DropdownItem } from '../types';
 
 interface FilterContextType {
@@ -22,6 +23,8 @@ interface FilterContextType {
 const FilterContext = createContext<FilterContextType | undefined>(undefined);
 
 export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, isGlobalAdmin } = useAuth();
+
   const [selectedChurchId, setSelectedChurchId] = useState<string | null>(null);
   const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<string | null>(null);
   const [selectedServiceGroupId, setSelectedServiceGroupId] = useState<string | null>(null);
@@ -33,28 +36,58 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [classes, setClasses] = useState<DropdownItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 1. Listen to active churches
+  // 1. Listen to active churches and filter to churches where the user belongs (unless Global Admin)
   useEffect(() => {
+    if (!user) {
+      setChurches([]);
+      setIsLoading(false);
+      return;
+    }
+
     const churchesRef = collection(db, 'churches');
     const q = query(churchesRef, where('active', '==', true));
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const items: DropdownItem[] = snapshot.docs.map((doc) => {
-        const data = doc.data();
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const allActiveChurches = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data();
         return {
-          id: doc.id,
+          id: docSnap.id,
           displayName: data.displayName || 'Unknown Church',
           data: data.activeAcademicYearId,
         };
       });
 
-      setChurches(items);
+      let allowedChurches: DropdownItem[] = [];
+
+      if (isGlobalAdmin) {
+        allowedChurches = allActiveChurches;
+      } else {
+        // Filter by user's membership in churches/{id}/misters/{email}
+        const userEmail = (user.email || '').toLowerCase().trim();
+        const checkPromises = allActiveChurches.map(async (church): Promise<DropdownItem | null> => {
+          try {
+            const misterRef = doc(db, 'churches', church.id, 'misters', userEmail);
+            const misterSnap = await getDoc(misterRef);
+            if (misterSnap.exists() && misterSnap.data()?.active === true) {
+              return church;
+            }
+          } catch {
+            // Not permitted or doesn't exist
+          }
+          return null;
+        });
+
+        const results = await Promise.all(checkPromises);
+        allowedChurches = results.filter((c): c is DropdownItem => c !== null);
+      }
+
+      setChurches(allowedChurches);
       setIsLoading(false);
 
-      if (items.length > 0) {
+      if (allowedChurches.length > 0) {
         setSelectedChurchId((prev) => {
-          if (!prev || !items.some((c) => c.id === prev)) {
-            return items[0].id;
+          if (!prev || !allowedChurches.some((c) => c.id === prev)) {
+            return allowedChurches[0].id;
           }
           return prev;
         });
@@ -67,7 +100,7 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [user, isGlobalAdmin]);
 
   // 2. When church changes, listen to its academic years and service groups
   useEffect(() => {
@@ -87,10 +120,14 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Academic Years
     const yearsRef = collection(db, 'churches', selectedChurchId, 'academicYears');
     const unsubscribeYears = onSnapshot(yearsRef, (snapshot) => {
-      const items: DropdownItem[] = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        displayName: doc.data().displayName || doc.id,
-      }));
+      const items: DropdownItem[] = snapshot.docs.map((docSnap) => {
+        const isCurrentActive = docSnap.id === activeYearId;
+        return {
+          id: docSnap.id,
+          displayName: docSnap.data().displayName || docSnap.id,
+          isActiveYear: isCurrentActive,
+        };
+      });
       setAcademicYears(items);
 
       if (items.length > 0) {
@@ -107,9 +144,9 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Service Groups
     const groupsRef = collection(db, 'churches', selectedChurchId, 'serviceGroups');
     const unsubscribeGroups = onSnapshot(groupsRef, (snapshot) => {
-      const items: DropdownItem[] = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        displayName: doc.data().displayName || doc.id,
+      const items: DropdownItem[] = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        displayName: docSnap.data().displayName || docSnap.id,
       }));
       setServiceGroups(items);
     });
@@ -129,18 +166,18 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const classesRef = collection(db, 'churches', selectedChurchId, 'classes');
     const unsubscribeClasses = onSnapshot(classesRef, (snapshot) => {
-      const items: DropdownItem[] = snapshot.docs.map((doc) => {
-        const data = doc.data();
+      const items: DropdownItem[] = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data();
         const yearsMap = data.academicYears || {};
         const yearData = selectedAcademicYearId ? yearsMap[selectedAcademicYearId] : Object.values(yearsMap)[0];
-        const resolvedName = (yearData as any)?.name || doc.id;
+        const resolvedName = (yearData as any)?.displayName || (yearData as any)?.name || docSnap.id;
 
         return {
-          id: doc.id,
+          id: docSnap.id,
           displayName: resolvedName,
           data: {
-            serviceGroupId: data.serviceGroupId,
-            gradeLevelId: data.gradeLevelId,
+            serviceGroupId: (yearData as any)?.serviceGroupId || data.serviceGroupId,
+            gradeId: (yearData as any)?.gradeId || data.gradeLevelId,
           },
         };
       });

@@ -1,144 +1,400 @@
-import React, { useState } from 'react';
-import { doc, setDoc, deleteDoc } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { useFilter } from '../context/FilterContext';
-import { Building2, Plus, Edit3, Trash2, Calendar, X } from 'lucide-react';
+import { HeaderFilterMatrix, type ColumnFilterConfig } from '../components/common/HeaderFilterMatrix';
+import { normalizeDateStr } from '../utils/formatters';
+import type { Church, AcademicYear, GradeItem } from '../types';
+import { 
+  Plus, 
+  Edit3, 
+  Trash2, 
+  X, 
+  GraduationCap
+} from 'lucide-react';
 
 export const ChurchesScreen: React.FC = () => {
-  const { userRole } = useAuth();
+  const { user, userRole } = useAuth();
   const { translate } = useApp();
-  const { churches, setChurch } = useFilter();
+  const { churches: userChurches, setChurch } = useFilter();
 
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [activeChurch, setActiveChurch] = useState<any | null>(null);
+  const [churchList, setChurchList] = useState<Church[]>([]);
+  const [academicYearsMap, setAcademicYearsMap] = useState<Record<string, AcademicYear[]>>({});
+  const [serviceGroupsMap, setServiceGroupsMap] = useState<Record<string, Array<{ id: string; displayName: string }>>>({});
+  
+  // Header Filter Matrix state
+  const [filters, setFilters] = useState<Record<string, string>>({});
+
+  // Modals
+  const [addChurchOpen, setAddChurchOpen] = useState(false);
+  const [editChurch, setEditChurch] = useState<Church | null>(null);
+  const [gradesModalChurch, setGradesModalChurch] = useState<Church | null>(null);
+
+  // In-place academic years during church edit
+  const [editYears, setEditYears] = useState<AcademicYear[]>([]);
+  const [classesByChurch, setClassesByChurch] = useState<any[]>([]);
 
   const isOwner = userRole === 'owner';
 
-  const handleSaveChurch = async (id: string, displayName: string, activeYearName: string) => {
-    const docId = activeChurch ? activeChurch.id : id.trim().toLowerCase().replace(/\s+/g, '_');
-    const churchRef = doc(db, 'churches', docId);
+  // 1. Listen to all churches the user belongs to
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'churches'), (snapshot) => {
+      const items: Church[] = snapshot.docs
+        .filter((d) => userChurches.some((uc) => uc.id === d.id))
+        .map((d) => ({
+          id: d.id,
+          displayName: d.data().displayName || d.id,
+          active: d.data().active !== false,
+          activeAcademicYearId: d.data().activeAcademicYearId,
+          grades: d.data().grades || {},
+          createdAt: d.data().createdAt,
+          createdBy: d.data().createdBy,
+        }));
+      setChurchList(items);
 
-    const yearId = activeYearName.trim().toLowerCase().replace(/\s+/g, '_');
+      // Listen to academic years and service groups for each church
+      items.forEach((c) => {
+        onSnapshot(collection(db, 'churches', c.id, 'academicYears'), (ySnap) => {
+          const years: AcademicYear[] = ySnap.docs.map((yd) => ({
+            id: yd.id,
+            displayName: yd.data().displayName || yd.id,
+            active: yd.data().active !== false,
+            startDate: normalizeDateStr(yd.data().startDate),
+          }));
+          setAcademicYearsMap((prev) => ({ ...prev, [c.id]: years }));
+        });
+
+        onSnapshot(collection(db, 'churches', c.id, 'serviceGroups'), (gSnap) => {
+          const groups = gSnap.docs.map((gd) => ({
+            id: gd.id,
+            displayName: gd.data().displayName || gd.id,
+          }));
+          setServiceGroupsMap((prev) => ({ ...prev, [c.id]: groups }));
+        });
+      });
+    });
+
+    return () => unsub();
+  }, [userChurches]);
+
+  // When editChurch is selected, load its academic years and classes
+  useEffect(() => {
+    if (!editChurch) {
+      setEditYears([]);
+      setClassesByChurch([]);
+      return;
+    }
+    const currentYears = academicYearsMap[editChurch.id] || [];
+    setEditYears([...currentYears]);
+
+    // Fetch classes to check year reference deletion guards
+    getDocs(collection(db, 'churches', editChurch.id, 'classes')).then((snap) => {
+      setClassesByChurch(snap.docs.map((d) => d.data()));
+    });
+  }, [editChurch, academicYearsMap]);
+
+  // Column Filter Matrix configs
+  const filterConfigs: ColumnFilterConfig[] = [
+    { key: 'active', type: 'boolean' },
+    { key: 'displayName', type: 'text', placeholder: 'Filter Church...' },
+    { key: 'activeYear', type: 'text', placeholder: 'Filter Active Year...' },
+    { key: 'gradesCount', type: 'number', placeholder: 'Min grades...' },
+    { key: 'actions', type: 'text', placeholder: '' },
+  ];
+
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  // Filter churchList by Header Filter Matrix
+  const filteredChurches = churchList.filter((c) => {
+    if (filters.active !== undefined && filters.active !== '') {
+      if (String(c.active) !== filters.active) return false;
+    }
+    if (filters.displayName) {
+      if (!c.displayName.toLowerCase().includes(filters.displayName.toLowerCase())) return false;
+    }
+    if (filters.activeYear) {
+      const activeYearName = (academicYearsMap[c.id] || []).find((y) => y.id === c.activeAcademicYearId)?.displayName || '';
+      if (!activeYearName.toLowerCase().includes(filters.activeYear.toLowerCase())) return false;
+    }
+    if (filters.gradesCount) {
+      const count = Object.keys(c.grades || {}).length;
+      if (count < parseInt(filters.gradesCount, 10)) return false;
+    }
+    return true;
+  });
+
+  // Save Grades mapping
+  const handleSaveGrades = async (churchId: string, updatedGrades: Record<string, GradeItem>) => {
+    const churchRef = doc(db, 'churches', churchId);
+    await setDoc(churchRef, { grades: updatedGrades }, { merge: true });
+    setGradesModalChurch(null);
+  };
+
+  // Save Church & Academic Years
+  const handleSaveEditChurch = async (displayName: string, active: boolean, activeAcademicYearId: string) => {
+    if (!editChurch) return;
+
+    // Validate Academic Years constraints:
+    // 1. At least one year exists
+    if (editYears.length === 0) {
+      alert('A church must have at least one Academic Year.');
+      return;
+    }
+    // 2. At least one active year
+    if (!editYears.some((y) => y.id === activeAcademicYearId || y.active)) {
+      alert('At least one Academic Year must be active.');
+      return;
+    }
+
+    const churchRef = doc(db, 'churches', editChurch.id);
+    await setDoc(churchRef, {
+      displayName,
+      active,
+      activeAcademicYearId,
+      lastEditAt: new Date().toISOString(),
+      lastEditBy: user?.email,
+    }, { merge: true });
+
+    // Update in-place academic years
+    for (const y of editYears) {
+      const yearRef = doc(db, 'churches', editChurch.id, 'academicYears', y.id);
+      await setDoc(yearRef, {
+        displayName: y.displayName,
+        active: y.id === activeAcademicYearId ? true : y.active,
+        startDate: y.startDate || '',
+      }, { merge: true });
+    }
+
+    setEditChurch(null);
+  };
+
+  // Delete an Academic Year with constraints
+  const handleDeleteYearInEdit = (yearId: string) => {
+    if (!editChurch) return;
+
+    // Constraint: At least one year must remain
+    if (editYears.length <= 1) {
+      alert('Cannot delete: A church must retain at least one academic year.');
+      return;
+    }
+
+    // Constraint: Cannot delete active year
+    if (yearId === editChurch.activeAcademicYearId) {
+      alert('Cannot delete: This is the currently active Academic Year for this church.');
+      return;
+    }
+
+    // Constraint: Cannot delete if referenced in any classes
+    const isReferenced = classesByChurch.some((cls) => cls.academicYears && cls.academicYears[yearId]);
+    if (isReferenced) {
+      alert('Cannot delete: This Academic Year is referenced in one or more classes.');
+      return;
+    }
+
+    setEditYears(editYears.filter((y) => y.id !== yearId));
+    // Also delete from Firestore
+    deleteDoc(doc(db, 'churches', editChurch.id, 'academicYears', yearId));
+  };
+
+  // Add a new Academic Year in edit
+  const handleAddYearInEdit = () => {
+    const nextNum = editYears.length + 1;
+    const newYearId = `year_${Date.now()}`;
+    const newYear: AcademicYear = {
+      id: newYearId,
+      displayName: `Academic Year ${nextNum}`,
+      active: false,
+      startDate: new Date().toISOString().substring(0, 7), // YYYY-MM
+    };
+    setEditYears([...editYears, newYear]);
+  };
+
+  // Add a New Church (mandating active, displayName, and 1 initial active academicYear with YYYY-MM startDate)
+  const handleCreateChurch = async (displayName: string, yearName: string, startDate: string) => {
+    const docId = displayName.trim().toLowerCase().replace(/\s+/g, '_');
+    const yearId = yearName.trim().toLowerCase().replace(/\s+/g, '_');
+
+    const churchRef = doc(db, 'churches', docId);
     const yearRef = doc(db, 'churches', docId, 'academicYears', yearId);
 
-    // Save church
     await setDoc(churchRef, {
       displayName,
       active: true,
       activeAcademicYearId: yearId,
-      updatedAt: new Date().toISOString(),
-    }, { merge: true });
+      grades: {},
+      createdAt: new Date().toISOString(),
+      createdBy: user?.email,
+    });
 
-    // Save initial academic year
     await setDoc(yearRef, {
-      displayName: activeYearName,
+      displayName: yearName,
       active: true,
-      startDate: new Date().toISOString().split('T')[0],
-    }, { merge: true });
+      startDate, // YYYY-MM
+      createdAt: new Date().toISOString(),
+      createdBy: user?.email,
+    });
 
     setChurch(docId);
-    setEditModalOpen(false);
-    setActiveChurch(null);
+    setAddChurchOpen(false);
   };
 
   const handleDeleteChurch = async (churchId: string, name: string) => {
     if (!isOwner) return;
-    if (window.confirm(`Delete church "${name}"? This will permanently delete the church tenant.`)) {
-      const churchRef = doc(db, 'churches', churchId);
-      await deleteDoc(churchRef);
+    if (window.confirm(`Delete church "${name}"? This action is permanent and cannot be undone.`)) {
+      await deleteDoc(doc(db, 'churches', churchId));
     }
   };
 
   return (
     <div className="space-y-4 animate-in fade-in duration-200">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
             <span>{translate('churches_config')}</span>
             <span className="text-sm font-semibold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/60 px-2.5 py-0.5 rounded-full border border-teal-200 dark:border-teal-800">
-              {churches.length}
+              {filteredChurches.length}
             </span>
           </h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-            Church tenants, timeline milestones, and multi-tenant configurations
+            Church tenants, active academic timelines, and grade-to-group taxonomy
           </p>
         </div>
 
         {isOwner && (
           <button
-            onClick={() => {
-              setActiveChurch(null);
-              setEditModalOpen(true);
-            }}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30 w-fit"
+            onClick={() => setAddChurchOpen(true)}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30 w-fit cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>{translate('add')} Church</span>
+            <span>Add Church</span>
           </button>
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {churches.map((church) => (
-          <div
-            key={church.id}
-            className="p-5 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-3 hover:shadow-md transition"
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold">
-                  <Building2 className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-base text-zinc-900 dark:text-zinc-100">
-                    {church.displayName}
-                  </h3>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    <span className="text-xs text-zinc-500">Active Tenant</span>
-                  </div>
-                </div>
-              </div>
+      {/* Details List View (DataTable) with Header Filter Matrix */}
+      <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-xs overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-start text-xs text-zinc-700 dark:text-zinc-300">
+            <thead className="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider text-[11px] border-b border-zinc-200 dark:border-zinc-800">
+              <tr>
+                <th className="px-6 py-3.5 text-start w-24">Active</th>
+                <th className="px-6 py-3.5 text-start">Church Name</th>
+                <th className="px-6 py-3.5 text-start">Active Academic Year</th>
+                <th className="px-6 py-3.5 text-start">Grades</th>
+                <th className="px-6 py-3.5 text-end w-32">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Header Filtering Matrix */}
+              <HeaderFilterMatrix
+                configs={filterConfigs}
+                values={filters}
+                onChange={handleFilterChange}
+              />
 
-              {isOwner && (
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => {
-                      setActiveChurch(church);
-                      setEditModalOpen(true);
-                    }}
-                    className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
-                  >
-                    <Edit3 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteChurch(church.id, church.displayName)}
-                    className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-            </div>
+              {filteredChurches.map((church) => {
+                const activeYearName = (academicYearsMap[church.id] || []).find(
+                  (y) => y.id === church.activeAcademicYearId
+                )?.displayName || church.activeAcademicYearId || '-';
 
-            <div className="flex items-center gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/80 text-xs text-zinc-600 dark:text-zinc-400">
-              <Calendar className="w-4 h-4 text-teal-600" />
-              <span>Active Term: <strong className="text-zinc-800 dark:text-zinc-200">{church.data || 'Current'}</strong></span>
-            </div>
-          </div>
-        ))}
+                const gradesCount = Object.keys(church.grades || {}).length;
+
+                return (
+                  <tr
+                    key={church.id}
+                    className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40 border-b border-zinc-100 dark:border-zinc-800/80 transition"
+                  >
+                    {/* 1. Active */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                        church.active
+                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                          : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${church.active ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
+                        {church.active ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+
+                    {/* 2. DisplayName */}
+                    <td className="px-6 py-4 font-bold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
+                      {church.displayName}
+                    </td>
+
+                    {/* 3. ActiveAcademicYear DisplayName */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="font-semibold text-teal-600 dark:text-teal-400 flex items-center gap-1">
+                        <span>⭐</span>
+                        <span>{activeYearName}</span>
+                      </span>
+                    </td>
+
+                    {/* 4. Grades (only sum number of grades; clicking opens popup) */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => setGradesModalChurch(church)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold text-zinc-800 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-teal-50 dark:hover:bg-teal-950/60 hover:text-teal-600 transition cursor-pointer"
+                        title="Click to view and configure grade-to-group mappings"
+                      >
+                        <GraduationCap className="w-3.5 h-3.5 text-teal-600" />
+                        <span>{gradesCount} Grades</span>
+                      </button>
+                    </td>
+
+                    {/* 5. Actions */}
+                    <td className="px-6 py-4 text-end whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => setEditChurch(church)}
+                          className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
+                          title="Edit Church"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        {isOwner && (
+                          <button
+                            onClick={() => handleDeleteChurch(church.id, church.displayName)}
+                            className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                            title="Delete Church"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {editModalOpen && (
+      {/* Grades Management Popup Modal */}
+      {gradesModalChurch && (
+        <GradesMappingModal
+          church={gradesModalChurch}
+          serviceGroups={serviceGroupsMap[gradesModalChurch.id] || []}
+          onClose={() => setGradesModalChurch(null)}
+          onSave={(grades) => handleSaveGrades(gradesModalChurch.id, grades)}
+        />
+      )}
+
+      {/* Edit Church Modal (with in-place Academic Years management) */}
+      {editChurch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800">
+          <div className="w-full max-w-2xl bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800 mb-4">
               <h3 className="font-bold text-base text-zinc-900 dark:text-zinc-100">
-                {activeChurch ? 'Edit Church' : 'Onboard New Church'}
+                Edit Church & Academic Years: {editChurch.displayName}
               </h3>
-              <button onClick={() => setEditModalOpen(false)} className="p-1 text-zinc-400 hover:text-zinc-600">
+              <button onClick={() => setEditChurch(null)} className="p-1 text-zinc-400 hover:text-zinc-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -147,41 +403,126 @@ export const ChurchesScreen: React.FC = () => {
               onSubmit={(e) => {
                 e.preventDefault();
                 const formData = new FormData(e.currentTarget);
-                handleSaveChurch(
-                  (formData.get('id') as string) || activeChurch?.id || '',
+                handleSaveEditChurch(
                   formData.get('displayName') as string,
-                  (formData.get('academicYear') as string) || 'Academic Year 2026'
+                  formData.get('active') === 'true',
+                  formData.get('activeAcademicYearId') as string
                 );
               }}
-              className="space-y-4 text-xs"
+              className="space-y-5 text-xs"
             >
-              <div>
-                <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">Church Name *</label>
-                <input
-                  name="displayName"
-                  defaultValue={activeChurch?.displayName || ''}
-                  required
-                  placeholder="e.g. St. Mark Coptic Orthodox Church"
-                  className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm"
-                />
-              </div>
-
-              {!activeChurch && (
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">Initial Academic Term *</label>
+                  <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">Church Name *</label>
                   <input
-                    name="academicYear"
-                    defaultValue="Academic Year 2026-2027"
+                    name="displayName"
+                    defaultValue={editChurch.displayName}
                     required
                     className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm"
                   />
                 </div>
-              )}
+                <div>
+                  <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">Active Status</label>
+                  <select
+                    name="active"
+                    defaultValue={editChurch.active ? 'true' : 'false'}
+                    className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm"
+                  >
+                    <option value="true">Active</option>
+                    <option value="false">Inactive</option>
+                  </select>
+                </div>
+              </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+              {/* Grades shortcut */}
+              <div className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
+                <div>
+                  <p className="font-bold text-zinc-800 dark:text-zinc-200">Grades Taxonomy</p>
+                  <p className="text-zinc-400 text-[11px]">{Object.keys(editChurch.grades || {}).length} Grades configured</p>
+                </div>
                 <button
                   type="button"
-                  onClick={() => setEditModalOpen(false)}
+                  onClick={() => setGradesModalChurch(editChurch)}
+                  className="px-3 py-1.5 rounded-xl bg-teal-600 text-white font-bold hover:bg-teal-700 transition"
+                >
+                  Configure Grades
+                </button>
+              </div>
+
+              {/* In-Place Academic Years Manager */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
+                      Academic Years (Timelines)
+                    </h4>
+                    <p className="text-[11px] text-zinc-400">
+                      Must retain at least one year; active year and referenced years cannot be deleted.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddYearInEdit}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 font-bold transition"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Year</span>
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {editYears.map((y, idx) => (
+                    <div
+                      key={y.id}
+                      className="flex items-center gap-3 p-3 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/40"
+                    >
+                      <input
+                        type="radio"
+                        name="activeAcademicYearId"
+                        value={y.id}
+                        defaultChecked={y.id === editChurch.activeAcademicYearId}
+                        className="w-4 h-4 text-teal-600 focus:ring-teal-500"
+                        title="Set as currently active academic year"
+                      />
+                      <input
+                        type="text"
+                        value={y.displayName}
+                        onChange={(e) => {
+                          const updated = [...editYears];
+                          updated[idx].displayName = e.target.value;
+                          setEditYears(updated);
+                        }}
+                        placeholder="Year Display Name"
+                        className="flex-1 p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold"
+                      />
+                      <input
+                        type="month"
+                        value={y.startDate?.substring(0, 7) || ''}
+                        onChange={(e) => {
+                          const updated = [...editYears];
+                          updated[idx].startDate = e.target.value;
+                          setEditYears(updated);
+                        }}
+                        className="w-32 p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold"
+                        title="Start Date (Year & Month)"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteYearInEdit(y.id)}
+                        className="p-2 rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                        title="Delete this year"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setEditChurch(null)}
                   className="px-4 py-2.5 rounded-xl font-semibold text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
                 >
                   Cancel
@@ -190,13 +531,240 @@ export const ChurchesScreen: React.FC = () => {
                   type="submit"
                   className="px-5 py-2.5 rounded-xl font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30"
                 >
-                  Save Church
+                  Save Changes
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* Add New Church Wizard Modal */}
+      {addChurchOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800">
+            <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800 mb-4">
+              <h3 className="font-bold text-base text-zinc-900 dark:text-zinc-100">
+                Onboard New Church
+              </h3>
+              <button onClick={() => setAddChurchOpen(false)} className="p-1 text-zinc-400 hover:text-zinc-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                handleCreateChurch(
+                  formData.get('displayName') as string,
+                  formData.get('yearName') as string,
+                  formData.get('startDate') as string
+                );
+              }}
+              className="space-y-4 text-xs"
+            >
+              <div>
+                <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">Church Display Name *</label>
+                <input
+                  name="displayName"
+                  required
+                  placeholder="e.g. St. Mark Church"
+                  className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">Initial Academic Year Name *</label>
+                <input
+                  name="yearName"
+                  defaultValue="Academic Year 2026-2027"
+                  required
+                  className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">Start Date (Year & Month) *</label>
+                <input
+                  type="month"
+                  name="startDate"
+                  defaultValue={new Date().toISOString().substring(0, 7)}
+                  required
+                  className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setAddChurchOpen(false)}
+                  className="px-4 py-2.5 rounded-xl font-semibold text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30"
+                >
+                  Create Church
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Sub-component: Grades Mapping Popup Modal
+interface GradesMappingModalProps {
+  church: Church;
+  serviceGroups: Array<{ id: string; displayName: string }>;
+  onClose: () => void;
+  onSave: (grades: Record<string, GradeItem>) => void;
+}
+
+const GradesMappingModal: React.FC<GradesMappingModalProps> = ({
+  church,
+  serviceGroups,
+  onClose,
+  onSave,
+}) => {
+  const [gradesMap, setGradesMap] = useState<Record<string, GradeItem>>({
+    ...(church.grades || {}),
+  });
+
+  // Add new grade line: integer starts at 1 and auto-increments by system
+  const handleAddGrade = () => {
+    const existingKeys = Object.keys(gradesMap).map((k) => parseInt(k, 10)).filter((n) => !isNaN(n));
+    const nextInt = existingKeys.length > 0 ? Math.max(...existingKeys) + 1 : 1;
+    const keyStr = String(nextInt);
+
+    setGradesMap({
+      ...gradesMap,
+      [keyStr]: {
+        name: `Grade ${nextInt}`,
+        serviceGroupId: serviceGroups[0]?.id || '',
+      },
+    });
+  };
+
+  const handleRemoveGrade = (key: string) => {
+    const copy = { ...gradesMap };
+    delete copy[key];
+    setGradesMap(copy);
+  };
+
+  const handleUpdateGrade = (key: string, field: 'name' | 'serviceGroupId', val: string) => {
+    setGradesMap({
+      ...gradesMap,
+      [key]: {
+        ...gradesMap[key],
+        [field]: val,
+      },
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+      <div className="w-full max-w-lg bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800 mb-4">
+          <div>
+            <h3 className="font-bold text-base text-zinc-900 dark:text-zinc-100">
+              Grades Configuration: {church.displayName}
+            </h3>
+            <p className="text-[11px] text-zinc-400">
+              Integer IDs are auto-incremented. Multiple grades can be assigned to the same Service Group.
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1 text-zinc-400 hover:text-zinc-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="space-y-2.5 max-h-[50vh] overflow-y-auto pe-1">
+          {Object.entries(gradesMap).length === 0 && (
+            <p className="text-xs text-zinc-400 text-center py-6">No grades defined yet. Click "Add Grade" below.</p>
+          )}
+
+          {Object.entries(gradesMap)
+            .sort(([a], [b]) => parseInt(a, 10) - parseInt(b, 10))
+            .map(([intKey, item]) => (
+              <div
+                key={intKey}
+                className="flex items-center gap-2 p-2.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700"
+              >
+                {/* Auto-incremented Integer badge */}
+                <span className="w-7 h-7 flex items-center justify-center rounded-xl bg-teal-100 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 font-bold text-xs shrink-0">
+                  {intKey}
+                </span>
+
+                {/* Free text grade name */}
+                <input
+                  type="text"
+                  value={item.name}
+                  onChange={(e) => handleUpdateGrade(intKey, 'name', e.target.value)}
+                  placeholder="Grade Name"
+                  className="flex-1 p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold"
+                />
+
+                {/* Service Group Dropdown */}
+                <select
+                  value={item.serviceGroupId}
+                  onChange={(e) => handleUpdateGrade(intKey, 'serviceGroupId', e.target.value)}
+                  className="w-36 p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold"
+                >
+                  <option value="" disabled>Select Group</option>
+                  {serviceGroups.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.displayName}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Delete button */}
+                <button
+                  type="button"
+                  onClick={() => handleRemoveGrade(intKey)}
+                  className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                  title="Remove Grade"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+        </div>
+
+        <div className="pt-3 flex justify-between items-center border-t border-zinc-100 dark:border-zinc-800 mt-4">
+          <button
+            type="button"
+            onClick={handleAddGrade}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 transition"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Grade</span>
+          </button>
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => onSave(gradesMap)}
+              className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30"
+            >
+              Save Grades
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

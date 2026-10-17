@@ -54,7 +54,7 @@ export const MainShell: React.FC<MainShellProps> = ({ activeTab, onTabChange, ch
   if (!isAuthorized) {
     return (
       <div className="min-h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
-        <TopAppBar onOpenMobileFilters={() => setMobileFiltersOpen(true)} />
+        <TopAppBar activeTab={activeTab} onOpenMobileFilters={() => setMobileFiltersOpen(true)} />
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="max-w-md w-full bg-white dark:bg-zinc-900 p-8 rounded-3xl shadow-xl border border-zinc-200 dark:border-zinc-800 text-center">
             <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
@@ -71,7 +71,7 @@ export const MainShell: React.FC<MainShellProps> = ({ activeTab, onTabChange, ch
             </div>
           </div>
         </div>
-        <MobileFilterSheet isOpen={mobileFiltersOpen} onClose={() => setMobileFiltersOpen(false)} />
+        <MobileFilterSheet activeTab={activeTab} isOpen={mobileFiltersOpen} onClose={() => setMobileFiltersOpen(false)} />
       </div>
     );
   }
@@ -79,7 +79,7 @@ export const MainShell: React.FC<MainShellProps> = ({ activeTab, onTabChange, ch
   return (
     <div className="min-h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
       {/* Top App Bar */}
-      <TopAppBar onOpenMobileFilters={() => setMobileFiltersOpen(true)} />
+      <TopAppBar activeTab={activeTab} onOpenMobileFilters={() => setMobileFiltersOpen(true)} />
 
       <div className="flex-1 flex overflow-hidden">
         {/* Desktop Sidebar (lg:flex) */}
@@ -203,6 +203,7 @@ export const MainShell: React.FC<MainShellProps> = ({ activeTab, onTabChange, ch
 
       {/* Mobile Cascading Filter Bottom Sheet */}
       <MobileFilterSheet
+        activeTab={activeTab}
         isOpen={mobileFiltersOpen}
         onClose={() => setMobileFiltersOpen(false)}
       />
