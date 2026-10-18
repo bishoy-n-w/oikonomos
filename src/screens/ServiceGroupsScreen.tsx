@@ -119,11 +119,12 @@ export const ServiceGroupsScreen: React.FC = () => {
   };
 
   // Helper: Get grades assigned to a group from churches.grades
-  const getGradesForGroup = (groupId: string): string[] => {
+  const getGradesForGroup = (groupId: string): Array<{ id: string; name: string }> => {
     if (!currentChurch?.grades) return [];
     return Object.entries(currentChurch.grades)
       .filter(([_, item]) => item.serviceGroupId === groupId)
-      .map(([intKey, item]) => `${item.name} (#${intKey})`);
+      .sort(([a], [b]) => parseInt(a, 10) - parseInt(b, 10))
+      .map(([intKey, item]) => ({ id: intKey, name: item.name }));
   };
 
   // Filtered groups
@@ -146,8 +147,11 @@ export const ServiceGroupsScreen: React.FC = () => {
       if (count < parseInt(filters.servantsCount, 10)) return false;
     }
     if (filters.grades) {
-      const groupGrades = getGradesForGroup(g.id).join(' ').toLowerCase();
-      if (!groupGrades.includes(filters.grades.toLowerCase())) return false;
+      const groupGradesStr = getGradesForGroup(g.id)
+        .map((gr) => `#${gr.id} ${gr.name}`)
+        .join(' ')
+        .toLowerCase();
+      if (!groupGradesStr.includes(filters.grades.toLowerCase())) return false;
     }
     return true;
   });
@@ -318,14 +322,20 @@ export const ServiceGroupsScreen: React.FC = () => {
 
                     {/* 5. Grades (Assigned from church) */}
                     <td className="px-6 py-4">
-                      <div className="flex flex-wrap gap-1 max-w-xs">
+                      <div className="flex flex-wrap gap-1.5 max-w-xs">
                         {groupGrades.length === 0 && <span className="text-zinc-400 text-[11px]">{translate('no_grades_linked')}</span>}
                         {groupGrades.map((gr) => (
                           <span
-                            key={gr}
-                            className="inline-block px-2 py-0.5 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 text-[10px] font-semibold"
+                            key={gr.id}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-800 dark:text-teal-200 border border-teal-200 dark:border-teal-800 text-[11px] font-semibold"
                           >
-                            {gr}
+                            <span
+                              className="font-mono text-teal-700 dark:text-teal-300 font-bold px-1.5 py-0.2 rounded bg-teal-100 dark:bg-teal-900/60 text-[10px]"
+                              dir="ltr"
+                            >
+                              #{gr.id}
+                            </span>
+                            <bdi>{gr.name}</bdi>
                           </span>
                         ))}
                       </div>

@@ -293,22 +293,34 @@ Enables Sunday School servants and administrators to synchronize church contact 
 
 ---
 
-## 13. Multi-Select & Bulk Classroom Reassignment
+## 13. Multi-Select, Bulk Classroom Reassignment & Bulk Delete
 
 *   **Selection Controls:** Master checkbox in the table header to select/deselect all visible filtered students, alongside per-row checkboxes.
 *   **Floating Bulk Action Bar:** Appears at viewport bottom when $\ge 1$ student is selected, showing count and action triggers.
 *   **Bulk Assignment Execution:** Reassigns `activeAssignment.academicYearId`, `activeAssignment.serviceGroupId`, and `activeAssignment.classId` across all selected students via atomic Firestore batch transactions.
+*   **Multi-Select Bulk Delete (with Confirmation):** Administrators can delete multiple selected students at once. Clicking "Delete Selected" triggers an in-app confirmation modal displaying the exact student count and permanent deletion warning. Upon confirmation, records are atomically deleted using Firestore `writeBatch` in chunks of 400 with Approach 2 loading spinner and input freezing.
 
 ---
 
 ## 14. Smart Excel/CSV Import Engine with Hybrid AI Mapping & 1-Click Rollback
 
 *   **File Formats:** Supports `.xlsx`, `.xls`, and `.csv`.
-*   **Header Row Index Selector:** Interactive preview of first 5 rows allowing the user to designate which row contains column headers.
+*   **Multi-Sheet Workbook Tab Selection:** For workbooks containing multiple sheets/tabs, the importer extracts all sheets and displays an interactive tab selector with sheet names and row counts. Switching tabs dynamically loads the selected sheet, resets the header row index, and re-runs bilingual heuristic column mapping.
+*   **Automated Smart Header Detection:** Scans the first 10 rows of the spreadsheet using Sunday School CRM semantic keyword scoring to detect and pre-select the true header row, automatically bypassing sheet titles, decorative banners, and blank rows.
+*   **Header Row Index Selector:** Interactive preview of first 6 rows allowing the user to visually inspect and change which row contains column headers.
 *   **Option 3 Hybrid AI Mapping:**
-    *   **Layer 1 (Offline Heuristic):** High-speed bilingual dictionary matching Arabic (including Egyptian colloquial terms) and English column headers.
-    *   **Layer 2 (Gemini AI Enhancement):** Optional free-tier Google Gemini integration (`gemini-2.5-flash`) to disambiguate unmapped or custom headers.
-*   **Assignment & Phone Normalization:** All phone numbers auto-formatted to international E.164 (`+20...`). Target classroom assignment selected by user.
+    *   **Layer 1 (Offline Heuristic):** High-speed bilingual dictionary matching Arabic (including Egyptian colloquial terms like `موبايل ولي الأمر`, `تليفون بابا`, `اسم المخدوم`) and English column headers with dedicated status badges (`✨ Auto-Mapped` vs `⚪ Ignored`).
+    *   **Layer 2 (Gemini AI Enhancement):** Optional free-tier Google Gemini integration (`gemini-2.5-flash`) for deep scan disambiguation of unmapped or custom headers.
+*   **Comprehensive Excel Date Normalization:** Automatically converts native JS Date instances, Excel numeric serial codes (e.g. `44197`), DD/MM/YYYY, ISO strings, and Arabic-Indic numerals (`١٥/٠٧/٢٠١٢`) into strict `YYYY-MM-DD` standard ISO date strings.
+*   **Phone Normalization & Classroom Assignment:** All phone numbers auto-formatted to international E.164 (`+20...`). Target classroom assignment selected by user.
+*   **Dynamic Unmapped Fields List with Type-Based Unified Inputs (One Value for All):** In Step 3, the wizard dynamically computes the exact list of schema fields that were **NOT** mapped to any column in the user's spreadsheet. Only unmapped fields are shown. For each unmapped field, an input corresponding to its specific data type is provided:
+    *   **Select Dropdown:** for `gender` (`-- Leave Empty / فارغ --`, `All Male / كلهم بنين`, `All Female / كلهم بنات`).
+    *   **Native Date Picker:** for `dob` (Date of Birth).
+    *   **Telephone Input:** for `kidMob`, `fatherMob`, `motherMob`, `otherMob` (auto-formatted to E.164).
+    *   **Text Input:** for `fatherOfConfession`, `school`, `region`, `street`, `building`, `floor`, `apartment`, `fatherProfession`, `motherProfession`, `notes`.
+    Specifying a value automatically populates that attribute across all students imported in that batch. If all CRM fields are mapped from spreadsheet columns, the panel confirms: *"All CRM fields have been mapped from your spreadsheet columns!"*.
+*   **Name & Date Collision Guards:** Heuristic mapping explicitly excludes headers containing `تاريخ`, `ميلاد`, `موبايل`, `وظيفة` from matching `fatherName` or `motherName`. Parent name fields automatically strip accidental Date objects/strings and auto-derive the father's name from multi-word student names (e.g. `إدريان رامي ثروت` $\to$ `رامي ثروت`).
+*   **Detailed Post-Import Attribute Breakdown & Live Preview:** Step 4 completion report displays an attribute-by-attribute coverage matrix (Full Name, Date of Birth, Gender, Father Phone, Mother Phone, Address, School, Confession Father) alongside a live sample preview table displaying the normalized student data.
 *   **One-Click Batch Rollback:** All imported records are tagged with a unique `importBatchId`. The post-import completion report provides an instant **"Revert This Import"** button that atomically deletes all records from that batch in one click.
 
 ---
@@ -321,6 +333,24 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   Multi-document transactions (e.g. Church + Academic Years) execute via atomic Firestore `writeBatch` in a single network round-trip.
     *   The modal automatically dismisses upon successful cloud confirmation.
 *   **Global Escape Key Dismissal:** Pressing `Escape` cleanly dismisses the top-most active modal or picker without saving changes, preserving underlying parent dialogs when nested.
+
+---
+
+## 16. Event-Based Attendance Tracking, Split-Pane Master-Detail UX & Recurring Schedules
+
+*   **Event-Centric Data Model:** Attendance is tracked by session events (`AttendanceEvent`) with:
+    *   `id`: Unique eventId.
+    *   `academicYearId`, `serviceGroupId`, `classId`.
+    *   `title`, `type` (`lesson`, `liturgy`, `hymns`, `activity`, `trip`, `other`), `eventDate` (`YYYY-MM-DD`).
+    *   `takenAt` (ISO timestamp), `takenBy` (servant name/email).
+    *   `statuses`: Map of `{ [kidId]: 'present' | 'absent' | 'excused' }`.
+    *   `notesByKid`: Map of `{ [kidId]: 'pastoral note text' }`.
+    *   `recurringSeriesId`: Shared ID linking batch-generated recurring sessions.
+*   **Split-Pane Master-Detail UX (Option A):**
+    *   **Left Pane:** Scheduled events list with type filters (`lesson`, `liturgy`, `hymns`, `activity`), completion status (`✅ X% Present` vs `⏳ Pending`), and `+ New Event` / `+ Recurring Schedule` action buttons.
+    *   **Right Pane:** Selected event attendance logger with live 5-metric summary (Roster, Present, Absent, Excused, Attendance Rate %), student search, `"Mark All Present"` shortcut, 3-state tactile pills (Present / Absent / Excused), and per-kid expandable pastoral notes.
+*   **Recurring Schedule Generator Wizard:** Generates weekly sessions across an entire term (e.g. every Sunday or Friday from October to June) via atomic Firestore `writeBatch` in a single click, with optional date exclusions for church feasts and holidays.
+
 
 
 

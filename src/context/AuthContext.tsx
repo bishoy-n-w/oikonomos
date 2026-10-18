@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { User } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../services/firebase';
@@ -75,7 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (snap.exists()) {
         const data = snap.data();
         const active = data?.active === true;
-        const role = (data?.churchRole === 'admin') ? 'Admin' : 'viewer';
+        const role = (data?.churchRole?.toLowerCase() === 'admin') ? 'Admin' : 'viewer';
         setIsAuthorized(active);
         setUserRole(role);
       } else {
@@ -90,9 +90,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribeMister();
   }, [user, activeChurchId, isGlobalAdmin]);
 
-  const checkChurchAuthorization = (churchId: string) => {
+  const checkChurchAuthorization = useCallback((churchId: string) => {
     setActiveChurchId(churchId);
-  };
+  }, []);
 
   const login = async (forceSelect: boolean = false) => {
     setLoading(true);

@@ -145,6 +145,26 @@ export interface Mister {
 
 export type AttendanceStatus = 'present' | 'absent' | 'excused';
 
+export type AttendanceEventType = 'lesson' | 'liturgy' | 'hymns' | 'activity' | 'trip' | 'other';
+
+export interface AttendanceEvent {
+  id: string; // eventId
+  academicYearId: string;
+  serviceGroupId?: string;
+  classId: string;
+  title: string;
+  type: AttendanceEventType;
+  eventDate: string; // YYYY-MM-DD
+  takenAt?: string; // ISO string
+  takenBy?: string; // email / displayName
+  statuses: Record<string, AttendanceStatus>; // { [kidId]: 'present' | 'absent' | 'excused' }
+  notesByKid: Record<string, string>; // { [kidId]: 'note text' }
+  recurringSeriesId?: string;
+  createdAt?: string;
+  createdBy?: string;
+  updatedAt?: string;
+}
+
 export interface AttendanceRecord {
   id: string;
   date: string; // YYYY-MM-DD

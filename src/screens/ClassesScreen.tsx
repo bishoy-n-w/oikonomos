@@ -261,7 +261,7 @@ export const ClassesScreen: React.FC = () => {
                 if (!yearData) return null;
 
                 const groupName = serviceGroups.find((g) => g.id === yearData.serviceGroupId)?.displayName || yearData.serviceGroupId;
-                const gradeName = currentChurch?.grades?.[yearData.gradeId || '']?.name || yearData.gradeId || '-';
+                const gradeItem = currentChurch?.grades?.[yearData.gradeId || ''];
                 const kidsCount = (yearData.KidIds || yearData.kids || []).length;
                 const servantsCount = (yearData.MistersIds || yearData.servants || []).length;
 
@@ -292,11 +292,21 @@ export const ClassesScreen: React.FC = () => {
                       {groupName}
                     </td>
 
-                    {/* 4. GradeId DisplayName */}
+                    {/* 4. GradeId DisplayName with Pre-ID badge and bdi isolation */}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-block px-2 py-0.5 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 text-[11px] font-semibold">
-                        {gradeName}
-                      </span>
+                      {gradeItem ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-800 dark:text-teal-200 border border-teal-200 dark:border-teal-800 text-[11px] font-semibold">
+                          <span
+                            className="font-mono text-teal-700 dark:text-teal-300 font-bold px-1.5 py-0.2 rounded bg-teal-100 dark:bg-teal-900/60 text-[10px]"
+                            dir="ltr"
+                          >
+                            #{yearData.gradeId}
+                          </span>
+                          <bdi>{gradeItem.name}</bdi>
+                        </span>
+                      ) : (
+                        <span className="text-zinc-400 text-xs">-</span>
+                      )}
                     </td>
 
                     {/* 5. KidIds (sum of total) */}
@@ -427,7 +437,8 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
   // Dynamically filter grades based on the selected serviceGroupId from currentChurch.grades!
   const availableGrades = Object.entries(currentChurch?.grades || {})
     .filter(([_, item]) => item.serviceGroupId === selectedGroupId)
-    .map(([intKey, item]) => ({ id: intKey, displayName: `${item.name} (#${intKey})` }));
+    .sort(([a], [b]) => parseInt(a, 10) - parseInt(b, 10))
+    .map(([intKey, item]) => ({ id: intKey, displayName: `#${intKey} - ${item.name}` }));
 
   // Auto-set gradeId if not valid for selected group
   useEffect(() => {

@@ -36,20 +36,20 @@ service cloud.firestore {
     
     // Helper: Fetch the current user's document inside a specific church using their verified EMAIL as the key
     function getMisterData(churchId) {
-      return get(/databases/$(database)/documents/churches/{churchId}/misters/$(request.auth.token.email)).data;
+      return get(/databases/$(database)/documents/churches/$(churchId)/misters/$(request.auth.token.email)).data;
     }
     
     // Helper: Does the user have admin rights in this church? (Verified via Google Email)
     function isChurchAdmin(churchId) {
       return isAuthenticated() && 
-             exists(/databases/$(database)/documents/churches/{churchId}/misters/$(request.auth.token.email)) &&
-             getMisterData(churchId).churchRole == 'Admin';
+             exists(/databases/$(database)/documents/churches/$(churchId)/misters/$(request.auth.token.email)) &&
+             (getMisterData(churchId).churchRole == 'Admin' || getMisterData(churchId).churchRole == 'admin');
     }
 
     // Helper: Is the user a registered servant in this church? (Verified via Google Email)
     function isChurchServant(churchId) {
       return isAuthenticated() && 
-             exists(/databases/$(database)/documents/churches/{churchId}/misters/$(request.auth.token.email)) &&
+             exists(/databases/$(database)/documents/churches/$(churchId)/misters/$(request.auth.token.email)) &&
              getMisterData(churchId).active == true;
     }
 
@@ -75,8 +75,8 @@ service cloud.firestore {
 
       // Misters (Teachers/Servants, locked by Email Key)
       match /misters/{misterEmail} {
-        // A servant can read other servants.
-        allow read: if isChurchServant(churchId);
+        // A servant can read other servants, and any authenticated user can read their own registration
+        allow read: if isAuthenticated() && (misterEmail == request.auth.token.email || isChurchServant(churchId));
 
         // Allow create or delete if setup mode, or if Church Admin
         allow create, delete: if (request.auth != null && !exists(/databases/$(database)/documents/global_admins/_lock)) ||
@@ -90,6 +90,11 @@ service cloud.firestore {
                         misterEmail == request.auth.token.email && 
                         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['personalInfo'])
                       );
+      }
+      
+      // Attendance Events directly under church
+      match /attendanceEvents/{eventId} {
+        allow read, write: if isChurchServant(churchId);
       }
       
       // Kids Directory (PII)

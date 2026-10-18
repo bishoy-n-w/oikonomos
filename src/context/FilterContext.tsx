@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from './AuthContext';
-import type { DropdownItem } from '../types';
+import type { DropdownItem, UserRole } from '../types';
 
 interface FilterContextType {
   selectedChurchId: string | null;
@@ -14,6 +14,7 @@ interface FilterContextType {
   serviceGroups: DropdownItem[];
   classes: DropdownItem[];
   isLoading: boolean;
+  userRole: UserRole;
   setChurch: (id: string) => void;
   setAcademicYear: (id: string) => void;
   setServiceGroup: (id: string | null) => void;
@@ -23,7 +24,7 @@ interface FilterContextType {
 const FilterContext = createContext<FilterContextType | undefined>(undefined);
 
 export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isGlobalAdmin } = useAuth();
+  const { user, isGlobalAdmin, checkChurchAuthorization } = useAuth();
 
   const [selectedChurchId, setSelectedChurchId] = useState<string | null>(null);
   const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<string | null>(null);
@@ -31,15 +32,24 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
 
   const [churches, setChurches] = useState<DropdownItem[]>([]);
+  const [churchRolesMap, setChurchRolesMap] = useState<Record<string, UserRole>>({});
   const [academicYears, setAcademicYears] = useState<DropdownItem[]>([]);
   const [serviceGroups, setServiceGroups] = useState<DropdownItem[]>([]);
   const [classes, setClasses] = useState<DropdownItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Synchronize active church with AuthContext for real-time permission evaluation
+  useEffect(() => {
+    if (selectedChurchId) {
+      checkChurchAuthorization(selectedChurchId);
+    }
+  }, [selectedChurchId, checkChurchAuthorization]);
+
   // 1. Listen to active churches and filter to churches where the user belongs (unless Global Admin)
   useEffect(() => {
     if (!user) {
       setChurches([]);
+      setChurchRolesMap({});
       setIsLoading(false);
       return;
     }
@@ -58,9 +68,13 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
 
       let allowedChurches: DropdownItem[] = [];
+      const rolesMap: Record<string, UserRole> = {};
 
       if (isGlobalAdmin) {
         allowedChurches = allActiveChurches;
+        allActiveChurches.forEach((c) => {
+          rolesMap[c.id] = 'owner';
+        });
       } else {
         // Filter by user's membership in churches/{id}/misters/{email}
         const userEmail = (user.email || '').toLowerCase().trim();
@@ -69,6 +83,8 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             const misterRef = doc(db, 'churches', church.id, 'misters', userEmail);
             const misterSnap = await getDoc(misterRef);
             if (misterSnap.exists() && misterSnap.data()?.active === true) {
+              const role = misterSnap.data()?.churchRole?.toLowerCase() === 'admin' ? 'Admin' : 'viewer';
+              rolesMap[church.id] = role;
               return church;
             }
           } catch {
@@ -82,6 +98,7 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
 
       setChurches(allowedChurches);
+      setChurchRolesMap(rolesMap);
       setIsLoading(false);
 
       if (allowedChurches.length > 0) {
@@ -128,6 +145,16 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           isActiveYear: isCurrentActive,
         };
       });
+
+      // Fallback: If subcollection has 0 documents, but church document has activeAcademicYearId
+      if (items.length === 0 && activeYearId) {
+        items.push({
+          id: activeYearId,
+          displayName: activeYearId,
+          isActiveYear: true,
+        });
+      }
+
       setAcademicYears(items);
 
       if (items.length > 0) {
@@ -138,6 +165,16 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       } else {
         setSelectedAcademicYearId(null);
+      }
+    }, (error) => {
+      console.warn('Could not read academicYears subcollection, using fallback:', error);
+      if (activeYearId) {
+        setAcademicYears([{
+          id: activeYearId,
+          displayName: activeYearId,
+          isActiveYear: true,
+        }]);
+        setSelectedAcademicYearId(activeYearId);
       }
     });
 
@@ -213,6 +250,12 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setSelectedClassId(id);
   };
 
+  const activeUserRole: UserRole = isGlobalAdmin
+    ? 'owner'
+    : selectedChurchId
+    ? churchRolesMap[selectedChurchId] || 'viewer'
+    : 'viewer';
+
   return (
     <FilterContext.Provider
       value={{
@@ -225,6 +268,7 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         serviceGroups,
         classes,
         isLoading,
+        userRole: activeUserRole,
         setChurch,
         setAcademicYear,
         setServiceGroup,

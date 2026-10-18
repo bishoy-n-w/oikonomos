@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useFilter } from '../../context/FilterContext';
 import { useApp } from '../../context/AppContext';
 import { TopAppBar } from './TopAppBar';
 import { MobileFilterSheet } from './MobileFilterSheet';
@@ -34,7 +35,8 @@ interface MainShellProps {
 }
 
 export const MainShell: React.FC<MainShellProps> = ({ activeTab, onTabChange, children }) => {
-  const { user, isAuthorized, userRole } = useAuth();
+  const { user, isGlobalAdmin } = useAuth();
+  const { churches, isLoading: filtersLoading, userRole } = useFilter();
   const { translate } = useApp();
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
@@ -50,8 +52,20 @@ export const MainShell: React.FC<MainShellProps> = ({ activeTab, onTabChange, ch
     { id: 'churches_config', labelKey: 'churches_config', icon: Building2, adminOnly: true },
   ];
 
-  // If user is not yet authorized in this church (pending join approval)
-  if (!isAuthorized) {
+  // 1. While resolving church memberships from Firestore
+  if (filtersLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-teal-600 border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs font-semibold text-zinc-500">Verifying church permissions...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. If user has zero authorized churches (and is not global admin)
+  if (!isGlobalAdmin && churches.length === 0) {
     return (
       <div className="min-h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
         <TopAppBar activeTab={activeTab} onOpenMobileFilters={() => setMobileFiltersOpen(true)} />

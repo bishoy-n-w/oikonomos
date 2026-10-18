@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
@@ -23,7 +23,8 @@ import {
   Upload, 
   X, 
   Layers,
-  RefreshCw 
+  RefreshCw,
+  Users 
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -62,15 +63,18 @@ export const KidsDirectoryScreen: React.FC = () => {
   const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
+  const [isDeletingBulk, setIsDeletingBulk] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [activeKid, setActiveKid] = useState<Kid | null>(null);
 
   const isAdmin = userRole === 'Admin' || userRole === 'owner';
 
-  useModalEscape(() => setBulkModalOpen(false), bulkModalOpen);
+  useModalEscape(() => setBulkDeleteConfirmOpen(false), bulkDeleteConfirmOpen);
+  useModalEscape(() => setBulkModalOpen(false), bulkModalOpen && !bulkDeleteConfirmOpen);
   useModalEscape(() => setImportModalOpen(false), importModalOpen);
   useModalEscape(() => setSyncModalOpen(false), syncModalOpen);
-  useModalEscape(() => setEditModalOpen(false), editModalOpen && !bulkModalOpen && !importModalOpen && !syncModalOpen);
+  useModalEscape(() => setEditModalOpen(false), editModalOpen && !bulkModalOpen && !importModalOpen && !syncModalOpen && !bulkDeleteConfirmOpen);
 
   // 1. Listen to Kids
   useEffect(() => {
@@ -344,6 +348,32 @@ export const KidsDirectoryScreen: React.FC = () => {
     if (!selectedChurchId || !isAdmin) return;
     if (window.confirm(`Delete student "${name}"? This action cannot be undone.`)) {
       await deleteDoc(doc(db, 'churches', selectedChurchId, 'kids', kidId));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!selectedChurchId || !isAdmin || selectedKidIds.length === 0) return;
+    setIsDeletingBulk(true);
+    try {
+      const batchSize = 400;
+      let deletedCount = 0;
+      for (let i = 0; i < selectedKidIds.length; i += batchSize) {
+        const chunk = selectedKidIds.slice(i, i + batchSize);
+        const batch = writeBatch(db);
+        chunk.forEach((kId) => {
+          const kidRef = doc(db, 'churches', selectedChurchId, 'kids', kId);
+          batch.delete(kidRef);
+          deletedCount++;
+        });
+        await batch.commit();
+      }
+      setSelectedKidIds([]);
+      setBulkDeleteConfirmOpen(false);
+    } catch (err: any) {
+      console.error('Bulk delete failed:', err);
+      alert(`Error deleting students: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsDeletingBulk(false);
     }
   };
 
@@ -837,29 +867,85 @@ export const KidsDirectoryScreen: React.FC = () => {
 
       {/* Floating Bulk Action Bar (Visible when >= 1 student selected) */}
       {selectedKidIds.length > 0 && (
-        <div className="fixed bottom-20 lg:bottom-6 inset-x-4 max-w-xl mx-auto z-40 p-4 rounded-3xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xl flex items-center justify-between border border-zinc-700 dark:border-zinc-300 animate-in slide-in-from-bottom duration-200">
-          <div className="flex items-center gap-2.5">
+        <div className="fixed bottom-20 lg:bottom-6 inset-x-4 max-w-xl mx-auto z-40 p-3 sm:p-4 rounded-3xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xl flex items-center justify-between border border-zinc-700 dark:border-zinc-300 animate-in slide-in-from-bottom duration-200">
+          <div className="flex items-center gap-2 sm:gap-2.5">
             <span className="w-7 h-7 rounded-full bg-purple-600 text-white flex items-center justify-center font-extrabold text-xs">
               {selectedKidIds.length}
             </span>
-            <span className="font-bold text-xs sm:text-sm">
-              {selectedKidIds.length} Students Selected
+            <span className="font-bold text-xs sm:text-sm whitespace-nowrap">
+              {selectedKidIds.length} {translate('students_selected')}
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={() => setBulkModalOpen(true)}
-              className="px-4 py-2 rounded-xl font-bold text-xs bg-purple-600 hover:bg-purple-700 text-white transition active:scale-95 shadow-md shadow-purple-600/30 cursor-pointer"
+              className="flex items-center gap-1 px-3 sm:px-4 py-2 rounded-xl font-bold text-xs bg-purple-600 hover:bg-purple-700 text-white transition active:scale-95 shadow-md shadow-purple-600/30 cursor-pointer"
             >
-              Change Classroom Assignment
+              <Users className="w-3.5 h-3.5" />
+              <span>{translate('change_assignment')}</span>
             </button>
+
+            {isAdmin && (
+              <button
+                onClick={() => setBulkDeleteConfirmOpen(true)}
+                className="flex items-center gap-1 px-3 sm:px-3.5 py-2 rounded-xl font-bold text-xs bg-rose-600 hover:bg-rose-700 text-white transition active:scale-95 shadow-md shadow-rose-600/30 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{translate('delete_selected')}</span>
+              </button>
+            )}
+
             <button
               onClick={() => setSelectedKidIds([])}
-              className="px-3 py-2 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white dark:hover:text-zinc-900 transition cursor-pointer"
+              className="px-2.5 sm:px-3 py-2 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white dark:hover:text-zinc-900 transition cursor-pointer"
             >
-              Clear
+              {translate('clear')}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      {bulkDeleteConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 shrink-0">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-zinc-900 dark:text-zinc-100">
+                  {translate('bulk_delete_confirm_title')}
+                </h3>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                  {translate('bulk_delete_confirm_desc')}
+                </p>
+                <div className="mt-3 p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                  {selectedKidIds.length} {translate('students_selected')}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+              <button
+                type="button"
+                disabled={isDeletingBulk}
+                onClick={() => setBulkDeleteConfirmOpen(false)}
+                className="px-4 py-2.5 rounded-xl font-semibold text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer disabled:opacity-50"
+              >
+                {translate('cancel')}
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingBulk}
+                onClick={handleBulkDelete}
+                className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl font-bold text-white bg-rose-600 hover:bg-rose-700 active:scale-95 transition shadow-md shadow-rose-600/30 cursor-pointer disabled:opacity-50"
+              >
+                {isDeletingBulk && <RefreshCw className="w-4 h-4 animate-spin" />}
+                <span>{isDeletingBulk ? translate('saving') : translate('delete_selected')}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
