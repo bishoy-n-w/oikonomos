@@ -5,12 +5,30 @@ export interface GradeItem {
   serviceGroupId: string;
 }
 
+export const DEFAULT_EVENT_TYPES = [
+  'Sunday School',
+  'Liturgy',
+  'Bible Study',
+  'Hymns',
+  'Conference',
+  'Trip',
+  'Activity',
+  'Other',
+] as const;
+
+export interface GroupEventType {
+  id: string;
+  name: string;
+  isCore: boolean; // Core events count towards pastoral care consecutive absence alerts
+}
+
 export interface Church {
   id: string;
   displayName: string;
   active: boolean;
   activeAcademicYearId?: string;
   grades?: Record<string, GradeItem>; // e.g. { "1": { name: "Grade 1", serviceGroupId: "..." } }
+  defaultEventTypes?: string[]; // Configurable church-wide initial template for newly created groups
   createdAt?: string;
   createdBy?: string;
 }
@@ -31,6 +49,7 @@ export interface ServiceGroup {
   misters?: Record<string, 'admin' | 'servant'>; // email -> 'admin' | 'servant'
   admins?: string[]; // compatibility helper
   servants?: string[]; // compatibility helper
+  eventTypes?: GroupEventType[]; // Custom event types for this group
   createdAt?: string;
   createdBy?: string;
 }
@@ -145,7 +164,7 @@ export interface Mister {
 
 export type AttendanceStatus = 'present' | 'absent' | 'excused';
 
-export type AttendanceEventType = 'lesson' | 'liturgy' | 'hymns' | 'activity' | 'trip' | 'other';
+export type AttendanceEventType = string;
 
 export interface AttendanceEvent {
   id: string; // eventId

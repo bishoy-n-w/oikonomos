@@ -16,7 +16,8 @@ import {
   Check, 
   Users, 
   Baby,
-  RefreshCw 
+  RefreshCw,
+  Eye
 } from 'lucide-react';
 
 export const ClassesScreen: React.FC = () => {
@@ -27,7 +28,9 @@ export const ClassesScreen: React.FC = () => {
     selectedAcademicYearId, 
     selectedServiceGroupId, 
     serviceGroups, 
-    academicYears 
+    academicYears,
+    canEditClass,
+    canViewClass
   } = useFilter();
 
   const [classes, setClasses] = useState<ClassDoc[]>([]);
@@ -116,6 +119,9 @@ export const ClassesScreen: React.FC = () => {
 
   // Filtered classes: respects Top Filters (Church, AcademicYear, Service Group) AND Header Filter Matrix!
   const filteredClasses = classes.filter((cls) => {
+    // 3-Tier Security: Servants in church but not in this service group have ZERO access
+    if (!canViewClass(cls.id)) return false;
+
     const yearData = getYearData(cls);
     if (!yearData) return false;
 
@@ -328,21 +334,32 @@ export const ClassesScreen: React.FC = () => {
                     {/* 7. Actions */}
                     <td className="px-6 py-4 text-end whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => setEditClass(cls)}
-                          className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
-                          title="Edit Class"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        {isAdmin && (
-                          <button
-                            onClick={() => handleDeleteClass(cls.id)}
-                            className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
-                            title="Delete Class"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                        {canEditClass(cls.id) ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setEditClass(cls)}
+                              className="p-1.5 rounded-lg text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/40 transition cursor-pointer"
+                              title="Edit Class"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteClass(cls.id)}
+                                className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                                title="Delete Class"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-500 text-[10px] font-bold">
+                            <Eye className="w-3 h-3 text-zinc-400" />
+                            <span>{translate('view_only_mode')}</span>
+                          </span>
                         )}
                       </div>
                     </td>

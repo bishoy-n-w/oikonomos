@@ -57,6 +57,19 @@ The architecture is split into three layers:
      |      - startDate (timestamp)
      |      - endDate (timestamp/optional)
      |      - active (boolean)
+     |        |
+     |        `--▶ [classes] (Nested Subcollection)
+     |               {classId}
+     |                 |
+     |                 `--▶ [attendanceEvents] (Nested Subcollection)
+     |                        {eventId}
+     |                        - academicYearId, serviceGroupId, classId
+     |                        - title, type, eventDate
+     |                        - takenAt, takenBy
+     |                        - statuses (map) -> { kidId: 'present'|'absent'|'excused' }
+     |                        - notesByKid (map) -> { kidId: 'note text' }
+     |                        - recurringSeriesId (string/optional)
+     |                        - createdAt, createdBy, updatedAt
      |
      |--▶ [kids] (Subcollection)
      |      {kidId}

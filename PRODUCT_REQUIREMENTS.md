@@ -336,12 +336,16 @@ Enables Sunday School servants and administrators to synchronize church contact 
 
 ---
 
-## 16. Event-Based Attendance Tracking, Split-Pane Master-Detail UX & Recurring Schedules
+## 16. Event-Based Attendance Tracking, Hierarchical Storage & Recurring Schedules
 
+*   **Hierarchical Scoped Data Storage:**
+    *   Attendance session events (`AttendanceEvent`) are stored strictly under the Academic Year and Class:
+        `churches/{churchId}/academicYears/{academicYearId}/classes/{classId}/attendanceEvents/{eventId}`.
+    *   This ensures complete term-by-term and classroom data isolation, preventing crossover of session records between different school years or classrooms.
 *   **Event-Centric Data Model:** Attendance is tracked by session events (`AttendanceEvent`) with:
     *   `id`: Unique eventId.
     *   `academicYearId`, `serviceGroupId`, `classId`.
-    *   `title`, `type` (`lesson`, `liturgy`, `hymns`, `activity`, `trip`, `other`), `eventDate` (`YYYY-MM-DD`).
+    *   `title`, `type` (`Sunday School`, `Liturgy`, `Bible Study`, etc.), `eventDate` (`YYYY-MM-DD`).
     *   `takenAt` (ISO timestamp), `takenBy` (servant name/email).
     *   `statuses`: Map of `{ [kidId]: 'present' | 'absent' | 'excused' }`.
     *   `notesByKid`: Map of `{ [kidId]: 'pastoral note text' }`.
@@ -350,6 +354,121 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   **Left Pane:** Scheduled events list with type filters (`lesson`, `liturgy`, `hymns`, `activity`), completion status (`✅ X% Present` vs `⏳ Pending`), and `+ New Event` / `+ Recurring Schedule` action buttons.
     *   **Right Pane:** Selected event attendance logger with live 5-metric summary (Roster, Present, Absent, Excused, Attendance Rate %), student search, `"Mark All Present"` shortcut, 3-state tactile pills (Present / Absent / Excused), and per-kid expandable pastoral notes.
 *   **Recurring Schedule Generator Wizard:** Generates weekly sessions across an entire term (e.g. every Sunday or Friday from October to June) via atomic Firestore `writeBatch` in a single click, with optional date exclusions for church feasts and holidays.
+
+---
+
+## 17. Modernized Attendance Tracker UX: Ribbon, Matrix, Auto-Save & Pastoral Alerts
+
+*   **Horizontal Date / Session Timeline Ribbon:** Replaces the squished split-pane layout with a scrollable top timeline ribbon (`<` / `>`). Each session card displays the session date, type badge, completion status, and attendance rate, giving the student roster 100% full screen width.
+*   **Dual View Mode (Checklist vs Term Matrix):**
+    *   **📋 Weekly Checklist View:** High-touch, spacious student cards for running roll-call today with 3-state tactile toggles (`Present`, `Absent`, `Excused`) and expandable pastoral notes.
+    *   **📊 Term Matrix Grid View:** Full-term spreadsheet-style grid (students as rows $\times$ session dates as columns) with high-density status pills (`P`, `A`, `E`) and overall attendance rate percentages, allowing servants to spot chronic absence trends at a glance. Clicking any cell toggles attendance status inline.
+*   **Background Auto-Save Engine & 10-Second Roll Call:**
+    *   **Auto-Save:** Every state toggle automatically saves to Firestore in the background via debounced commit (900ms) with a subtle live indicator (`✓ Saved to cloud` / `Saving...`), eliminating manual save anxiety while keeping a manual save button for immediate trigger.
+    *   **⚡ Mark All Present Shortcut:** Servants tap *"Mark All Present"* once when class starts and only tap the 2 or 3 absent students, reducing roll-call time to under 10 seconds.
+*   **Instant Absence WhatsApp Pastoral Shortcut:** Marking a child `Absent` immediately surfaces a green WhatsApp button on their card that opens a pre-composed pastoral message to the parents in one tap (e.g. *"سلام ونعمة يا أستاذ رامي، بنفتقد جداً إدريان في مدارس الأحد، لعله بخير ومستنينه الأسبوع الجاي بنعمة ربنا!"*).
+*   **Pastoral Care Consecutive Absence Alert Banner (يحتاج افتقاد):**
+    *   Automatically evaluates chronological attendance events to detect students who have missed 2 or more consecutive sessions.
+    *   Renders a top alert banner listing flagged students with their consecutive absence count and one-tap **WhatsApp** and **Phone Call** shortcuts to parents.
+
+---
+
+## 18. Group-Specific Event Types & Horizon-Aware Attendance UX
+
+*   **Configurable Church-Wide Initial Event Types Template:**
+    *   Hard-coded baseline defaults: `["Sunday School", "Liturgy", "Bible Study", "Hymns", "Conference", "Trip", "Activity", "Other"]`.
+    *   In Church Admin (`ChurchesScreen`), Church Admins / Global Owners can customize the church-level `defaultEventTypes` template (adding custom types or removing types).
+*   **Automatic Inheritance & Group Admin Management:**
+    *   When any new Service Group is created, it automatically inherits the church's configured default event types list.
+    *   Group Admins and Church Admins can open the **"Event Types"** dialog on any service group in `ServiceGroupsScreen` to add new custom types, delete types, and toggle the `isCore` property.
+*   **Core vs. Optional Events (`isCore`):**
+    *   Each event type carries an `isCore: boolean` flag (defaulting to `true` for regular educational/spiritual sessions, `false` for voluntary trips or sports activities).
+    *   The **Pastoral Care Consecutive Absence Alert Engine** evaluates strictly core events (`isCore: true`), ensuring that a student missing a voluntary social trip does not trigger a false-alarm pastoral visit alert.
+*   **Timeline Horizon Filtering & Navigation:**
+    *   Ribbon sessions can be filtered by horizon: `[ All Sessions ]`, `[ ⏪ Past ]`, `[ ⭐ Today ]`, and `[ ⏩ Upcoming ]`.
+    *   **🎯 Jump to Today Button:** Instantly scrolls the timeline ribbon and selects today's active session (or the closest upcoming session).
+    *   **Past Unrecorded Warning Badge (`⚠️ Attendance Not Taken`):** Highlights past sessions that occurred with zero recorded attendance, prompting servants to catch up.
+    *   **Future Event Guardrail:** Displays an informative banner when viewing future sessions (*"Upcoming Session: You are viewing or scheduling a future event."*).
+*   **Event-Type Filter & Engagement Analytics:**
+    *   Filter both the Weekly Checklist and the Term Matrix Grid by event type (e.g. view strictly **Sunday School** or strictly **Liturgy**).
+    *   Displays average attendance rate badges per event type (e.g., `Sunday School: 88%` • `Liturgy: 64%`), providing coordinators with immediate attendance health insights across ministry facets.
+
+---
+
+## 19. 3-Tier Role-Based Access Control (RBAC) for Classes & Attendance
+
+*   **Tier 1: Full Edit Access:**
+    *   **Eligible Roles:** Database Admin (`owner`), Church Admin (`Admin`), Group Admin of the class's assigned Service Group, and designated Class Misters (`Misters` / `MistersIds`).
+    *   **Permissions:** Full read/write access to Class configurations, creation/deletion of attendance events, recurring term schedule generation, recording attendance status toggles (`Present`, `Absent`, `Excused`), "Mark All Present" shortcut, and pastoral note editing.
+*   **Tier 2: View-Only Access:**
+    *   **Eligible Roles:** Servants registered in the same Service Group (department), but not designated as Class Misters or Group Admins.
+    *   **Permissions:** Full read/view access to student rosters, class details, session attendance history, and the full-term Matrix Grid.
+    *   **UI Experience:** Displays a prominent **`[ 👁️ View Only Mode ]`** banner. Modification controls (save buttons, event creation/deletion, status toggle clicks, and note edits) are disabled or hidden.
+*   **Tier 3: Zero Access (Strict Isolation):**
+    *   **Eligible Roles:** Servants in the church who are NOT assigned to this class's Service Group.
+    *   **Permissions:** Zero read and zero write access.
+    *   **UI Experience:** Unassigned classes are automatically filtered out of the top navigation dropdowns and the Classes DataTable. Direct navigation renders a secure **`[ 🔒 Class Access Restricted ]`** notice.
+    *   **Security Rules:** Backed by Cloud Firestore Security Rules rejecting unassigned read/write queries at the database layer.
+
+---
+
+## 20. Attendance State Architecture: Toggle-to-Clear, Session Reset & Visual States
+
+*   **Toggle-to-Clear per Student (Undo Erroneous Records):**
+    *   Tapping the currently active attendance status button (`Present`, `Absent`, or `Excused`) unselects it, removing the record and resetting the student back to **Unrecorded / Pending (`-`)**.
+    *   This allows teachers and servants to easily undo accidental taps without having to keep an incorrect status.
+*   **Session-Wide Reset Attendance (Whole-Class Undo):**
+    *   A dedicated **`Reset Attendance`** button in the session control bar allows coordinators and teachers to clear all attendance records for an entire session with an in-app confirmation modal.
+    *   Resets all student records to unrecorded and returns session status (`takenAt`, `takenBy`) back to `Pending` via atomic cloud update.
+*   **4-State Matrix Cycling:**
+    *   Clicking a cell in the Term Matrix Grid smoothly cycles through all 4 possible states:
+        $$\text{Unrecorded } (-) \longrightarrow \text{Present } (\mathbf{P}) \longrightarrow \text{Absent } (\mathbf{A}) \longrightarrow \text{Excused } (\mathbf{E}) \longrightarrow \text{Unrecorded } (-)$$
+*   **Enhanced Visual State Hierarchy:**
+    *   **Present:** Left green border accent (`border-s-4 border-s-emerald-500`), subtle emerald background tint, green avatar with a checkmark badge, and bold `✓ Present` status tag.
+    *   **Absent:** Left red border accent (`border-s-4 border-s-rose-500`), subtle rose background tint, rose avatar with an 'X' badge, bold `✕ Absent` status tag, and instant one-tap WhatsApp pastoral follow-up shortcut.
+    *   **Excused:** Left amber border accent (`border-s-4 border-s-amber-500`), subtle amber background tint, amber avatar with a clock badge, and bold `⏱ Excused` status tag.
+    *   **Unrecorded:** Neutral left border (`border-s-4 border-s-zinc-300`), clean white/dark card, and an italicized `Unrecorded` indicator prompting roll-call action.
+*   **6-Card Live Metrics Bar:**
+    *   Added a dedicated **Unrecorded** live metric card in the summary header (highlighted in amber if $> 0$), providing instant visibility on how many students remain pending in the active roll call.
+*   **Ribbon Session Completion Tracking:**
+    *   Session cards on the timeline ribbon dynamically reflect roll-call progress:
+        *   **`✓ Complete (X%)`** (Emerald): All enrolled students in class have been recorded.
+        *   **`⏳ X/Y In Progress`** (Teal): Roll-call is partially recorded.
+        *   **`⚠️ Attendance Not Taken`** (Rose): Session date has passed with zero recorded attendance.
+        *   **`⚪ Not Started`** (Zinc): Upcoming session with zero records yet.
+
+---
+
+## 21. Attendance Statistics, Pastoral Insights & Excel Export Module
+
+*   **Tri-Mode View Switcher:**
+    *   Users can seamlessly toggle between **`📋 Weekly Checklist`**, **`📊 Term Matrix Grid`**, and **`📈 Statistics & Insights`**.
+*   **Executive KPI Cards:**
+    *   **Average Term Attendance:** Overall percentage across all conducted sessions.
+    *   **Sessions Conducted:** Completed sessions out of scheduled sessions with completion rate.
+    *   **Best Attended Session:** Highlights the highest-attended session title, date, and attendance rate %.
+    *   **At-Risk Students Count:** Flagging students attending under 50% who need pastoral visitation.
+*   **Interactive Weekly Attendance Trend Chart:**
+    *   A responsive, visual vertical bar chart showing attendance % across each chronological week.
+    *   Color-coded bars: Green ($\ge 80\%$), Teal ($60\% - 79\%$), Rose ($< 60\%$) with hover tooltips displaying session title, date, type, and attendance counts.
+*   **Pastoral Engagement Distribution (3 Categories):**
+    *   🟢 **Faithful (80%-100%):** Consistent attendees eligible for certificates and honors.
+    *   🟡 **Irregular (50%-79%):** Fluctuating attendees needing check-in phone calls.
+    *   🔴 **At-Risk (<50%):** High absence rate; displays full student card with last attended date and direct **WhatsApp** / **Phone Call** shortcuts to parents.
+*   **Event Type Engagement Comparison:**
+    *   Visual progress bars comparing average attendance rates across different ministry activities (e.g. Sunday School Lesson vs. Divine Liturgy vs. Hymns & Praises vs. Bible Study).
+*   **Honor Roll & Pastoral Attention Needed:**
+    *   **🌟 Honor Roll:** Top 5 attendees ranked with gold, silver, and bronze badges.
+    *   **🚨 Pastoral Attention Needed:** Lowest 5 attendees with absence counts and follow-up links.
+*   **1-Click Formatted Excel Export (.xlsx):**
+    *   Downloads a formatted multi-sheet Excel spreadsheet (`<Church>_<Class>_Attendance_Report.xlsx`):
+        *   **Sheet 1: Executive Summary & Statistics:** Class metadata, KPI summary, pastoral distribution counts, and type comparisons.
+        *   **Sheet 2: Attendance Register Matrix:** Full spreadsheet of students, per-date status (`P`, `A`, `E`, `-`), total present, total absent, total excused, and attendance percentage.
+
+
+
+
+
 
 
 

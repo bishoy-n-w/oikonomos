@@ -6,7 +6,7 @@ import { useApp } from '../context/AppContext';
 import { useFilter } from '../context/FilterContext';
 import { HeaderFilterMatrix, type ColumnFilterConfig } from '../components/common/HeaderFilterMatrix';
 import { useModalEscape } from '../utils/useModalEscape';
-import type { ServiceGroup, Mister, Church } from '../types';
+import { DEFAULT_EVENT_TYPES, type ServiceGroup, type Mister, type Church, type GroupEventType } from '../types';
 import { 
   Plus, 
   Edit3, 
@@ -16,7 +16,8 @@ import {
   Check, 
   ShieldCheck, 
   Users,
-  RefreshCw 
+  RefreshCw,
+  Calendar
 } from 'lucide-react';
 
 export const ServiceGroupsScreen: React.FC = () => {
@@ -34,12 +35,14 @@ export const ServiceGroupsScreen: React.FC = () => {
   // Modals
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editGroup, setEditGroup] = useState<ServiceGroup | null>(null);
+  const [eventTypesModalGroup, setEventTypesModalGroup] = useState<ServiceGroup | null>(null);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
 
   const isAdmin = userRole === 'Admin' || userRole === 'owner';
 
-  useModalEscape(() => setEditGroup(null), !!editGroup);
-  useModalEscape(() => setAddModalOpen(false), addModalOpen);
+  useModalEscape(() => setEditGroup(null), !!editGroup && !eventTypesModalGroup);
+  useModalEscape(() => setAddModalOpen(false), addModalOpen && !eventTypesModalGroup);
+  useModalEscape(() => setEventTypesModalGroup(null), !!eventTypesModalGroup);
 
   // 1. Listen to current church doc (for grade assignments)
   useEffect(() => {
@@ -94,6 +97,7 @@ export const ServiceGroupsScreen: React.FC = () => {
           misters: mistersMap,
           admins: admins.length > 0 ? admins : (data.admins || []),
           servants: servants.length > 0 ? servants : (data.servants || []),
+          eventTypes: data.eventTypes || [],
           createdAt: data.createdAt,
           createdBy: data.createdBy,
         };
@@ -111,6 +115,7 @@ export const ServiceGroupsScreen: React.FC = () => {
     { key: 'admins', type: 'text', placeholder: `${translate('search')} ${translate('admins_coordinators')}...` },
     { key: 'servantsCount', type: 'number', placeholder: translate('min_servants') },
     { key: 'grades', type: 'text', placeholder: `${translate('search')} ${translate('assigned_grades')}...` },
+    { key: 'eventTypes', type: 'text', placeholder: `${translate('search')} ${translate('event_types')}...` },
     { key: 'actions', type: 'text', placeholder: '' },
   ];
 
@@ -153,10 +158,17 @@ export const ServiceGroupsScreen: React.FC = () => {
         .toLowerCase();
       if (!groupGradesStr.includes(filters.grades.toLowerCase())) return false;
     }
+    if (filters.eventTypes) {
+      const typesStr = (g.eventTypes && g.eventTypes.length > 0 ? g.eventTypes : DEFAULT_EVENT_TYPES)
+        .map((t) => (typeof t === 'string' ? t : t.name))
+        .join(' ')
+        .toLowerCase();
+      if (!typesStr.includes(filters.eventTypes.toLowerCase())) return false;
+    }
     return true;
   });
 
-  // Create new service group (mandating active, displayName)
+  // Create new service group (mandating active, displayName, and inheriting church event types)
   const handleCreateGroup = async (displayName: string, active: boolean) => {
     if (!selectedChurchId) return;
     setIsCreatingGroup(true);
@@ -164,12 +176,23 @@ export const ServiceGroupsScreen: React.FC = () => {
       const docId = displayName.trim().toLowerCase().replace(/\s+/g, '_');
       const groupRef = doc(db, 'churches', selectedChurchId, 'serviceGroups', docId);
 
+      const defaultList = (currentChurch?.defaultEventTypes && currentChurch.defaultEventTypes.length > 0)
+        ? currentChurch.defaultEventTypes
+        : DEFAULT_EVENT_TYPES;
+
+      const initialEventTypes: GroupEventType[] = defaultList.map((name) => ({
+        id: name.toLowerCase().replace(/\s+/g, '_'),
+        name,
+        isCore: name.toLowerCase() !== 'trip' && name.toLowerCase() !== 'activity',
+      }));
+
       await setDoc(groupRef, {
         displayName,
         active,
         misters: {},
         admins: [],
         servants: [],
+        eventTypes: initialEventTypes,
         createdAt: new Date().toISOString(),
         createdBy: user?.email,
       });
@@ -181,6 +204,18 @@ export const ServiceGroupsScreen: React.FC = () => {
     } finally {
       setIsCreatingGroup(false);
     }
+  };
+
+  // Save event types for group
+  const handleSaveEventTypes = async (groupId: string, updatedTypes: GroupEventType[]) => {
+    if (!selectedChurchId) return;
+    const groupRef = doc(db, 'churches', selectedChurchId, 'serviceGroups', groupId);
+    await setDoc(groupRef, {
+      eventTypes: updatedTypes,
+      lastEditAt: new Date().toISOString(),
+      lastEditBy: user?.email,
+    }, { merge: true });
+    setEventTypesModalGroup(null);
   };
 
   // Save edited group
@@ -254,6 +289,7 @@ export const ServiceGroupsScreen: React.FC = () => {
                 <th className="px-6 py-3.5 text-start">{translate('admins_coordinators')}</th>
                 <th className="px-6 py-3.5 text-start">{translate('servants_total')}</th>
                 <th className="px-6 py-3.5 text-start">{translate('assigned_grades')}</th>
+                <th className="px-6 py-3.5 text-start">{translate('event_types')}</th>
                 <th className="px-6 py-3.5 text-end w-28">{translate('actions')}</th>
               </tr>
             </thead>
@@ -269,6 +305,7 @@ export const ServiceGroupsScreen: React.FC = () => {
                 const groupGrades = getGradesForGroup(group.id);
                 const adminsList = group.admins || [];
                 const servantsCount = (group.servants || []).length;
+                const groupEventTypesCount = (group.eventTypes && group.eventTypes.length > 0 ? group.eventTypes : DEFAULT_EVENT_TYPES).length;
 
                 return (
                   <tr
@@ -339,6 +376,19 @@ export const ServiceGroupsScreen: React.FC = () => {
                           </span>
                         ))}
                       </div>
+                    </td>
+
+                    {/* 6. Event Types shortcut chip */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => setEventTypesModalGroup(group)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold text-zinc-800 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-teal-50 dark:hover:bg-teal-950/60 hover:text-teal-600 transition cursor-pointer"
+                        title="Configure event types for this group"
+                      >
+                        <Calendar className="w-3.5 h-3.5 text-teal-600" />
+                        <span>{groupEventTypesCount} {translate('event_types')}</span>
+                      </button>
                     </td>
 
                     {/* 6. Actions */}
@@ -450,6 +500,17 @@ export const ServiceGroupsScreen: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Manage Group Event Types Modal */}
+      {eventTypesModalGroup && (
+        <ManageGroupEventTypesModal
+          group={eventTypesModalGroup}
+          churchDefaultTypes={currentChurch?.defaultEventTypes}
+          canEdit={isAdmin || (!!user?.email && (eventTypesModalGroup.admins || []).map((e) => e.toLowerCase()).includes(user.email.toLowerCase()))}
+          onClose={() => setEventTypesModalGroup(null)}
+          onSave={(updatedTypes) => handleSaveEventTypes(eventTypesModalGroup.id, updatedTypes)}
+        />
       )}
     </div>
   );
@@ -744,6 +805,202 @@ const EditServiceGroupModal: React.FC<EditServiceGroupModalProps> = ({
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+// Sub-component: Manage Group Event Types Modal
+interface ManageGroupEventTypesModalProps {
+  group: ServiceGroup;
+  churchDefaultTypes?: string[];
+  onClose: () => void;
+  onSave: (types: GroupEventType[]) => Promise<void>;
+  canEdit: boolean;
+}
+
+const ManageGroupEventTypesModal: React.FC<ManageGroupEventTypesModalProps> = ({
+  group,
+  churchDefaultTypes,
+  onClose,
+  onSave,
+  canEdit,
+}) => {
+  const { translate } = useApp();
+  useModalEscape(onClose, true);
+
+  const fallbackList: GroupEventType[] = (group.eventTypes && group.eventTypes.length > 0)
+    ? group.eventTypes
+    : ((churchDefaultTypes && churchDefaultTypes.length > 0) ? churchDefaultTypes : DEFAULT_EVENT_TYPES).map((name) => ({
+        id: name.toLowerCase().replace(/\s+/g, '_'),
+        name,
+        isCore: name.toLowerCase() !== 'trip' && name.toLowerCase() !== 'activity',
+      }));
+
+  const [types, setTypes] = useState<GroupEventType[]>(fallbackList);
+  const [newTypeName, setNewTypeName] = useState('');
+  const [newTypeIsCore, setNewTypeIsCore] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleAddType = () => {
+    if (!newTypeName.trim()) return;
+    const name = newTypeName.trim();
+    if (types.some((t) => t.name.toLowerCase() === name.toLowerCase())) {
+      alert('Event type already exists');
+      return;
+    }
+    const newType: GroupEventType = {
+      id: name.toLowerCase().replace(/\s+/g, '_'),
+      name,
+      isCore: newTypeIsCore,
+    };
+    setTypes([...types, newType]);
+    setNewTypeName('');
+    setNewTypeIsCore(true);
+  };
+
+  const handleRemoveType = (id: string) => {
+    setTypes(types.filter((t) => t.id !== id));
+  };
+
+  const handleToggleCore = (id: string) => {
+    setTypes(types.map((t) => (t.id === id ? { ...t, isCore: !t.isCore } : t)));
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await onSave(types);
+    } catch (err: any) {
+      console.error('Save event types failed:', err);
+      alert(`Error saving event types: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+      <div className="w-full max-w-lg bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800 mb-4">
+          <div>
+            <h3 className="font-bold text-base text-zinc-900 dark:text-zinc-100">
+              {translate('event_types')}: {group.displayName}
+            </h3>
+            <p className="text-[11px] text-zinc-400">
+              {translate('core_attendance_hint')}
+            </p>
+          </div>
+          <button onClick={onClose} disabled={isSaving} className="p-1 text-zinc-400 hover:text-zinc-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <fieldset disabled={isSaving || !canEdit} className="space-y-3">
+          <div className="space-y-2 max-h-[50vh] overflow-y-auto pe-1">
+            {types.map((type) => (
+              <div
+                key={type.id}
+                className="flex items-center justify-between p-3 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/40 text-xs gap-2"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <Calendar className="w-4 h-4 text-teal-600 shrink-0" />
+                  <span className="font-bold text-zinc-900 dark:text-zinc-100 truncate">
+                    {translate(type.name.toLowerCase().replace(/\s+/g, '_')) || type.name}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0">
+                  {/* Is Core Toggle */}
+                  <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 select-none">
+                    <input
+                      type="checkbox"
+                      checked={type.isCore}
+                      onChange={() => handleToggleCore(type.id)}
+                      disabled={!canEdit}
+                      className="rounded text-teal-600 focus:ring-teal-500 w-3.5 h-3.5"
+                    />
+                    <span>{translate('is_core_attendance')}</span>
+                  </label>
+
+                  {/* Remove button */}
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveType(type.id)}
+                      className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition cursor-pointer"
+                      title="Delete event type"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Add New Event Type */}
+          {canEdit && (
+            <div className="p-3 rounded-2xl bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 space-y-2 pt-3">
+              <label className="block font-bold text-[11px] text-zinc-700 dark:text-zinc-300">
+                {translate('add_event_type')}
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={newTypeName}
+                  onChange={(e) => setNewTypeName(e.target.value)}
+                  placeholder="e.g. Hymns / ألحان"
+                  className="flex-1 p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddType();
+                    }
+                  }}
+                />
+                <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 shrink-0 select-none">
+                  <input
+                    type="checkbox"
+                    checked={newTypeIsCore}
+                    onChange={(e) => setNewTypeIsCore(e.target.checked)}
+                    className="rounded text-teal-600 focus:ring-teal-500 w-3.5 h-3.5"
+                  />
+                  <span>{translate('is_core_attendance')}</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={handleAddType}
+                  className="px-3 py-2 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 transition cursor-pointer"
+                >
+                  + {translate('add')}
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="pt-3 flex justify-end gap-2 border-t border-zinc-100 dark:border-zinc-800 mt-4">
+            <button
+              type="button"
+              disabled={isSaving}
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer disabled:opacity-50"
+            >
+              {translate('cancel')}
+            </button>
+            {canEdit && (
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={handleSave}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30 cursor-pointer disabled:opacity-50"
+              >
+                {isSaving && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                <span>{isSaving ? translate('saving') : translate('save')}</span>
+              </button>
+            )}
+          </div>
+        </fieldset>
+      </div>
     </div>
   );
 };

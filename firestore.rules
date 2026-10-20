@@ -53,6 +53,37 @@ service cloud.firestore {
              getMisterData(churchId).active == true;
     }
 
+    // Helper: Does the user have Group Admin rights in this service group?
+    function isGroupAdmin(churchId, serviceGroupId) {
+      return isAuthenticated() && (
+        isChurchAdmin(churchId) ||
+        (
+          exists(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)) &&
+          (
+            get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.misters[request.auth.token.email] == 'admin' ||
+            (get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.admins != null &&
+             request.auth.token.email in get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.admins)
+          )
+        )
+      );
+    }
+
+    // Helper: Is the user a servant in this service group?
+    function isGroupServant(churchId, serviceGroupId) {
+      return isAuthenticated() && (
+        isGroupAdmin(churchId, serviceGroupId) ||
+        (
+          exists(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)) &&
+          (
+            (get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.misters != null &&
+             request.auth.token.email in get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.misters) ||
+            (get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.servants != null &&
+             request.auth.token.email in get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.servants)
+          )
+        )
+      );
+    }
+
     // --- CHURCHES COLLECTION ---
     match /churches/{churchId} {
       // Allow read to ANY authenticated user so they can view church names and request to join!
@@ -129,6 +160,27 @@ service cloud.firestore {
         allow read: if isChurchServant(churchId);
         allow write: if (request.auth != null && !exists(/databases/$(database)/documents/global_admins/_lock)) ||
                       isChurchAdmin(churchId);
+
+        // Classes under Academic Year
+        match /classes/{classId} {
+          allow read: if isChurchAdmin(churchId) || isChurchServant(churchId);
+          allow write: if isChurchAdmin(churchId);
+
+          // Attendance Events stored under Academic Year -> Class
+          match /attendanceEvents/{eventId} {
+            // 1. View access: Church Admin, or any servant in the class's service group
+            allow read: if isChurchAdmin(churchId) || 
+                           isGroupServant(churchId, get(/databases/$(database)/documents/churches/$(churchId)/classes/$(classId)).data.academicYears[yearId].serviceGroupId);
+
+            // 2. Edit access: Church Admin, Group Admin of this service group, or designated Class Mister
+            allow write: if isChurchAdmin(churchId) || 
+                            isGroupAdmin(churchId, get(/databases/$(database)/documents/churches/$(churchId)/classes/$(classId)).data.academicYears[yearId].serviceGroupId) ||
+                            (
+                              request.auth.token.email in get(/databases/$(database)/documents/churches/$(churchId)/classes/$(classId)).data.academicYears[yearId].Misters ||
+                              request.auth.token.email in get(/databases/$(database)/documents/churches/$(churchId)/classes/$(classId)).data.academicYears[yearId].MistersIds
+                            );
+          }
+        }
 
         match /classInstances/{instanceId} {
           allow read: if isChurchServant(churchId);

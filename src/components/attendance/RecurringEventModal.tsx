@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useModalEscape } from '../../utils/useModalEscape';
 import { generateRecurringDates } from '../../utils/recurringEvents';
-import type { AttendanceEventType } from '../../types';
+import { DEFAULT_EVENT_TYPES, type AttendanceEventType } from '../../types';
 import { X, Calendar, RefreshCw, Sparkles } from 'lucide-react';
 
 interface RecurringEventModalProps {
@@ -10,6 +10,7 @@ interface RecurringEventModalProps {
   onClose: () => void;
   onGenerate: (events: Array<{ title: string; type: AttendanceEventType; eventDate: string }>, seriesId: string) => Promise<void>;
   defaultStartDate?: string;
+  availableEventTypes?: Array<{ id: string; name: string }>;
 }
 
 export const RecurringEventModal: React.FC<RecurringEventModalProps> = ({
@@ -17,12 +18,17 @@ export const RecurringEventModal: React.FC<RecurringEventModalProps> = ({
   onClose,
   onGenerate,
   defaultStartDate,
+  availableEventTypes,
 }) => {
   const { translate } = useApp();
   useModalEscape(onClose, isOpen);
 
+  const fallbackTypes = (availableEventTypes && availableEventTypes.length > 0)
+    ? availableEventTypes
+    : DEFAULT_EVENT_TYPES.map((t) => ({ id: t, name: t }));
+
   const [title, setTitle] = useState('Sunday School Lesson');
-  const [type, setType] = useState<AttendanceEventType>('lesson');
+  const [type, setType] = useState<AttendanceEventType>(() => fallbackTypes[0]?.name || 'Sunday School');
   const [dayOfWeek, setDayOfWeek] = useState<number>(0); // 0 = Sunday
   const [startDate, setStartDate] = useState(() => defaultStartDate || new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(() => {
@@ -111,15 +117,14 @@ export const RecurringEventModal: React.FC<RecurringEventModalProps> = ({
                 </label>
                 <select
                   value={type}
-                  onChange={(e) => setType(e.target.value as AttendanceEventType)}
+                  onChange={(e) => setType(e.target.value)}
                   className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm font-semibold"
                 >
-                  <option value="lesson">{translate('lesson')}</option>
-                  <option value="liturgy">{translate('liturgy')}</option>
-                  <option value="hymns">{translate('hymns')}</option>
-                  <option value="activity">{translate('activity')}</option>
-                  <option value="trip">{translate('trip')}</option>
-                  <option value="other">{translate('other')}</option>
+                  {fallbackTypes.map((ft) => (
+                    <option key={ft.id} value={ft.name}>
+                      {translate(ft.name.toLowerCase().replace(/\s+/g, '_')) || ft.name}
+                    </option>
+                  ))}
                 </select>
               </div>
 

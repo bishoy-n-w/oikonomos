@@ -15,6 +15,9 @@ interface FilterContextType {
   classes: DropdownItem[];
   isLoading: boolean;
   userRole: UserRole;
+  userGroupRoles: Record<string, 'admin' | 'servant'>;
+  canEditClass: (classId: string) => boolean;
+  canViewClass: (classId: string) => boolean;
   setChurch: (id: string) => void;
   setAcademicYear: (id: string) => void;
   setServiceGroup: (id: string | null) => void;
@@ -33,6 +36,7 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const [churches, setChurches] = useState<DropdownItem[]>([]);
   const [churchRolesMap, setChurchRolesMap] = useState<Record<string, UserRole>>({});
+  const [userGroupRoles, setUserGroupRoles] = useState<Record<string, 'admin' | 'servant'>>({});
   const [academicYears, setAcademicYears] = useState<DropdownItem[]>([]);
   const [serviceGroups, setServiceGroups] = useState<DropdownItem[]>([]);
   const [classes, setClasses] = useState<DropdownItem[]>([]);
@@ -178,23 +182,56 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     });
 
-    // Service Groups
+    // Service Groups with 3-tier membership tracking
     const groupsRef = collection(db, 'churches', selectedChurchId, 'serviceGroups');
     const unsubscribeGroups = onSnapshot(groupsRef, (snapshot) => {
-      const items: DropdownItem[] = snapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        displayName: docSnap.data().displayName || docSnap.id,
-      }));
-      setServiceGroups(items);
+      const userEmail = (user?.email || '').toLowerCase().trim();
+      const rolesMap: Record<string, 'admin' | 'servant'> = {};
+      const allItems: DropdownItem[] = [];
+
+      snapshot.docs.forEach((docSnap) => {
+        const data = docSnap.data();
+        const misters = data.misters || {};
+        const admins = (data.admins || []).map((e: string) => e.toLowerCase().trim());
+        const servants = (data.servants || []).map((e: string) => e.toLowerCase().trim());
+
+        let userGroupRole: 'admin' | 'servant' | undefined = undefined;
+        if (misters[userEmail] === 'admin' || admins.includes(userEmail)) {
+          userGroupRole = 'admin';
+        } else if (misters[userEmail] === 'servant' || servants.includes(userEmail)) {
+          userGroupRole = 'servant';
+        }
+
+        if (userGroupRole) {
+          rolesMap[docSnap.id] = userGroupRole;
+        }
+
+        allItems.push({
+          id: docSnap.id,
+          displayName: data.displayName || docSnap.id,
+          data: {
+            userRole: userGroupRole,
+          },
+        });
+      });
+
+      setUserGroupRoles(rolesMap);
+
+      const isChurchManager = isGlobalAdmin || churchRolesMap[selectedChurchId] === 'Admin' || churchRolesMap[selectedChurchId] === 'owner';
+      const visibleGroups = isChurchManager
+        ? allItems
+        : allItems.filter((g) => rolesMap[g.id] !== undefined);
+
+      setServiceGroups(visibleGroups);
     });
 
     return () => {
       unsubscribeYears();
       unsubscribeGroups();
     };
-  }, [selectedChurchId, churches]);
+  }, [selectedChurchId, churches, isGlobalAdmin, churchRolesMap, user]);
 
-  // 3. Listen to Classes for the selected church
+  // 3. Listen to Classes for the selected church (respecting 3-tier group access)
   useEffect(() => {
     if (!selectedChurchId) {
       setClasses([]);
@@ -203,32 +240,46 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const classesRef = collection(db, 'churches', selectedChurchId, 'classes');
     const unsubscribeClasses = onSnapshot(classesRef, (snapshot) => {
+      const userEmail = (user?.email || '').toLowerCase().trim();
+      const isChurchManager = isGlobalAdmin || churchRolesMap[selectedChurchId] === 'Admin' || churchRolesMap[selectedChurchId] === 'owner';
+
       const items: DropdownItem[] = snapshot.docs.map((docSnap) => {
         const data = docSnap.data();
         const yearsMap = data.academicYears || {};
         const yearData = selectedAcademicYearId ? yearsMap[selectedAcademicYearId] : Object.values(yearsMap)[0];
         const resolvedName = (yearData as any)?.displayName || (yearData as any)?.name || docSnap.id;
+        const serviceGroupId = (yearData as any)?.serviceGroupId || data.serviceGroupId;
+        const misters = (yearData as any)?.Misters || {};
+        const mistersIds = ((yearData as any)?.MistersIds || []).map((e: string) => e.toLowerCase().trim());
+        const isMister = Object.keys(misters).map((e) => e.toLowerCase().trim()).includes(userEmail) || mistersIds.includes(userEmail);
 
         return {
           id: docSnap.id,
           displayName: resolvedName,
           data: {
-            serviceGroupId: (yearData as any)?.serviceGroupId || data.serviceGroupId,
+            serviceGroupId,
             gradeId: (yearData as any)?.gradeId || data.gradeLevelId,
+            isClassMister: isMister,
+            academicYears: yearsMap,
           },
         };
       });
 
+      // Filter: servants not in the group have NO access to the class
+      const accessibleClasses = isChurchManager
+        ? items
+        : items.filter((c) => c.data?.serviceGroupId && userGroupRoles[c.data.serviceGroupId] !== undefined);
+
       // Filter classes by selected service group if specified
       if (selectedServiceGroupId) {
-        setClasses(items.filter((c) => c.data?.serviceGroupId === selectedServiceGroupId));
+        setClasses(accessibleClasses.filter((c) => c.data?.serviceGroupId === selectedServiceGroupId));
       } else {
-        setClasses(items);
+        setClasses(accessibleClasses);
       }
     });
 
     return () => unsubscribeClasses();
-  }, [selectedChurchId, selectedAcademicYearId, selectedServiceGroupId]);
+  }, [selectedChurchId, selectedAcademicYearId, selectedServiceGroupId, isGlobalAdmin, churchRolesMap, userGroupRoles, user]);
 
   const setChurch = (id: string) => {
     setSelectedChurchId(id);
@@ -256,6 +307,25 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     ? churchRolesMap[selectedChurchId] || 'viewer'
     : 'viewer';
 
+  const canEditClass = (classId: string): boolean => {
+    if (isGlobalAdmin) return true;
+    if (selectedChurchId && (churchRolesMap[selectedChurchId] === 'Admin' || churchRolesMap[selectedChurchId] === 'owner')) return true;
+    const targetClass = classes.find((c) => c.id === classId);
+    if (!targetClass) return false;
+    const groupId = targetClass.data?.serviceGroupId;
+    if (groupId && userGroupRoles[groupId] === 'admin') return true;
+    if (targetClass.data?.isClassMister) return true;
+    return false;
+  };
+
+  const canViewClass = (classId: string): boolean => {
+    if (canEditClass(classId)) return true;
+    const targetClass = classes.find((c) => c.id === classId);
+    if (!targetClass) return false;
+    const groupId = targetClass.data?.serviceGroupId;
+    return !!(groupId && userGroupRoles[groupId] !== undefined);
+  };
+
   return (
     <FilterContext.Provider
       value={{
@@ -269,6 +339,9 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         classes,
         isLoading,
         userRole: activeUserRole,
+        userGroupRoles,
+        canEditClass,
+        canViewClass,
         setChurch,
         setAcademicYear,
         setServiceGroup,

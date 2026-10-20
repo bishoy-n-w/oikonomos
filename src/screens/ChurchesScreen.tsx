@@ -7,7 +7,7 @@ import { useFilter } from '../context/FilterContext';
 import { HeaderFilterMatrix, type ColumnFilterConfig } from '../components/common/HeaderFilterMatrix';
 import { normalizeDateStr } from '../utils/formatters';
 import { useModalEscape } from '../utils/useModalEscape';
-import type { Church, AcademicYear, GradeItem } from '../types';
+import { DEFAULT_EVENT_TYPES, type Church, type AcademicYear, type GradeItem } from '../types';
 import { 
   Plus, 
   Edit3, 
@@ -36,6 +36,8 @@ export const ChurchesScreen: React.FC = () => {
 
   // In-place academic years during church edit
   const [editYears, setEditYears] = useState<AcademicYear[]>([]);
+  const [editDefaultEventTypes, setEditDefaultEventTypes] = useState<string[]>([]);
+  const [newDefaultEventType, setNewDefaultEventType] = useState('');
   const [classesByChurch, setClassesByChurch] = useState<any[]>([]);
 
   // Loading states for saving (Approach 2)
@@ -59,6 +61,7 @@ export const ChurchesScreen: React.FC = () => {
           active: d.data().active !== false,
           activeAcademicYearId: d.data().activeAcademicYearId,
           grades: d.data().grades || {},
+          defaultEventTypes: d.data().defaultEventTypes,
           createdAt: d.data().createdAt,
           createdBy: d.data().createdBy,
         }));
@@ -89,15 +92,19 @@ export const ChurchesScreen: React.FC = () => {
     return () => unsub();
   }, [userChurches]);
 
-  // When editChurch is selected, load its academic years and classes
+  // When editChurch is selected, load its academic years, event types, and classes
   useEffect(() => {
     if (!editChurch) {
       setEditYears([]);
+      setEditDefaultEventTypes([]);
+      setNewDefaultEventType('');
       setClassesByChurch([]);
       return;
     }
     const currentYears = academicYearsMap[editChurch.id] || [];
     setEditYears([...currentYears]);
+    setEditDefaultEventTypes(editChurch.defaultEventTypes || [...DEFAULT_EVENT_TYPES]);
+    setNewDefaultEventType('');
 
     // Fetch classes to check year reference deletion guards
     getDocs(collection(db, 'churches', editChurch.id, 'classes')).then((snap) => {
@@ -168,6 +175,7 @@ export const ChurchesScreen: React.FC = () => {
         displayName,
         active,
         activeAcademicYearId,
+        defaultEventTypes: editDefaultEventTypes,
         lastEditAt: new Date().toISOString(),
         lastEditBy: user?.email,
       }, { merge: true });
@@ -249,6 +257,7 @@ export const ChurchesScreen: React.FC = () => {
         active: true,
         activeAcademicYearId: yearId,
         grades: {},
+        defaultEventTypes: [...DEFAULT_EVENT_TYPES],
         createdAt: new Date().toISOString(),
         createdBy: user?.email,
       });
@@ -537,6 +546,69 @@ export const ChurchesScreen: React.FC = () => {
                         </button>
                       </div>
                     ))}
+                  </div>
+                </div>
+
+                {/* Default Event Types Template Section */}
+                <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-xs text-zinc-900 dark:text-zinc-100">
+                        {translate('default_event_types_template')}
+                      </h4>
+                      <p className="text-[10px] text-zinc-400">
+                        {translate('default_event_types_desc')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5 p-2.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700">
+                    {editDefaultEventTypes.map((type, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 shadow-2xs"
+                      >
+                        <span>{translate(type.toLowerCase().replace(/\s+/g, '_')) || type}</span>
+                        <button
+                          type="button"
+                          onClick={() => setEditDefaultEventTypes(editDefaultEventTypes.filter((_, i) => i !== idx))}
+                          className="text-zinc-400 hover:text-rose-500 transition cursor-pointer"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+
+                    <div className="flex items-center gap-1 ms-auto">
+                      <input
+                        type="text"
+                        value={newDefaultEventType}
+                        onChange={(e) => setNewDefaultEventType(e.target.value)}
+                        placeholder={translate('add_event_type')}
+                        className="px-2.5 py-1 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs w-36"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (newDefaultEventType.trim() && !editDefaultEventTypes.includes(newDefaultEventType.trim())) {
+                              setEditDefaultEventTypes([...editDefaultEventTypes, newDefaultEventType.trim()]);
+                              setNewDefaultEventType('');
+                            }
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (newDefaultEventType.trim() && !editDefaultEventTypes.includes(newDefaultEventType.trim())) {
+                            setEditDefaultEventTypes([...editDefaultEventTypes, newDefaultEventType.trim()]);
+                            setNewDefaultEventType('');
+                          }
+                        }}
+                        className="px-2.5 py-1 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 transition cursor-pointer"
+                      >
+                        + {translate('add')}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
