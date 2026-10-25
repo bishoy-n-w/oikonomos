@@ -108,4 +108,67 @@ describe('Requirements Specifications & Logic Validation', () => {
       expect(admins).toHaveLength(1);
     });
   });
+
+  // 4. Service Group Servants Derivation for Class Modal
+  describe('Service Group Servants Derivation for Class Modal', () => {
+    function deriveAvailableGroupMisters(
+      targetGroupData: {
+        misters?: Record<string, 'admin' | 'servant'>;
+        admins?: string[];
+        servants?: string[];
+      } | undefined,
+      allMisters: Array<{ id: string; email?: string; displayName: string }>
+    ) {
+      const allowedMisterEmails = new Set<string>();
+      if (targetGroupData) {
+        Object.keys(targetGroupData.misters || {}).forEach((e) => allowedMisterEmails.add(e.toLowerCase().trim()));
+        (targetGroupData.admins || []).forEach((e) => allowedMisterEmails.add(e.toLowerCase().trim()));
+        (targetGroupData.servants || []).forEach((e) => allowedMisterEmails.add(e.toLowerCase().trim()));
+      }
+
+      return allMisters.filter((m) => {
+        const email = (m.email || m.id || '').toLowerCase().trim();
+        return allowedMisterEmails.has(email);
+      });
+    }
+
+    it('derives group servants from misters map, admins list, and servants list', () => {
+      const groupData = {
+        misters: { 'coord@example.com': 'admin' as const },
+        admins: ['coord@example.com'],
+        servants: ['servant1@example.com', 'servant2@example.com'],
+      };
+
+      const misters = [
+        { id: 'coord@example.com', email: 'coord@example.com', displayName: 'Coordinator' },
+        { id: 'servant1@example.com', email: 'servant1@example.com', displayName: 'Servant 1' },
+        { id: 'other@example.com', email: 'other@example.com', displayName: 'Other Department' },
+      ];
+
+      const available = deriveAvailableGroupMisters(groupData, misters);
+      expect(available).toHaveLength(2);
+      expect(available.map((m) => m.displayName)).toEqual(['Coordinator', 'Servant 1']);
+    });
+
+    it('matches case-insensitively and falls back to id when email is undefined', () => {
+      const groupData = {
+        servants: ['JOHN@EXAMPLE.COM '],
+      };
+
+      const misters = [
+        { id: 'john@example.com', displayName: 'John' },
+      ];
+
+      const available = deriveAvailableGroupMisters(groupData, misters);
+      expect(available).toHaveLength(1);
+      expect(available[0].displayName).toBe('John');
+    });
+
+    it('returns empty list when target group data has no members', () => {
+      const available = deriveAvailableGroupMisters({}, [
+        { id: 'servant@example.com', email: 'servant@example.com', displayName: 'Servant' },
+      ]);
+      expect(available).toHaveLength(0);
+    });
+  });
 });

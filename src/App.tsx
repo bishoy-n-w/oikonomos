@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppProvider } from './context/AppContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { FilterProvider } from './context/FilterContext';
@@ -11,10 +11,33 @@ import { AttendanceTrackerScreen } from './screens/AttendanceTrackerScreen';
 import { ClassesScreen } from './screens/ClassesScreen';
 import { ServiceGroupsScreen } from './screens/ServiceGroupsScreen';
 import { ChurchesScreen } from './screens/ChurchesScreen';
+import { parseCurrentRoute, syncRouteToUrl } from './utils/navigation';
 
 const AuthenticatedApp: React.FC = () => {
   const { user, loading } = useAuth();
-  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
+  const [activeTab, setActiveTab] = useState<ActiveTab>(() => parseCurrentRoute().tab);
+
+  // Synchronize activeTab on mount and when browser back/forward buttons are pressed
+  useEffect(() => {
+    const handleHashChange = () => {
+      const parsed = parseCurrentRoute();
+      setActiveTab(parsed.tab);
+    };
+
+    // If initial URL has no hash, establish hash route
+    if (!window.location.hash) {
+      syncRouteToUrl(activeTab, parseCurrentRoute().filters, true);
+    }
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  const handleTabChange = (newTab: ActiveTab) => {
+    setActiveTab(newTab);
+    const currentFilters = parseCurrentRoute().filters;
+    syncRouteToUrl(newTab, currentFilters, true);
+  };
 
   if (loading) {
     return (
@@ -33,14 +56,14 @@ const AuthenticatedApp: React.FC = () => {
 
   return (
     <FilterProvider>
-      <MainShell activeTab={activeTab} onTabChange={setActiveTab}>
-        {activeTab === 'dashboard' && <DashboardScreen onNavigate={setActiveTab} />}
+      <MainShell activeTab={activeTab} onTabChange={handleTabChange}>
+        {activeTab === 'dashboard' && <DashboardScreen onNavigate={handleTabChange} />}
         {activeTab === 'kids' && <KidsDirectoryScreen />}
         {activeTab === 'servants' && <ServantsDirectoryScreen />}
         {activeTab === 'attendance' && <AttendanceTrackerScreen />}
         {activeTab === 'classes' && <ClassesScreen />}
         {activeTab === 'service_groups' && <ServiceGroupsScreen />}
-        {activeTab === 'home_visits' && <DashboardScreen onNavigate={setActiveTab} />}
+        {activeTab === 'home_visits' && <DashboardScreen onNavigate={handleTabChange} />}
         {activeTab === 'churches_config' && <ChurchesScreen />}
       </MainShell>
     </FilterProvider>

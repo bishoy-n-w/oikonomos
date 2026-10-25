@@ -80,4 +80,67 @@ describe('Role & Authorization Evaluation Logic', () => {
     expect(sanitized.churchRole).toBe('admin');
     expect(sanitized.active).toBe(true);
   });
+
+  describe('Firestore Self-Service Update Rules Validation', () => {
+    const ALLOWED_SELF_SERVICE_KEYS = new Set([
+      'personalInfo',
+      'displayName',
+      'lastEditAt',
+      'lastEditBy',
+      'email',
+    ]);
+
+    function isSelfServiceUpdatePermitted(
+      misterEmail: string,
+      authEmail: string,
+      affectedKeys: string[]
+    ): boolean {
+      const emailMatches = misterEmail.toLowerCase() === authEmail.toLowerCase();
+      if (!emailMatches) return false;
+      return affectedKeys.every((key) => ALLOWED_SELF_SERVICE_KEYS.has(key));
+    }
+
+    it('permits self-service updates with personalInfo, displayName, and lastEdit timestamps', () => {
+      const permitted = isSelfServiceUpdatePermitted(
+        'bishoy.n.wasef@gmail.com',
+        'bishoy.n.wasef@gmail.com',
+        ['personalInfo', 'displayName', 'lastEditAt', 'lastEditBy']
+      );
+      expect(permitted).toBe(true);
+    });
+
+    it('matches emails case-insensitively', () => {
+      const permitted = isSelfServiceUpdatePermitted(
+        'bishoy.n.wasef@gmail.com',
+        'Bishoy.N.Wasef@gmail.com',
+        ['personalInfo', 'lastEditAt']
+      );
+      expect(permitted).toBe(true);
+    });
+
+    it('rejects self-service updates containing churchRole or active status', () => {
+      const permittedRole = isSelfServiceUpdatePermitted(
+        'bishoy.n.wasef@gmail.com',
+        'bishoy.n.wasef@gmail.com',
+        ['personalInfo', 'churchRole']
+      );
+      expect(permittedRole).toBe(false);
+
+      const permittedActive = isSelfServiceUpdatePermitted(
+        'bishoy.n.wasef@gmail.com',
+        'bishoy.n.wasef@gmail.com',
+        ['personalInfo', 'active']
+      );
+      expect(permittedActive).toBe(false);
+    });
+
+    it('rejects updates when emails do not match', () => {
+      const permitted = isSelfServiceUpdatePermitted(
+        'other@gmail.com',
+        'bishoy.n.wasef@gmail.com',
+        ['personalInfo']
+      );
+      expect(permitted).toBe(false);
+    });
+  });
 });

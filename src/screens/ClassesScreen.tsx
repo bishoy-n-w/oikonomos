@@ -540,7 +540,10 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
     (data.servants || []).forEach((e: string) => allowedMisterEmails.add(e.toLowerCase().trim()));
   }
   
-  const availableGroupMisters = allMisters.filter((m) => allowedMisterEmails.has(m.email.toLowerCase().trim()));
+  const availableGroupMisters = allMisters.filter((m) => {
+    const email = (m.email || m.id || '').toLowerCase().trim();
+    return allowedMisterEmails.has(email);
+  });
 
   // Auto-clean selected misters if service group changes
   useEffect(() => {
@@ -863,16 +866,20 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
               {availableGroupMisters
                 .filter((m) => {
                   if (!pickerSearch.trim()) return true;
-                  const q = pickerSearch.toLowerCase();
-                  return m.displayName.toLowerCase().includes(q) || m.email.toLowerCase().includes(q);
+                  const q = pickerSearch.toLowerCase().trim();
+                  const email = (m.email || m.id || '').toLowerCase();
+                  return m.displayName.toLowerCase().includes(q) || email.includes(q);
                 })
                 .map((mister) => {
-                  const isSelected = selectedMisterIds.includes(mister.email.toLowerCase());
+                  const mEmail = (mister.email || mister.id || '').toLowerCase().trim();
+                  const isSelected = selectedMisterIds.some(
+                    (id) => id.toLowerCase().trim() === mEmail
+                  );
 
                   return (
                     <div
                       key={mister.id}
-                      onClick={() => handleToggleMister(mister.email)}
+                      onClick={() => handleToggleMister(mEmail)}
                       className={`flex items-center justify-between p-2.5 rounded-2xl border text-xs cursor-pointer transition ${
                         isSelected
                           ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-300 dark:border-blue-700'

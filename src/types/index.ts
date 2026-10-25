@@ -79,9 +79,11 @@ export interface KidContacts {
   fatherName?: string;
   fatherProfession?: string;
   fatherMob?: string;
+  fatherDOB?: string;
   motherName?: string;
   motherProfession?: string;
   motherMob?: string;
+  motherDOB?: string;
   otherMob?: string;
 }
 
@@ -91,6 +93,7 @@ export interface KidAddress {
   floor?: string;
   apartment?: string;
   region?: string;
+  landmark?: string;
 }
 
 export interface KidInfo {
@@ -98,6 +101,8 @@ export interface KidInfo {
   gender: 'male' | 'female';
   dob?: string;
   school?: string;
+  schoolType?: 'National' | 'International' | string;
+  deacon?: boolean;
   fatherOfConfession?: string;
 }
 

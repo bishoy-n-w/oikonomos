@@ -96,10 +96,19 @@ export const KidsDirectoryScreen: React.FC = () => {
             gender: (d.info?.gender || d.gender || 'male') as 'male' | 'female',
             dob: normalizeDateStr(d.info?.dob || d.dob),
             school: String(d.info?.school || d.school || ''),
+            schoolType: d.info?.schoolType || d.schoolType || '',
+            deacon: typeof d.info?.deacon === 'boolean' ? d.info.deacon : typeof d.deacon === 'boolean' ? d.deacon : undefined,
             fatherOfConfession: String(d.info?.fatherOfConfession || d.fatherOfConfession || ''),
           },
-          address: d.address || {},
-          contacts: d.contacts || {},
+          address: {
+            ...(d.address || {}),
+            landmark: d.address?.landmark || d.landmark || '',
+          },
+          contacts: {
+            ...(d.contacts || {}),
+            fatherDOB: normalizeDateStr(d.contacts?.fatherDOB || d.fatherDOB),
+            motherDOB: normalizeDateStr(d.contacts?.motherDOB || d.motherDOB),
+          },
           notes: typeof d.notes === 'string' ? d.notes : '',
           versions: d.versions || {},
           createdAt: d.createdAt,
@@ -144,11 +153,20 @@ export const KidsDirectoryScreen: React.FC = () => {
       { key: 'group', type: 'text', placeholder: `${translate('search')} ${translate('service_group')}...` } as ColumnFilterConfig,
       { key: 'class', type: 'text', placeholder: `${translate('search')} ${translate('class_label')}...` } as ColumnFilterConfig,
     ] : []),
-    // Profile Group (Gender, DOB, School, Father of Confession)
+    // Profile Group (Gender, DOB, School, School Type, Deacon, Father of Confession)
     ...(!foldProfile ? [
       { key: 'gender', type: 'select', options: [{ value: 'male', label: translate('male') }, { value: 'female', label: translate('female') }] } as ColumnFilterConfig,
       { key: 'dob', type: 'text', placeholder: `${translate('search')} ${translate('dob')}...` } as ColumnFilterConfig,
       { key: 'school', type: 'text', placeholder: `${translate('search')} ${translate('school')}...` } as ColumnFilterConfig,
+      { key: 'schoolType', type: 'select', options: [
+        { value: 'National', label: translate('school_type_national') }, 
+        { value: 'International', label: translate('school_type_international') }, 
+        { value: 'other', label: translate('school_type_other') }
+      ] } as ColumnFilterConfig,
+      { key: 'deacon', type: 'select', options: [
+        { value: 'true', label: `${translate('deacon')} (${translate('yes')})` }, 
+        { value: 'false', label: translate('no') }
+      ] } as ColumnFilterConfig,
       { key: 'fatherOfConfession', type: 'text', placeholder: `${translate('search')} ${translate('father_of_confession')}...` } as ColumnFilterConfig,
     ] : []),
     // Address Group
@@ -158,6 +176,7 @@ export const KidsDirectoryScreen: React.FC = () => {
       { key: 'floor', type: 'text', placeholder: `${translate('search')} ${translate('floor')}...` } as ColumnFilterConfig,
       { key: 'apartment', type: 'text', placeholder: `${translate('search')} ${translate('apartment')}...` } as ColumnFilterConfig,
       { key: 'region', type: 'text', placeholder: `${translate('search')} ${translate('region')}...` } as ColumnFilterConfig,
+      { key: 'landmark', type: 'text', placeholder: `${translate('search')} ${translate('landmark')}...` } as ColumnFilterConfig,
     ] : []),
     // Contacts Group
     ...(!foldContacts ? [
@@ -165,9 +184,11 @@ export const KidsDirectoryScreen: React.FC = () => {
       { key: 'fatherName', type: 'text', placeholder: `${translate('search')} ${translate('father_name')}...` } as ColumnFilterConfig,
       { key: 'fatherProfession', type: 'text', placeholder: `${translate('search')} ${translate('father_job')}...` } as ColumnFilterConfig,
       { key: 'fatherMob', type: 'text', placeholder: `${translate('search')} ${translate('father_mobile')}...` } as ColumnFilterConfig,
+      { key: 'fatherDOB', type: 'text', placeholder: `${translate('search')} ${translate('father_dob')}...` } as ColumnFilterConfig,
       { key: 'motherName', type: 'text', placeholder: `${translate('search')} ${translate('mother_name')}...` } as ColumnFilterConfig,
       { key: 'motherProfession', type: 'text', placeholder: `${translate('search')} ${translate('mother_job')}...` } as ColumnFilterConfig,
       { key: 'motherMob', type: 'text', placeholder: `${translate('search')} ${translate('mother_mobile')}...` } as ColumnFilterConfig,
+      { key: 'motherDOB', type: 'text', placeholder: `${translate('search')} ${translate('mother_dob')}...` } as ColumnFilterConfig,
       { key: 'otherMob', type: 'text', placeholder: `${translate('search')} ${translate('other_mobile')}...` } as ColumnFilterConfig,
     ] : []),
     // Notes Group
@@ -225,6 +246,18 @@ export const KidsDirectoryScreen: React.FC = () => {
     if (filters.school) {
       if (!kid.info.school?.toLowerCase().includes(filters.school.toLowerCase())) return false;
     }
+    if (filters.schoolType) {
+      if (filters.schoolType === 'other') {
+        const st = (kid.info.schoolType || '').toLowerCase();
+        if (st === 'national' || st === 'international' || !st) return false;
+      } else {
+        if ((kid.info.schoolType || '').toLowerCase() !== filters.schoolType.toLowerCase()) return false;
+      }
+    }
+    if (filters.deacon !== undefined && filters.deacon !== '') {
+      const isDeacon = filters.deacon === 'true' || filters.deacon === 'yes';
+      if (Boolean(kid.info.deacon) !== isDeacon) return false;
+    }
     if (filters.fatherOfConfession) {
       if (!kid.info.fatherOfConfession?.toLowerCase().includes(filters.fatherOfConfession.toLowerCase())) return false;
     }
@@ -243,6 +276,9 @@ export const KidsDirectoryScreen: React.FC = () => {
     if (filters.region) {
       if (!kid.address?.region?.toLowerCase().includes(filters.region.toLowerCase())) return false;
     }
+    if (filters.landmark) {
+      if (!kid.address?.landmark?.toLowerCase().includes(filters.landmark.toLowerCase())) return false;
+    }
     if (filters.kidMob) {
       if (!kid.contacts?.kidMob?.includes(filters.kidMob)) return false;
     }
@@ -255,6 +291,9 @@ export const KidsDirectoryScreen: React.FC = () => {
     if (filters.fatherMob) {
       if (!kid.contacts?.fatherMob?.includes(filters.fatherMob)) return false;
     }
+    if (filters.fatherDOB) {
+      if (!kid.contacts?.fatherDOB?.toLowerCase().includes(filters.fatherDOB.toLowerCase())) return false;
+    }
     if (filters.motherName) {
       if (!kid.contacts?.motherName?.toLowerCase().includes(filters.motherName.toLowerCase())) return false;
     }
@@ -263,6 +302,9 @@ export const KidsDirectoryScreen: React.FC = () => {
     }
     if (filters.motherMob) {
       if (!kid.contacts?.motherMob?.includes(filters.motherMob)) return false;
+    }
+    if (filters.motherDOB) {
+      if (!kid.contacts?.motherDOB?.toLowerCase().includes(filters.motherDOB.toLowerCase())) return false;
     }
     if (filters.otherMob) {
       if (!kid.contacts?.otherMob?.includes(filters.otherMob)) return false;
@@ -500,19 +542,24 @@ export const KidsDirectoryScreen: React.FC = () => {
       'Gender': k.info.gender,
       'DOB': k.info.dob || '',
       'School': k.info.school || '',
+      'School Type': k.info.schoolType || '',
+      'Deacon': k.info.deacon ? 'Yes' : 'No',
       'Father of Confession': k.info.fatherOfConfession || '',
       'Street': k.address?.street || '',
       'Building': k.address?.building || '',
       'Floor': k.address?.floor || '',
       'Apartment': k.address?.apartment || '',
       'Region': k.address?.region || '',
+      'Landmark': k.address?.landmark || '',
       'Kid Mobile': k.contacts?.kidMob || '',
       'Father Name': k.contacts?.fatherName || '',
       'Father Profession': k.contacts?.fatherProfession || '',
       'Father Mobile': k.contacts?.fatherMob || '',
+      'Father DOB': k.contacts?.fatherDOB || '',
       'Mother Name': k.contacts?.motherName || '',
       'Mother Profession': k.contacts?.motherProfession || '',
       'Mother Mobile': k.contacts?.motherMob || '',
+      'Mother DOB': k.contacts?.motherDOB || '',
       'Other Mobile': k.contacts?.otherMob || '',
       'Notes': k.notes || '',
     }));
@@ -730,7 +777,7 @@ export const KidsDirectoryScreen: React.FC = () => {
 
                 {primaryPhone ? (
                   <a
-                    href={`https://wa.me/${primaryPhone.replace(/\+/g, '')}`}
+                    href={`https://wa.me/${String(primaryPhone).replace(/\+/g, '')}`}
                     target="_blank"
                     rel="noreferrer"
                     className="flex items-center justify-center gap-1 py-2 px-2.5 rounded-xl text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 transition active:scale-95"
@@ -787,6 +834,8 @@ export const KidsDirectoryScreen: React.FC = () => {
                     <th className="px-3 py-3.5 text-start">{translate('gender')}</th>
                     <th className="px-4 py-3.5 text-start">{translate('dob')}</th>
                     <th className="px-4 py-3.5 text-start">{translate('school')}</th>
+                    <th className="px-4 py-3.5 text-start">{translate('school_type')}</th>
+                    <th className="px-4 py-3.5 text-start">{translate('deacon')}</th>
                     <th className="px-4 py-3.5 text-start">{translate('father_of_confession')}</th>
                   </>
                 )}
@@ -799,6 +848,7 @@ export const KidsDirectoryScreen: React.FC = () => {
                     <th className="px-3 py-3.5 text-start">{translate('floor')}</th>
                     <th className="px-3 py-3.5 text-start">{translate('apartment')}</th>
                     <th className="px-4 py-3.5 text-start">{translate('region')}</th>
+                    <th className="px-4 py-3.5 text-start">{translate('landmark')}</th>
                   </>
                 )}
 
@@ -809,9 +859,11 @@ export const KidsDirectoryScreen: React.FC = () => {
                     <th className="px-4 py-3.5 text-start">{translate('father_name')}</th>
                     <th className="px-4 py-3.5 text-start">{translate('father_job')}</th>
                     <th className="px-4 py-3.5 text-start">{translate('father_mobile')}</th>
+                    <th className="px-4 py-3.5 text-start">{translate('father_dob')}</th>
                     <th className="px-4 py-3.5 text-start">{translate('mother_name')}</th>
                     <th className="px-4 py-3.5 text-start">{translate('mother_job')}</th>
                     <th className="px-4 py-3.5 text-start">{translate('mother_mobile')}</th>
+                    <th className="px-4 py-3.5 text-start">{translate('mother_dob')}</th>
                     <th className="px-4 py-3.5 text-start">{translate('other_mobile')}</th>
                   </>
                 )}
@@ -898,6 +950,22 @@ export const KidsDirectoryScreen: React.FC = () => {
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-zinc-500">{safeRender(kid.info.dob)}</td>
                         <td className="px-4 py-4 whitespace-nowrap text-zinc-600 dark:text-zinc-300">{kid.info.school || '-'}</td>
+                        <td className="px-4 py-4 whitespace-nowrap text-zinc-600 dark:text-zinc-300">
+                          {kid.info.schoolType ? (
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">
+                              {kid.info.schoolType === 'National' ? translate('school_type_national') : kid.info.schoolType === 'International' ? translate('school_type_international') : kid.info.schoolType}
+                            </span>
+                          ) : '-'}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          {kid.info.deacon ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">
+                              {translate('deacon')}
+                            </span>
+                          ) : (
+                            <span className="text-zinc-400">{translate('no')}</span>
+                          )}
+                        </td>
                         <td className="px-4 py-4 whitespace-nowrap text-zinc-600 dark:text-zinc-300">{kid.info.fatherOfConfession || '-'}</td>
                       </>
                     )}
@@ -910,6 +978,7 @@ export const KidsDirectoryScreen: React.FC = () => {
                         <td className="px-3 py-4 whitespace-nowrap text-zinc-500">{kid.address?.floor || '-'}</td>
                         <td className="px-3 py-4 whitespace-nowrap text-zinc-500">{kid.address?.apartment || '-'}</td>
                         <td className="px-4 py-4 whitespace-nowrap text-zinc-700 dark:text-zinc-300 font-medium">{kid.address?.region || '-'}</td>
+                        <td className="px-4 py-4 whitespace-nowrap text-zinc-500">{kid.address?.landmark || '-'}</td>
                       </>
                     )}
 
@@ -921,20 +990,22 @@ export const KidsDirectoryScreen: React.FC = () => {
                         <td className="px-4 py-4 whitespace-nowrap text-zinc-500">{kid.contacts?.fatherProfession || '-'}</td>
                         <td className="px-4 py-4 whitespace-nowrap font-mono">
                           {kid.contacts?.fatherMob ? (
-                            <a href={`tel:${kid.contacts.fatherMob}`} className="text-teal-600 dark:text-teal-400 hover:underline">
+                            <a href={`tel:${kid.contacts?.fatherMob}`} className="text-teal-600 dark:text-teal-400 hover:underline">
                               {kid.contacts.fatherMob}
                             </a>
                           ) : '-'}
                         </td>
+                        <td className="px-4 py-4 whitespace-nowrap font-mono text-zinc-500">{safeRender(kid.contacts?.fatherDOB)}</td>
                         <td className="px-4 py-4 whitespace-nowrap">{kid.contacts?.motherName || '-'}</td>
                         <td className="px-4 py-4 whitespace-nowrap text-zinc-500">{kid.contacts?.motherProfession || '-'}</td>
                         <td className="px-4 py-4 whitespace-nowrap font-mono">
                           {kid.contacts?.motherMob ? (
-                            <a href={`tel:${kid.contacts.motherMob}`} className="text-teal-600 dark:text-teal-400 hover:underline">
+                            <a href={`tel:${kid.contacts?.motherMob}`} className="text-teal-600 dark:text-teal-400 hover:underline">
                               {kid.contacts.motherMob}
                             </a>
                           ) : '-'}
                         </td>
+                        <td className="px-4 py-4 whitespace-nowrap font-mono text-zinc-500">{safeRender(kid.contacts?.motherDOB)}</td>
                         <td className="px-4 py-4 whitespace-nowrap font-mono">{kid.contacts?.otherMob || '-'}</td>
                       </>
                     )}
@@ -1162,6 +1233,16 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
   const [gender, setGender] = useState<'male' | 'female'>(existingKid?.info.gender || 'male');
   const [dob, setDob] = useState(existingKid?.info.dob || '');
   const [school, setSchool] = useState(existingKid?.info.school || '');
+  const initialSchoolType = existingKid?.info.schoolType || '';
+  const [schoolTypeCategory, setSchoolTypeCategory] = useState<'National' | 'International' | 'other' | ''>(
+    initialSchoolType === 'National' || initialSchoolType === 'International'
+      ? initialSchoolType
+      : initialSchoolType ? 'other' : ''
+  );
+  const [customSchoolType, setCustomSchoolType] = useState(
+    initialSchoolType && initialSchoolType !== 'National' && initialSchoolType !== 'International' ? initialSchoolType : ''
+  );
+  const [deacon, setDeacon] = useState<boolean>(Boolean(existingKid?.info.deacon));
   const [fatherOfConfession, setFatherOfConfession] = useState(existingKid?.info.fatherOfConfession || '');
 
   // Assignment
@@ -1175,15 +1256,18 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
   const [floor, setFloor] = useState(existingKid?.address?.floor || '');
   const [apartment, setApartment] = useState(existingKid?.address?.apartment || '');
   const [region, setRegion] = useState(existingKid?.address?.region || '');
+  const [landmark, setLandmark] = useState(existingKid?.address?.landmark || '');
 
   // Contacts
   const [kidMob, setKidMob] = useState(existingKid?.contacts?.kidMob || '');
   const [fatherName, setFatherName] = useState(existingKid?.contacts?.fatherName || '');
   const [fatherProfession, setFatherProfession] = useState(existingKid?.contacts?.fatherProfession || '');
   const [fatherMob, setFatherMob] = useState(existingKid?.contacts?.fatherMob || '');
+  const [fatherDOB, setFatherDOB] = useState(existingKid?.contacts?.fatherDOB || '');
   const [motherName, setMotherName] = useState(existingKid?.contacts?.motherName || '');
   const [motherProfession, setMotherProfession] = useState(existingKid?.contacts?.motherProfession || '');
   const [motherMob, setMotherMob] = useState(existingKid?.contacts?.motherMob || '');
+  const [motherDOB, setMotherDOB] = useState(existingKid?.contacts?.motherDOB || '');
   const [otherMob, setOtherMob] = useState(existingKid?.contacts?.otherMob || '');
 
   // Notes
@@ -1199,12 +1283,16 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
 
     setIsSaving(true);
     try {
+      const computedSchoolType = schoolTypeCategory === 'other' ? customSchoolType.trim() : schoolTypeCategory;
+
       await onSave({
         info: {
           fullName,
           gender,
           dob,
           school,
+          schoolType: computedSchoolType || undefined,
+          deacon,
           fatherOfConfession,
         },
         activeAssignment: {
@@ -1218,15 +1306,18 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
           floor,
           apartment,
           region,
+          landmark: landmark.trim() || undefined,
         },
         contacts: {
           kidMob,
           fatherName,
           fatherProfession,
           fatherMob,
+          fatherDOB: fatherDOB || undefined,
           motherName,
           motherProfession,
           motherMob,
+          motherDOB: motherDOB || undefined,
           otherMob,
         },
         notes,
@@ -1328,7 +1419,7 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
 
             <div className="grid grid-cols-3 gap-2.5">
               <div>
-                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Date of Birth</label>
+                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">{translate('dob')}</label>
                 <input
                   type="date"
                   value={dob}
@@ -1338,7 +1429,7 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">School</label>
+                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">{translate('school')}</label>
                 <input
                   value={school}
                   onChange={(e) => setSchool(e.target.value)}
@@ -1348,7 +1439,7 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Father of Confession</label>
+                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">{translate('father_of_confession')}</label>
                 <input
                   value={fatherOfConfession}
                   onChange={(e) => setFatherOfConfession(e.target.value)}
@@ -1357,14 +1448,52 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
                 />
               </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-2.5 pt-1">
+              <div>
+                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">{translate('school_type')}</label>
+                <div className="flex gap-2">
+                  <select
+                    value={schoolTypeCategory}
+                    onChange={(e) => setSchoolTypeCategory(e.target.value as any)}
+                    className="w-full p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold"
+                  >
+                    <option value="">-- {translate('school_type')} --</option>
+                    <option value="National">{translate('school_type_national')}</option>
+                    <option value="International">{translate('school_type_international')}</option>
+                    <option value="other">{translate('school_type_other')}</option>
+                  </select>
+                  {schoolTypeCategory === 'other' && (
+                    <input
+                      value={customSchoolType}
+                      onChange={(e) => setCustomSchoolType(e.target.value)}
+                      placeholder={translate('specify_other')}
+                      className="w-full p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs"
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">{translate('deacon')}</label>
+                <select
+                  value={deacon ? 'true' : 'false'}
+                  onChange={(e) => setDeacon(e.target.value === 'true')}
+                  className="w-full p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold"
+                >
+                  <option value="false">{translate('no')}</option>
+                  <option value="true">{translate('yes')} ({translate('deacon')})</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           {/* Section 3: Family Contacts */}
           <div className="p-3.5 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/50 space-y-2">
             <h4 className="font-bold text-emerald-900 dark:text-emerald-300">Family Contacts (Auto-formatted E.164)</h4>
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-4 gap-2.5">
               <div>
-                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Father Name</label>
+                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">{translate('father_name')}</label>
                 <input
                   value={fatherName}
                   onChange={(e) => setFatherName(e.target.value)}
@@ -1372,7 +1501,7 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Father Profession</label>
+                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">{translate('father_job')}</label>
                 <input
                   value={fatherProfession}
                   onChange={(e) => setFatherProfession(e.target.value)}
@@ -1380,7 +1509,7 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Father Mobile</label>
+                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">{translate('father_mobile')}</label>
                 <input
                   value={fatherMob}
                   onChange={(e) => setFatherMob(e.target.value)}
@@ -1388,11 +1517,20 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
                   className="w-full p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 font-mono text-xs"
                 />
               </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">{translate('father_dob')}</label>
+                <input
+                  type="date"
+                  value={fatherDOB}
+                  onChange={(e) => setFatherDOB(e.target.value)}
+                  className="w-full p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs"
+                />
+              </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-4 gap-2.5">
               <div>
-                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Mother Name</label>
+                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">{translate('mother_name')}</label>
                 <input
                   value={motherName}
                   onChange={(e) => setMotherName(e.target.value)}
@@ -1400,7 +1538,7 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Mother Profession</label>
+                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">{translate('mother_job')}</label>
                 <input
                   value={motherProfession}
                   onChange={(e) => setMotherProfession(e.target.value)}
@@ -1408,7 +1546,7 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Mother Mobile</label>
+                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">{translate('mother_mobile')}</label>
                 <input
                   value={motherMob}
                   onChange={(e) => setMotherMob(e.target.value)}
@@ -1416,11 +1554,20 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
                   className="w-full p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 font-mono text-xs"
                 />
               </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">{translate('mother_dob')}</label>
+                <input
+                  type="date"
+                  value={motherDOB}
+                  onChange={(e) => setMotherDOB(e.target.value)}
+                  className="w-full p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2.5">
               <div>
-                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Kid Mobile</label>
+                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">{translate('kid_mobile')}</label>
                 <input
                   value={kidMob}
                   onChange={(e) => setKidMob(e.target.value)}
@@ -1429,7 +1576,7 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Other Mobile / Emergency</label>
+                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">{translate('other_mobile')}</label>
                 <input
                   value={otherMob}
                   onChange={(e) => setOtherMob(e.target.value)}
@@ -1445,7 +1592,7 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
             <h4 className="font-bold text-blue-900 dark:text-blue-300">Home Address</h4>
             <div className="grid grid-cols-5 gap-2">
               <div className="col-span-2">
-                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Street</label>
+                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">{translate('street')}</label>
                 <input
                   value={street}
                   onChange={(e) => setStreet(e.target.value)}
@@ -1453,7 +1600,7 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Building</label>
+                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">{translate('building')}</label>
                 <input
                   value={building}
                   onChange={(e) => setBuilding(e.target.value)}
@@ -1461,7 +1608,7 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Floor</label>
+                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">{translate('floor')}</label>
                 <input
                   value={floor}
                   onChange={(e) => setFloor(e.target.value)}
@@ -1469,7 +1616,7 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Apt</label>
+                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">{translate('apartment')}</label>
                 <input
                   value={apartment}
                   onChange={(e) => setApartment(e.target.value)}
@@ -1477,14 +1624,25 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
                 />
               </div>
             </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Region / District</label>
-              <input
-                value={region}
-                onChange={(e) => setRegion(e.target.value)}
-                placeholder="e.g. Heliopolis, Nasr City, Shoubra"
-                className="w-full p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"
-              />
+            <div className="grid grid-cols-2 gap-2.5">
+              <div>
+                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">{translate('region')}</label>
+                <input
+                  value={region}
+                  onChange={(e) => setRegion(e.target.value)}
+                  placeholder="e.g. Heliopolis, Nasr City, Shoubra"
+                  className="w-full p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">{translate('landmark')}</label>
+                <input
+                  value={landmark}
+                  onChange={(e) => setLandmark(e.target.value)}
+                  placeholder="e.g. Near St. George Church / بجوار ..."
+                  className="w-full p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"
+                />
+              </div>
             </div>
           </div>
 

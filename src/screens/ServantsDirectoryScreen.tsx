@@ -559,7 +559,7 @@ const MisterFormModal: React.FC<MisterFormModalProps> = ({
           {/* Mandated Fields */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">{translate('student_full_name')} *</label>
+              <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">{translate('servant_full_name')} *</label>
               <input
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}

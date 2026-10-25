@@ -79,12 +79,12 @@ export function computeConsecutiveAbsences(
  * Builds a direct WhatsApp link with pre-filled pastoral care message in Arabic or English.
  */
 export function buildPastoralWhatsAppUrl(
-  phone: string,
+  phone: string | number,
   kidName: string,
   parentName: string = '',
   isArabic: boolean = true
 ): string {
-  const cleanPhone = phone.replace(/[^0-9]/g, '');
+  const cleanPhone = String(phone || '').replace(/[^0-9]/g, '');
   if (!cleanPhone) return '';
 
   const parentGreeting = parentName ? (isArabic ? `أستاذ ${parentName}` : `Mr. ${parentName}`) : (isArabic ? 'ولي الأمر العزيز' : 'Dear Parent');

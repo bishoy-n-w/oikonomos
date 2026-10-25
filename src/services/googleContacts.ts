@@ -10,18 +10,27 @@ export interface SyncResult {
 
 /**
  * Normalizes phone numbers to standard E.164-compatible strings.
+ * Safely accepts string, number (e.g. from Excel numeric cells), or null/undefined.
  */
-export function normalizePhoneNumber(phone?: string, defaultCountryCode: string = '+20'): string {
-  if (!phone) return '';
-  let cleaned = phone.replace(/[^\d+]/g, '').trim();
+export function normalizePhoneNumber(phone?: string | number | null, defaultCountryCode: string = '+20'): string {
+  if (phone === undefined || phone === null) return '';
+  const phoneStr = String(phone).trim();
+  if (!phoneStr) return '';
+  let cleaned = phoneStr.replace(/[^\d+]/g, '').trim();
+  if (!cleaned) return '';
   if (cleaned.startsWith('00')) {
     cleaned = '+' + cleaned.substring(2);
   }
   if (!cleaned.startsWith('+')) {
-    if (cleaned.startsWith('0')) {
-      cleaned = cleaned.substring(1);
+    const rawCode = defaultCountryCode.replace(/[^\d]/g, '');
+    if (rawCode && cleaned.startsWith(rawCode) && cleaned.length > rawCode.length + 8) {
+      cleaned = '+' + cleaned;
+    } else {
+      if (cleaned.startsWith('0')) {
+        cleaned = cleaned.substring(1);
+      }
+      cleaned = defaultCountryCode + cleaned;
     }
-    cleaned = defaultCountryCode + cleaned;
   }
   return cleaned;
 }

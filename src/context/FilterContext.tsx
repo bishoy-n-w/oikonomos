@@ -3,6 +3,12 @@ import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/fire
 import { db } from '../services/firebase';
 import { useAuth } from './AuthContext';
 import type { DropdownItem, UserRole } from '../types';
+import { 
+  parseCurrentRoute, 
+  syncRouteToUrl, 
+  saveFilterToStorage, 
+  getFilterFromStorage 
+} from '../utils/navigation';
 
 interface FilterContextType {
   selectedChurchId: string | null;
@@ -108,6 +114,14 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (allowedChurches.length > 0) {
         setSelectedChurchId((prev) => {
           if (!prev || !allowedChurches.some((c) => c.id === prev)) {
+            const urlChurch = parseCurrentRoute().filters.churchId;
+            if (urlChurch && allowedChurches.some((c) => c.id === urlChurch)) {
+              return urlChurch;
+            }
+            const cachedChurch = getFilterFromStorage('churchId');
+            if (cachedChurch && allowedChurches.some((c) => c.id === cachedChurch)) {
+              return cachedChurch;
+            }
             return allowedChurches[0].id;
           }
           return prev;
@@ -162,11 +176,19 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setAcademicYears(items);
 
       if (items.length > 0) {
-        if (activeYearId && items.some((y) => y.id === activeYearId)) {
-          setSelectedAcademicYearId(activeYearId);
-        } else {
-          setSelectedAcademicYearId((prev) => (prev && items.some((y) => y.id === prev) ? prev : items[0].id));
-        }
+        setSelectedAcademicYearId((prev) => {
+          if (prev && items.some((y) => y.id === prev)) return prev;
+
+          const urlYear = parseCurrentRoute().filters.academicYearId;
+          if (urlYear && items.some((y) => y.id === urlYear)) return urlYear;
+
+          const cachedYear = getFilterFromStorage('academicYearId');
+          if (cachedYear && items.some((y) => y.id === cachedYear)) return cachedYear;
+
+          if (activeYearId && items.some((y) => y.id === activeYearId)) return activeYearId;
+
+          return items[0].id;
+        });
       } else {
         setSelectedAcademicYearId(null);
       }
@@ -210,6 +232,10 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           id: docSnap.id,
           displayName: data.displayName || docSnap.id,
           data: {
+            ...data,
+            misters,
+            admins,
+            servants,
             userRole: userGroupRole,
           },
         });
@@ -223,6 +249,18 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         : allItems.filter((g) => rolesMap[g.id] !== undefined);
 
       setServiceGroups(visibleGroups);
+
+      setSelectedServiceGroupId((prev) => {
+        if (prev && visibleGroups.some((g) => g.id === prev)) return prev;
+
+        const urlGroup = parseCurrentRoute().filters.serviceGroupId;
+        if (urlGroup && visibleGroups.some((g) => g.id === urlGroup)) return urlGroup;
+
+        const cachedGroup = getFilterFromStorage('serviceGroupId');
+        if (cachedGroup && visibleGroups.some((g) => g.id === cachedGroup)) return cachedGroup;
+
+        return null;
+      });
     });
 
     return () => {
@@ -271,15 +309,75 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         : items.filter((c) => c.data?.serviceGroupId && userGroupRoles[c.data.serviceGroupId] !== undefined);
 
       // Filter classes by selected service group if specified
-      if (selectedServiceGroupId) {
-        setClasses(accessibleClasses.filter((c) => c.data?.serviceGroupId === selectedServiceGroupId));
-      } else {
-        setClasses(accessibleClasses);
-      }
+      const currentClasses = selectedServiceGroupId
+        ? accessibleClasses.filter((c) => c.data?.serviceGroupId === selectedServiceGroupId)
+        : accessibleClasses;
+
+      setClasses(currentClasses);
+
+      setSelectedClassId((prev) => {
+        if (prev && currentClasses.some((c) => c.id === prev)) return prev;
+
+        const urlClass = parseCurrentRoute().filters.classId;
+        if (urlClass && currentClasses.some((c) => c.id === urlClass)) return urlClass;
+
+        const cachedClass = getFilterFromStorage('classId');
+        if (cachedClass && currentClasses.some((c) => c.id === cachedClass)) return cachedClass;
+
+        return null;
+      });
     });
 
     return () => unsubscribeClasses();
   }, [selectedChurchId, selectedAcademicYearId, selectedServiceGroupId, isGlobalAdmin, churchRolesMap, userGroupRoles, user]);
+
+  // Synchronize filter selections with localStorage and URL query string
+  useEffect(() => {
+    if (!selectedChurchId) return;
+
+    saveFilterToStorage('churchId', selectedChurchId);
+    saveFilterToStorage('academicYearId', selectedAcademicYearId);
+    saveFilterToStorage('serviceGroupId', selectedServiceGroupId);
+    saveFilterToStorage('classId', selectedClassId);
+
+    const currentTab = parseCurrentRoute().tab;
+    syncRouteToUrl(currentTab, {
+      churchId: selectedChurchId,
+      academicYearId: selectedAcademicYearId,
+      serviceGroupId: selectedServiceGroupId,
+      classId: selectedClassId,
+    }, false);
+  }, [selectedChurchId, selectedAcademicYearId, selectedServiceGroupId, selectedClassId]);
+
+  // Synchronize filters when URL hash changes externally (e.g. Back/Forward button)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const { filters } = parseCurrentRoute();
+      if (filters.churchId && filters.churchId !== selectedChurchId) {
+        if (churches.some((c) => c.id === filters.churchId)) {
+          setSelectedChurchId(filters.churchId);
+        }
+      }
+      if (filters.academicYearId && filters.academicYearId !== selectedAcademicYearId) {
+        if (academicYears.some((y) => y.id === filters.academicYearId)) {
+          setSelectedAcademicYearId(filters.academicYearId);
+        }
+      }
+      if (filters.serviceGroupId !== undefined && filters.serviceGroupId !== selectedServiceGroupId) {
+        if (!filters.serviceGroupId || serviceGroups.some((g) => g.id === filters.serviceGroupId)) {
+          setSelectedServiceGroupId(filters.serviceGroupId || null);
+        }
+      }
+      if (filters.classId !== undefined && filters.classId !== selectedClassId) {
+        if (!filters.classId || classes.some((c) => c.id === filters.classId)) {
+          setSelectedClassId(filters.classId || null);
+        }
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [churches, academicYears, serviceGroups, classes, selectedChurchId, selectedAcademicYearId, selectedServiceGroupId, selectedClassId]);
 
   const setChurch = (id: string) => {
     setSelectedChurchId(id);
