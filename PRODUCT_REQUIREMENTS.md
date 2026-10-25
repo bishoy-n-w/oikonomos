@@ -412,7 +412,21 @@ Enables Sunday School servants and administrators to synchronize church contact 
 
 ---
 
-## 20. Attendance State Architecture: Toggle-to-Clear, Session Reset & Visual States
+## 20. Top-Down Group-to-Class Servant Governance
+
+*   **Parent Group Constraint:**
+    *   To enforce logical ministry hierarchy, a servant **must** be a registered member of a Service Group (department) before they can be assigned to teach a specific class within that group.
+    *   **Class Form Picker Isolation:** When editing a class, the "Add Servant" picker popup is dynamically filtered to only display misters who are members of the class's selected Service Group.
+    *   If no servants are in the group yet, a dedicated warning banner (`no_servants_in_group_hint`) instructs the coordinator to add them to the Service Group first.
+*   **Automatic Fallback Enrollment:**
+    *   If a class is saved with a servant ID via API bypass or stale state, the system's `writeBatch` automatically adds that servant to the parent Service Group as a regular `'servant'` to maintain data consistency.
+*   **Group Settings Lockdown:**
+    *   Editing a Service Group's core settings (Name, Active Status, Administrators, Event Types) is strictly locked to **Church Admins** and **Group Admins** belonging to that group.
+    *   Regular class servants (who only have 'servant' role in the group) are restricted from opening the Edit modal or modifying Event Types.
+
+---
+
+## 21. Attendance State Architecture: Toggle-to-Clear, Session Reset & Visual States
 
 *   **Toggle-to-Clear per Student (Undo Erroneous Records):**
     *   Tapping the currently active attendance status button (`Present`, `Absent`, or `Excused`) unselects it, removing the record and resetting the student back to **Unrecorded / Pending (`-`)**.
@@ -464,6 +478,22 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   Downloads a formatted multi-sheet Excel spreadsheet (`<Church>_<Class>_Attendance_Report.xlsx`):
         *   **Sheet 1: Executive Summary & Statistics:** Class metadata, KPI summary, pastoral distribution counts, and type comparisons.
         *   **Sheet 2: Attendance Register Matrix:** Full spreadsheet of students, per-date status (`P`, `A`, `E`, `-`), total present, total absent, total excused, and attendance percentage.
+
+---
+
+## 22. Bidirectional Synchronization: Class Rosters & Student Active Assignments
+
+*   **Intelligent Dynamic Enrollment Resolution:**
+    *   In `ClassesScreen`, enrolled students and student counts are resolved dynamically from **both** sources:
+        $$\text{Enrolled Students} = \text{Unique}(\text{class.KidIds} \cup \{ \text{kids where } \texttt{activeAssignment.classId} == \texttt{classId} \})$$
+    *   This guarantees that students imported via `smartImport.ts` or assigned via `BulkAssignmentModal` immediately appear in their classroom rosters and counts without requiring any manual re-import.
+*   **Atomic Sync on Smart Import:**
+    *   When executing an Excel/CSV import assigned to a class, `smartImport.ts` atomically updates the target class document's `academicYears[yearId].KidIds` array with the imported student IDs.
+*   **Atomic Sync on Bulk Reassignment:**
+    *   When bulk-reassigning students in `BulkAssignmentModal`, the target classroom's `KidIds` array is atomically updated to include the reassigned students.
+*   **Synchronized Class Form Saving:**
+    *   When saving a classroom in `ClassesScreen`, any added or removed students have their `activeAssignment.classId` updated in the `kids` collection in the same `writeBatch`, maintaining 100% two-way consistency across collections.
+
 
 
 

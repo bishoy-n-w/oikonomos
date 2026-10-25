@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, getDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
@@ -340,6 +340,60 @@ export const KidsDirectoryScreen: React.FC = () => {
     };
 
     await setDoc(kidRef, payload, { merge: true });
+
+    // Sync class document's KidIds
+    const oldClassId = activeKid?.activeAssignment?.classId;
+    const newClassId = kidData.activeAssignment?.classId;
+    const targetYearId = kidData.activeAssignment?.academicYearId || selectedAcademicYearId;
+
+    if (targetYearId && oldClassId !== newClassId) {
+      // 1. Remove from old class
+      if (oldClassId) {
+        try {
+          const oldClassRef = doc(db, 'churches', selectedChurchId, 'classes', oldClassId);
+          const oldSnap = await getDoc(oldClassRef);
+          if (oldSnap.exists()) {
+            const data = oldSnap.data();
+            const yearsMap = data.academicYears || {};
+            const yData = yearsMap[targetYearId] || {};
+            const curIds: string[] = yData.KidIds || yData.kids || [];
+            const filtered = curIds.filter((id) => id !== docId);
+            await setDoc(oldClassRef, {
+              academicYears: {
+                ...yearsMap,
+                [targetYearId]: { ...yData, KidIds: filtered, kids: filtered },
+              },
+            }, { merge: true });
+          }
+        } catch (err) {
+          console.warn('Could not update old class during kid edit:', err);
+        }
+      }
+
+      // 2. Add to new class
+      if (newClassId) {
+        try {
+          const newClassRef = doc(db, 'churches', selectedChurchId, 'classes', newClassId);
+          const newSnap = await getDoc(newClassRef);
+          if (newSnap.exists()) {
+            const data = newSnap.data();
+            const yearsMap = data.academicYears || {};
+            const yData = yearsMap[targetYearId] || {};
+            const curIds: string[] = yData.KidIds || yData.kids || [];
+            const merged = Array.from(new Set([...curIds, docId]));
+            await setDoc(newClassRef, {
+              academicYears: {
+                ...yearsMap,
+                [targetYearId]: { ...yData, KidIds: merged, kids: merged },
+              },
+            }, { merge: true });
+          }
+        } catch (err) {
+          console.warn('Could not update new class during kid edit:', err);
+        }
+      }
+    }
+
     setEditModalOpen(false);
     setActiveKid(null);
   };
@@ -347,7 +401,33 @@ export const KidsDirectoryScreen: React.FC = () => {
   const handleDeleteKid = async (kidId: string, name: string) => {
     if (!selectedChurchId || !isAdmin) return;
     if (window.confirm(`Delete student "${name}"? This action cannot be undone.`)) {
+      const kid = kids.find((k) => k.id === kidId);
+      const classId = kid?.activeAssignment?.classId;
+      const yearId = kid?.activeAssignment?.academicYearId || selectedAcademicYearId;
+
       await deleteDoc(doc(db, 'churches', selectedChurchId, 'kids', kidId));
+
+      if (classId && yearId) {
+        try {
+          const classRef = doc(db, 'churches', selectedChurchId, 'classes', classId);
+          const classSnap = await getDoc(classRef);
+          if (classSnap.exists()) {
+            const data = classSnap.data();
+            const yearsMap = data.academicYears || {};
+            const yData = yearsMap[yearId] || {};
+            const curIds: string[] = yData.KidIds || yData.kids || [];
+            const filtered = curIds.filter((id) => id !== kidId);
+            await setDoc(classRef, {
+              academicYears: {
+                ...yearsMap,
+                [yearId]: { ...yData, KidIds: filtered, kids: filtered },
+              },
+            }, { merge: true });
+          }
+        } catch (err) {
+          console.warn('Could not remove kid from class during delete:', err);
+        }
+      }
     }
   };
 
@@ -367,6 +447,39 @@ export const KidsDirectoryScreen: React.FC = () => {
         });
         await batch.commit();
       }
+
+      // Sync class documents to remove deleted kids
+      const impactedClasses = new Set<string>();
+      kids.filter((k) => selectedKidIds.includes(k.id)).forEach((k) => {
+        if (k.activeAssignment?.classId) impactedClasses.add(k.activeAssignment.classId);
+      });
+
+      impactedClasses.forEach(async (cId) => {
+        try {
+          const classRef = doc(db, 'churches', selectedChurchId, 'classes', cId);
+          const snap = await getDoc(classRef);
+          if (snap.exists()) {
+            const data = snap.data();
+            const yearsMap = { ...(data.academicYears || {}) };
+            let changed = false;
+            Object.keys(yearsMap).forEach((yId) => {
+              const yData = yearsMap[yId] || {};
+              const curIds: string[] = yData.KidIds || yData.kids || [];
+              const filtered = curIds.filter((id) => !selectedKidIds.includes(id));
+              if (filtered.length !== curIds.length) {
+                yearsMap[yId] = { ...yData, KidIds: filtered, kids: filtered };
+                changed = true;
+              }
+            });
+            if (changed) {
+              await setDoc(classRef, { academicYears: yearsMap }, { merge: true });
+            }
+          }
+        } catch (err) {
+          console.warn('Could not update class during bulk delete:', err);
+        }
+      });
+
       setSelectedKidIds([]);
       setBulkDeleteConfirmOpen(false);
     } catch (err: any) {

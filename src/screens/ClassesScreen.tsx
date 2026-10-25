@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, writeBatch, deleteDoc, getDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { useFilter } from '../context/FilterContext';
 import { HeaderFilterMatrix, type ColumnFilterConfig } from '../components/common/HeaderFilterMatrix';
 import { useModalEscape } from '../utils/useModalEscape';
-import type { ClassDoc, Church, Mister, Kid, ClassYearData } from '../types';
+import type { ClassDoc, Church, Mister, Kid, ClassYearData, DropdownItem } from '../types';
 import { 
   Plus, 
   Edit3, 
@@ -147,7 +147,12 @@ export const ClassesScreen: React.FC = () => {
       if (!grade.toLowerCase().includes(filters.gradeName.toLowerCase())) return false;
     }
     if (filters.kidsCount) {
-      const count = (yearData.KidIds || yearData.kids || []).length;
+      const count = allKids.filter((k) =>
+        k.active !== false && (
+          k.activeAssignment?.classId === cls.id ||
+          (yearData.KidIds || yearData.kids || []).includes(k.id)
+        )
+      ).length;
       if (count < parseInt(filters.kidsCount, 10)) return false;
     }
     if (filters.mistersCount) {
@@ -200,7 +205,76 @@ export const ClassesScreen: React.FC = () => {
       }),
     };
 
-    await setDoc(classRef, payload, { merge: true });
+    const batch = writeBatch(db);
+    batch.set(classRef, payload, { merge: true });
+
+    // Step 2: Ensure any servants assigned to this class are strictly members of the parent group
+    if (misterIds.length > 0 && serviceGroupId) {
+      const groupRef = doc(db, 'churches', selectedChurchId, 'serviceGroups', serviceGroupId);
+      const groupSnap = await getDoc(groupRef);
+
+      if (groupSnap.exists()) {
+        const groupData = groupSnap.data();
+        const groupAdmins = (groupData.admins || []).map((e: string) => e.toLowerCase().trim());
+        const groupServants = (groupData.servants || []).map((e: string) => e.toLowerCase().trim());
+        const groupMistersMap = { ...(groupData.misters || {}) };
+
+        let groupUpdated = false;
+
+        misterIds.forEach((misterId) => {
+          const normalized = misterId.toLowerCase().trim();
+          const hasAdminRole = groupAdmins.includes(normalized) || groupMistersMap[normalized] === 'admin';
+          const hasServantRole = groupServants.includes(normalized) || groupMistersMap[normalized] === 'servant';
+
+          // If they have NO role in the group at all, enroll them as a default 'servant'
+          if (!hasAdminRole && !hasServantRole) {
+            groupMistersMap[normalized] = 'servant';
+            groupUpdated = true;
+          }
+        });
+
+        if (groupUpdated) {
+          batch.set(groupRef, {
+            misters: groupMistersMap,
+            lastEditAt: new Date().toISOString(),
+            lastEditBy: user?.email,
+          }, { merge: true });
+        }
+      }
+    }
+
+    // Step 3: Bidirectional sync with Kids collection
+    const previouslyAssignedKids = allKids.filter((k) => k.activeAssignment?.classId === docId);
+
+    // Update newly assigned kids
+    kidIds.forEach((kId) => {
+      const kRef = doc(db, 'churches', selectedChurchId, 'kids', kId);
+      batch.update(kRef, {
+        'activeAssignment.academicYearId': academicYearId,
+        'activeAssignment.serviceGroupId': serviceGroupId,
+        'activeAssignment.classId': docId,
+        academicYearId,
+        serviceGroupId,
+        classId: docId,
+        lastEditAt: new Date().toISOString(),
+        lastEditBy: user?.email,
+      });
+    });
+
+    // Clear classId for any kids removed from this class
+    previouslyAssignedKids
+      .filter((k) => !kidIds.includes(k.id))
+      .forEach((k) => {
+        const kRef = doc(db, 'churches', selectedChurchId, 'kids', k.id);
+        batch.update(kRef, {
+          'activeAssignment.classId': '',
+          classId: '',
+          lastEditAt: new Date().toISOString(),
+          lastEditBy: user?.email,
+        });
+      });
+
+    await batch.commit();
     setAddModalOpen(false);
     setEditClass(null);
   };
@@ -268,7 +342,12 @@ export const ClassesScreen: React.FC = () => {
 
                 const groupName = serviceGroups.find((g) => g.id === yearData.serviceGroupId)?.displayName || yearData.serviceGroupId;
                 const gradeItem = currentChurch?.grades?.[yearData.gradeId || ''];
-                const kidsCount = (yearData.KidIds || yearData.kids || []).length;
+                const storedKidIds = yearData.KidIds || yearData.kids || [];
+                const assignedFromDirectory = allKids
+                  .filter((k) => k.active !== false && k.activeAssignment?.classId === cls.id)
+                  .map((k) => k.id);
+                const effectiveKidIds = Array.from(new Set([...storedKidIds, ...assignedFromDirectory]));
+                const kidsCount = effectiveKidIds.length;
                 const servantsCount = (yearData.MistersIds || yearData.servants || []).length;
 
                 return (
@@ -396,8 +475,8 @@ export const ClassesScreen: React.FC = () => {
 // Modal for Adding or Editing a Class with dynamic grade selection and chips for servants and kids
 interface ClassFormModalProps {
   existingClass: ClassDoc | null;
-  academicYears: Array<{ id: string; displayName: string }>;
-  serviceGroups: Array<{ id: string; displayName: string }>;
+  academicYears: DropdownItem[];
+  serviceGroups: DropdownItem[];
   currentChurch: Church | null;
   allMisters: Mister[];
   allKids: Kid[];
@@ -442,9 +521,31 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
   const [selectedMisterIds, setSelectedMisterIds] = useState<string[]>(
     existingYearData?.MistersIds || existingYearData?.servants || []
   );
-  const [selectedKidIds, setSelectedKidIds] = useState<string[]>(
-    existingYearData?.KidIds || existingYearData?.kids || []
-  );
+  // Derive initially assigned kids: merges stored KidIds on class doc with activeAssignment.classId on kids
+  const assignedFromKids = allKids
+    .filter((k) => k.active !== false && k.activeAssignment?.classId === existingClass?.id)
+    .map((k) => k.id);
+  const storedKidIds = existingYearData?.KidIds || existingYearData?.kids || [];
+  const initialKidIds = Array.from(new Set([...storedKidIds, ...assignedFromKids]));
+
+  const [selectedKidIds, setSelectedKidIds] = useState<string[]>(initialKidIds);
+
+  // Derive allowed servants based on selected Service Group
+  const targetGroup = serviceGroups.find((g) => g.id === selectedGroupId);
+  const allowedMisterEmails = new Set<string>();
+  if (targetGroup?.data) {
+    const data = targetGroup.data;
+    Object.keys(data.misters || {}).forEach((e) => allowedMisterEmails.add(e.toLowerCase().trim()));
+    (data.admins || []).forEach((e: string) => allowedMisterEmails.add(e.toLowerCase().trim()));
+    (data.servants || []).forEach((e: string) => allowedMisterEmails.add(e.toLowerCase().trim()));
+  }
+  
+  const availableGroupMisters = allMisters.filter((m) => allowedMisterEmails.has(m.email.toLowerCase().trim()));
+
+  // Auto-clean selected misters if service group changes
+  useEffect(() => {
+    setSelectedMisterIds((prev) => prev.filter((id) => allowedMisterEmails.has(id.toLowerCase().trim())));
+  }, [selectedGroupId]);
 
   // Popups for selecting misters and kids
   const [misterPickerOpen, setMisterPickerOpen] = useState(false);
@@ -750,7 +851,16 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-1.5 pe-1">
-              {allMisters
+              {availableGroupMisters.length === 0 && (
+                <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-center space-y-2 mt-2">
+                  <Users className="w-6 h-6 text-blue-600 mx-auto" />
+                  <p className="text-xs text-blue-800 dark:text-blue-300 font-semibold leading-relaxed">
+                    {translate('no_servants_in_group_hint')}
+                  </p>
+                </div>
+              )}
+
+              {availableGroupMisters
                 .filter((m) => {
                   if (!pickerSearch.trim()) return true;
                   const q = pickerSearch.toLowerCase();

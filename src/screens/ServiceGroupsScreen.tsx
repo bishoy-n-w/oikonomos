@@ -40,6 +40,14 @@ export const ServiceGroupsScreen: React.FC = () => {
 
   const isAdmin = userRole === 'Admin' || userRole === 'owner';
 
+  const canEditGroup = (group: ServiceGroup) => {
+    if (isAdmin) return true;
+    const userEmail = (user?.email || '').toLowerCase().trim();
+    const groupAdmins = (group.admins || []).map((e) => e.toLowerCase().trim());
+    const mistersMap = group.misters || {};
+    return groupAdmins.includes(userEmail) || mistersMap[userEmail] === 'admin';
+  };
+
   useModalEscape(() => setEditGroup(null), !!editGroup && !eventTypesModalGroup);
   useModalEscape(() => setAddModalOpen(false), addModalOpen && !eventTypesModalGroup);
   useModalEscape(() => setEventTypesModalGroup(null), !!eventTypesModalGroup);
@@ -380,35 +388,53 @@ export const ServiceGroupsScreen: React.FC = () => {
 
                     {/* 6. Event Types shortcut chip */}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={() => setEventTypesModalGroup(group)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold text-zinc-800 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-teal-50 dark:hover:bg-teal-950/60 hover:text-teal-600 transition cursor-pointer"
-                        title="Configure event types for this group"
-                      >
-                        <Calendar className="w-3.5 h-3.5 text-teal-600" />
-                        <span>{groupEventTypesCount} {translate('event_types')}</span>
-                      </button>
+                      {canEditGroup(group) ? (
+                        <button
+                          type="button"
+                          onClick={() => setEventTypesModalGroup(group)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold text-zinc-800 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-teal-50 dark:hover:bg-teal-950/60 hover:text-teal-600 transition cursor-pointer"
+                          title="Configure event types for this group"
+                        >
+                          <Calendar className="w-3.5 h-3.5 text-teal-600" />
+                          <span>{groupEventTypesCount} {translate('event_types')}</span>
+                        </button>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold text-zinc-500 bg-zinc-50 dark:bg-zinc-800/50">
+                          <Calendar className="w-3.5 h-3.5 text-zinc-400" />
+                          <span>{groupEventTypesCount} {translate('event_types')}</span>
+                        </span>
+                      )}
                     </td>
 
-                    {/* 6. Actions */}
+                    {/* 7. Actions */}
                     <td className="px-6 py-4 text-end whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => setEditGroup(group)}
-                          className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
-                          title="Edit Group & Servants"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        {isAdmin && (
-                          <button
-                            onClick={() => handleDeleteGroup(group.id, group.displayName)}
-                            className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
-                            title="Delete Group"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                        {canEditGroup(group) ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setEditGroup(group)}
+                              className="p-1.5 rounded-lg text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/40 transition cursor-pointer"
+                              title="Edit Group & Servants"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteGroup(group.id, group.displayName)}
+                                className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                                title="Delete Group"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-500 text-[10px] font-bold">
+                            <ShieldCheck className="w-3 h-3 text-zinc-400" />
+                            <span>{translate('view_only_mode')}</span>
+                          </span>
                         )}
                       </div>
                     </td>

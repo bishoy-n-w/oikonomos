@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { collection, writeBatch, doc, query, where, getDocs } from 'firebase/firestore';
+import { collection, writeBatch, doc, query, where, getDocs, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { normalizePhoneNumber } from './googleContacts';
 
@@ -388,6 +388,7 @@ export async function executeImportBatch(
   const errors: string[] = [];
   const attributeCounts: Record<string, number> = {};
   const sampleImportedRecords: ImportResult['sampleImportedRecords'] = [];
+  const importedKidIds: string[] = [];
 
   // Group into batches of 400 (Firestore limit is 500 operations per batch)
   const batchSize = 400;
@@ -414,6 +415,7 @@ export async function executeImportBatch(
 
       const docId = fullName.toLowerCase().replace(/\s+/g, '_') + `_${Date.now()}_${rowIdx}`;
       const kidRef = doc(db, 'churches', churchId, 'kids', docId);
+      importedKidIds.push(docId);
 
       const parsedDob = normalizeDateValue(record.dob);
 
@@ -536,6 +538,36 @@ export async function executeImportBatch(
     } catch (err: any) {
       console.error('Firestore batch commit error:', err);
       errors.push(err.message || 'Error writing batch chunk');
+    }
+  }
+
+  // Atomically sync imported kids with target class document
+  if (assignment.classId && assignment.academicYearId && importedKidIds.length > 0) {
+    try {
+      const classRef = doc(db, 'churches', churchId, 'classes', assignment.classId);
+      const classSnap = await getDoc(classRef);
+      if (classSnap.exists()) {
+        const classData = classSnap.data();
+        const yearsMap = classData.academicYears || {};
+        const yearData = yearsMap[assignment.academicYearId] || {};
+        const existingKidIds: string[] = yearData.KidIds || yearData.kids || [];
+        const mergedKidIds = Array.from(new Set([...existingKidIds, ...importedKidIds]));
+
+        await setDoc(classRef, {
+          academicYears: {
+            ...yearsMap,
+            [assignment.academicYearId]: {
+              ...yearData,
+              KidIds: mergedKidIds,
+              kids: mergedKidIds,
+            },
+          },
+          lastEditAt: new Date().toISOString(),
+          lastEditBy: userEmail,
+        }, { merge: true });
+      }
+    } catch (err) {
+      console.warn('Could not update class document during smart import:', err);
     }
   }
 

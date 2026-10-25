@@ -149,6 +149,8 @@ export const translations: Record<Language, Record<string, string>> = {
     last_attended: 'Last Attended',
     exporting: 'Exporting...',
     rate: 'Rate',
+    no_servants_in_group_hint: 'No servants registered in this Service Group yet. Please add servants to the group in the Service Groups tab first.',
+    servants_must_be_in_group: 'Servants must belong to this Service Group',
 
     // Table Headers
     actions: 'Actions',
@@ -377,6 +379,8 @@ export const translations: Record<Language, Record<string, string>> = {
     last_attended: 'آخر حضور',
     exporting: 'جاري التصدير...',
     rate: 'النسبة',
+    no_servants_in_group_hint: 'لا يوجد خدام مسجلين في أسرة الخدمة هذه حتى الآن. برجاء إضافة الخدام إلى أسرة الخدمة أولاً من تبويب أسر الخدمة.',
+    servants_must_be_in_group: 'يجب أن يكون الخدام أعضاء في أسرة الخدمة',
 
     // Table Headers
     actions: 'إجراءات',

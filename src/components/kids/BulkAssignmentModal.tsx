@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { doc, writeBatch } from 'firebase/firestore';
+import { doc, writeBatch, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
@@ -77,6 +77,34 @@ export const BulkAssignmentModal: React.FC<BulkAssignmentModalProps> = ({
         });
 
         await batch.commit();
+      }
+
+      // Sync target class document with reassigned kids
+      try {
+        const classRef = doc(db, 'churches', churchId, 'classes', targetClassId);
+        const classSnap = await getDoc(classRef);
+        if (classSnap.exists()) {
+          const classData = classSnap.data();
+          const yearsMap = classData.academicYears || {};
+          const yearData = yearsMap[targetYearId] || {};
+          const existingKidIds: string[] = yearData.KidIds || yearData.kids || [];
+          const mergedKidIds = Array.from(new Set([...existingKidIds, ...selectedKidIds]));
+
+          await setDoc(classRef, {
+            academicYears: {
+              ...yearsMap,
+              [targetYearId]: {
+                ...yearData,
+                KidIds: mergedKidIds,
+                kids: mergedKidIds,
+              },
+            },
+            lastEditAt: new Date().toISOString(),
+            lastEditBy: user?.email || 'admin',
+          }, { merge: true });
+        }
+      } catch (classSyncErr) {
+        console.warn('Could not update target class document during bulk assignment:', classSyncErr);
       }
 
       onSuccess(selectedKidIds.length);
