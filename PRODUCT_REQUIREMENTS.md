@@ -56,6 +56,25 @@ This document serves as the absolute architectural blueprint and behavioral spec
 *   **"All" Restriction:** The root **Church** and **Academic Year** dropdowns strictly **disallow** the "All" option (`allowAll: false`). This guarantees a single, stable Church and active Term context across the application at all times.
 *   **Active Year Default:** On initial load or refresh, the Academic Year dropdown is strictly bound and defaults to the Church's active year.
 
+### 🔗 H. Hash-Based Deep Linking & Hybrid Filter Persistence (URL & LocalStorage)
+*   **Behavior:** The application supports full browser deep-linking, refresh persistence, and back/forward navigation without 404 errors on GitHub Pages or static hosts.
+*   **Hash Routes Mapping:**
+    *   `/#/dashboard` $\to$ Dashboard
+    *   `/#/kids` $\to$ Kids Directory
+    *   `/#/servants` $\to$ Servants Directory
+    *   `/#/attendance` $\to$ Attendance Tracker
+    *   `/#/classes` $\to$ Classes Screen
+    *   `/#/service-groups` $\to$ Service Groups Screen
+    *   `/#/home-visits` $\to$ Home Visits Screen
+    *   `/#/church-admin` $\to$ Church Admin Screen
+*   **Hybrid State Precedence Hierarchy on Load & Refresh:**
+    1.  **Priority 1 (URL Parameters):** Active hash query parameters (e.g. `/#/attendance?church=c1&year=y1&group=g1&class=k1`) override local state, enabling shareable deep links and multi-tab workflows.
+    2.  **Priority 2 (LocalStorage Caching):** If no URL parameters are present, the system loads the user's previously selected Church, Term, Service Group, and Class from `localStorage`.
+    3.  **Priority 3 (System Defaults):** For new users, defaults to the first permitted church and its active academic year.
+*   **Synchronization Lifecycle:**
+    *   **Tab Switching:** Pushes a new browser history entry (`window.location.hash = ...`), enabling native browser Back and Forward navigation between screens.
+    *   **Filter Toggling:** Synchronizes selections to `localStorage` and updates the URL query string using `history.replaceState`, avoiding history spam while keeping the address bar in real-time sync with user selections.
+
 ---
 
 ## 2. Church Admin & Timeline View (`ChurchesScreen`)
@@ -143,9 +162,9 @@ The Kids Directory manages tabular student registries with an advanced collapsib
 Displays extensive student sheets (over 20 fields) neatly. The columns list is grouped into **5 logical categories** which can be folded or unfolded independently inside the headers:
 1.  **Active Status (Always Visible):** Colored active indicator.
 2.  **Assignment Group:** Selected Year, Group, and Class. *Folded preview:* Merged string representation (e.g. `2026 • Elementary • Grade 5`).
-3.  **General Profile Group (`info` map):** `fullName`, `gender`, `dob`, `school`, `fatherOfConfession`. *Folded preview:* Shows name as a clickable hyperlink.
-4.  **Home Address Group (`address` map):** `street`, `building`, `floor`, `apartment`, `region`. *Folded preview:* Displays region area. (Collapsed/Folded by default).
-5.  **Family Contacts Group (`contacts` map):** `kidMob`, `fatherName`, `fatherProfession`, `fatherMob`, `motherName`, `motherProfession`, `motherMob`, `otherMob`. *Folded preview:* Shows main father and mother numbers. (Collapsed/Folded by default).
+3.  **General Profile Group (`info` map):** `fullName`, `gender`, `dob`, `school`, `schoolType` (National, International, or Other custom), `deacon` (Yes/No), `fatherOfConfession`. *Folded preview:* Shows name as a clickable hyperlink.
+4.  **Home Address Group (`address` map):** `street`, `building`, `floor`, `apartment`, `region`, `landmark`. *Folded preview:* Displays region area. (Collapsed/Folded by default).
+5.  **Family Contacts Group (`contacts` map):** `kidMob`, `fatherName`, `fatherProfession`, `fatherMob`, `fatherDOB`, `motherName`, `motherProfession`, `motherMob`, `motherDOB`, `otherMob`. *Folded preview:* Shows main father and mother numbers. (Collapsed/Folded by default).
 6.  **Pastoral Notes:** Displays Multiline notes. *Folded preview:* Shows a truncated text snippet.
 
 ### 🔍 B. Header Filtering Matrix & Deletion Popups
@@ -200,7 +219,7 @@ Displays registered servants in order:
 ### 🔍 B. Header Filtering Matrix & Self-Service Locks
 *   **Filters Matrix:** Includes status dropdown, name search, access role dropdown, phone search, job selector, and address search filters inside column headers.
 *   **Self-Service Fields Lock:** If a regular servant is editing their *own* profile, the `active` status switch and `churchRole` dropdown are **automatically locked and greyed out** (opacity `0.5`). They can only modify their personal fields (`phone`, `dob`, `job`, `address`, `notes`, `gender`).
-*   **Self-Service Cloud Rules (`firestore.rules`):** Evaluates `request.resource.data.diff(resource.data).affectedKeys()` to securely block self-service updates trying to modify any field other than `personalInfo`.
+*   **Self-Service Cloud Rules (`firestore.rules`):** Evaluates `request.resource.data.diff(resource.data).affectedKeys()` with case-insensitive email matching. Self-service updates are strictly limited to `['personalInfo', 'displayName', 'lastEditAt', 'lastEditBy', 'email']`. Attempts to modify administrative keys (`churchRole`, `active`, `adminInGroups`, `servantInGroups`, etc.) are securely rejected at the database layer.
 
 ---
 
@@ -305,6 +324,12 @@ Enables Sunday School servants and administrators to synchronize church contact 
 ## 14. Smart Excel/CSV Import Engine with Hybrid AI Mapping & 1-Click Rollback
 
 *   **File Formats:** Supports `.xlsx`, `.xls`, and `.csv`.
+*   **Arabic CSV & Text File Encoding Resilience:**
+    *   **Auto-Detection & Decoding Pipeline:** Automatically decodes delimited text files (`.csv`, `.tsv`, `.txt`) using native browser `TextDecoder` before parsing, eliminating mojibake corruption (e.g. `Ø£Ø³Ù ...`):
+        *   Supports UTF-8 with BOM (`EF BB BF`) or without BOM.
+        *   Detects UTF-16LE / UTF-16BE BOM signatures.
+        *   Employs strict UTF-8 validation (`TextDecoder('utf-8', { fatal: true })`) to immediately catch legacy Arabic ANSI byte streams exported from older Windows Excel setups (*"CSV (Comma delimited)"*), automatically falling back to `windows-1256` (Arabic ANSI).
+    *   **Real-Time UI Encoding Badge & Manual Override:** In Step 1 of the Import Wizard, CSV uploads display an encoding badge (`UTF-8` vs `Windows-1256 (Arabic Excel ANSI)`) alongside an on-the-fly override dropdown allowing users to switch encoding with immediate real-time table re-parsing and re-mapping.
 *   **Multi-Sheet Workbook Tab Selection:** For workbooks containing multiple sheets/tabs, the importer extracts all sheets and displays an interactive tab selector with sheet names and row counts. Switching tabs dynamically loads the selected sheet, resets the header row index, and re-runs bilingual heuristic column mapping.
 *   **Automated Smart Header Detection:** Scans the first 10 rows of the spreadsheet using Sunday School CRM semantic keyword scoring to detect and pre-select the true header row, automatically bypassing sheet titles, decorative banners, and blank rows.
 *   **Header Row Index Selector:** Interactive preview of first 6 rows allowing the user to visually inspect and change which row contains column headers.
@@ -312,15 +337,15 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   **Layer 1 (Offline Heuristic):** High-speed bilingual dictionary matching Arabic (including Egyptian colloquial terms like `موبايل ولي الأمر`, `تليفون بابا`, `اسم المخدوم`) and English column headers with dedicated status badges (`✨ Auto-Mapped` vs `⚪ Ignored`).
     *   **Layer 2 (Gemini AI Enhancement):** Optional free-tier Google Gemini integration (`gemini-2.5-flash`) for deep scan disambiguation of unmapped or custom headers.
 *   **Comprehensive Excel Date Normalization:** Automatically converts native JS Date instances, Excel numeric serial codes (e.g. `44197`), DD/MM/YYYY, ISO strings, and Arabic-Indic numerals (`١٥/٠٧/٢٠١٢`) into strict `YYYY-MM-DD` standard ISO date strings.
-*   **Phone Normalization & Classroom Assignment:** All phone numbers auto-formatted to international E.164 (`+20...`). Target classroom assignment selected by user.
+*   **Phone Normalization & Classroom Assignment:** All phone numbers auto-formatted to international E.164 (`+20...`). Safely accepts both strings and raw numbers (from Excel numeric cells where the leading `0` was omitted, e.g. `1223344556`), prefixing the default country code cleanly. Supports unmapped fallback defaults specified in Step 3. Target classroom assignment selected by user.
 *   **Dynamic Unmapped Fields List with Type-Based Unified Inputs (One Value for All):** In Step 3, the wizard dynamically computes the exact list of schema fields that were **NOT** mapped to any column in the user's spreadsheet. Only unmapped fields are shown. For each unmapped field, an input corresponding to its specific data type is provided:
-    *   **Select Dropdown:** for `gender` (`-- Leave Empty / فارغ --`, `All Male / كلهم بنين`, `All Female / كلهم بنات`).
-    *   **Native Date Picker:** for `dob` (Date of Birth).
+    *   **Select Dropdown:** for `gender` (`-- Leave Empty / فارغ --`, `All Male / كلهم بنين`, `All Female / كلهم بنات`), `deacon` (`-- Leave Empty / فارغ --`, `All Deacons / كلهم شمامسة`, `Not Deacons / مش شمامسة`), and `schoolType` (`-- Leave Empty / فارغ --`, `National`, `International`).
+    *   **Native Date Picker:** for `dob` (Date of Birth), `fatherDOB` (Father DOB), and `motherDOB` (Mother DOB).
     *   **Telephone Input:** for `kidMob`, `fatherMob`, `motherMob`, `otherMob` (auto-formatted to E.164).
-    *   **Text Input:** for `fatherOfConfession`, `school`, `region`, `street`, `building`, `floor`, `apartment`, `fatherProfession`, `motherProfession`, `notes`.
+    *   **Text Input:** for `fatherOfConfession`, `school`, `region`, `landmark`, `street`, `building`, `floor`, `apartment`, `fatherProfession`, `motherProfession`, `notes`.
     Specifying a value automatically populates that attribute across all students imported in that batch. If all CRM fields are mapped from spreadsheet columns, the panel confirms: *"All CRM fields have been mapped from your spreadsheet columns!"*.
-*   **Name & Date Collision Guards:** Heuristic mapping explicitly excludes headers containing `تاريخ`, `ميلاد`, `موبايل`, `وظيفة` from matching `fatherName` or `motherName`. Parent name fields automatically strip accidental Date objects/strings and auto-derive the father's name from multi-word student names (e.g. `إدريان رامي ثروت` $\to$ `رامي ثروت`).
-*   **Detailed Post-Import Attribute Breakdown & Live Preview:** Step 4 completion report displays an attribute-by-attribute coverage matrix (Full Name, Date of Birth, Gender, Father Phone, Mother Phone, Address, School, Confession Father) alongside a live sample preview table displaying the normalized student data.
+*   **Name & Date Collision Guards:** Heuristic mapping explicitly excludes headers containing `تاريخ`, `ميلاد`, `موبايل`, `وظيفة` from matching `fatherName` or `motherName`. Disambiguation rules prevent generic `dob` from accidentally matching parent birth dates (`fatherDOB`, `motherDOB`), and prevent generic `school` from matching `schoolType`.
+*   **Detailed Post-Import Attribute Breakdown & Live Preview:** Step 4 completion report displays an attribute-by-attribute coverage matrix (Full Name, Date of Birth, Gender, Father Phone, Mother Phone, Father DOB, Mother DOB, Address, Landmark, School, School Type, Deacon, Confession Father) alongside a live sample preview table displaying the normalized student data.
 *   **One-Click Batch Rollback:** All imported records are tagged with a unique `importBatchId`. The post-import completion report provides an instant **"Revert This Import"** button that atomically deletes all records from that batch in one click.
 
 ---
@@ -417,6 +442,7 @@ Enables Sunday School servants and administrators to synchronize church contact 
 *   **Parent Group Constraint:**
     *   To enforce logical ministry hierarchy, a servant **must** be a registered member of a Service Group (department) before they can be assigned to teach a specific class within that group.
     *   **Class Form Picker Isolation:** When editing a class, the "Add Servant" picker popup is dynamically filtered to only display misters who are members of the class's selected Service Group.
+    *   `FilterContext` preserves the complete group data (`misters`, `admins`, and `servants`) within each `serviceGroups` item, enabling real-time member resolution and defensive, case-insensitive email/id matching in the class modal picker.
     *   If no servants are in the group yet, a dedicated warning banner (`no_servants_in_group_hint`) instructs the coordinator to add them to the Service Group first.
 *   **Automatic Fallback Enrollment:**
     *   If a class is saved with a servant ID via API bypass or stale state, the system's `writeBatch` automatically adds that servant to the parent Service Group as a regular `'servant'` to maintain data consistency.

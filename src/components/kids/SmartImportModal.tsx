@@ -23,7 +23,8 @@ import {
   CheckCircle, 
   AlertCircle, 
   ArrowRight, 
-  Layers 
+  Layers,
+  Globe 
 } from 'lucide-react';
 
 interface SmartImportModalProps {
@@ -65,6 +66,9 @@ export const SmartImportModal: React.FC<SmartImportModalProps> = ({
   const [headerRowIdx, setHeaderRowIdx] = useState<number>(0);
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
   const [loadingFile, setLoadingFile] = useState(false);
+  const [isCsv, setIsCsv] = useState(false);
+  const [selectedEncoding, setSelectedEncoding] = useState<string>('auto');
+  const [detectedEncoding, setDetectedEncoding] = useState<string>('utf-8');
 
   // Gemini AI state
   const [geminiKey, setGeminiKey] = useState<string>(
@@ -100,15 +104,17 @@ export const SmartImportModal: React.FC<SmartImportModalProps> = ({
     return (yearData?.serviceGroupId || c.serviceGroupId) === targetGroupId;
   });
 
-  // Handle File Selection
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0];
-    if (!selected) return;
-
+  // Load and parse spreadsheet with optional encoding override
+  const loadAndParseFile = async (targetFile: File, encodingToUse?: string) => {
     setLoadingFile(true);
     try {
-      setFile(selected);
-      const parsed = await parseSpreadsheetFile(selected);
+      setFile(targetFile);
+      const enc = encodingToUse === 'auto' ? undefined : encodingToUse;
+      const parsed = await parseSpreadsheetFile(targetFile, enc);
+      setIsCsv(!!parsed.isCsv);
+      if (parsed.detectedEncoding) {
+        setDetectedEncoding(parsed.detectedEncoding);
+      }
       setSheetNames(parsed.sheetNames);
       setSheetsMap(parsed.sheets);
       const initialSheet = parsed.sheetNames[0] || '';
@@ -131,6 +137,22 @@ export const SmartImportModal: React.FC<SmartImportModalProps> = ({
       alert('Could not parse spreadsheet. Please ensure it is a valid Excel or CSV file.');
     } finally {
       setLoadingFile(false);
+    }
+  };
+
+  // Handle File Selection
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (!selected) return;
+    setSelectedEncoding('auto');
+    await loadAndParseFile(selected, 'auto');
+  };
+
+  // Handle Encoding Override Change
+  const handleEncodingChange = async (newEncoding: string) => {
+    setSelectedEncoding(newEncoding);
+    if (file) {
+      await loadAndParseFile(file, newEncoding);
     }
   };
 
@@ -369,6 +391,31 @@ export const SmartImportModal: React.FC<SmartImportModalProps> = ({
                   <span className="text-[11px] text-zinc-400 font-mono">
                     {rawRows.length} rows
                   </span>
+                </div>
+              )}
+
+              {/* CSV Text Encoding Selector */}
+              {file && isCsv && (
+                <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl bg-teal-50/50 dark:bg-teal-950/20 border border-teal-200/80 dark:border-teal-800/80 text-xs">
+                  <div className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
+                    <Globe className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
+                    <span className="font-semibold">{translate('text_encoding')}:</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200">
+                      {detectedEncoding === 'windows-1256' ? translate('encoding_win1256') : translate('encoding_utf8')}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">{translate('encoding_override')}</label>
+                    <select
+                      value={selectedEncoding}
+                      onChange={(e) => handleEncodingChange(e.target.value)}
+                      className="px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-[11px] font-medium text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-teal-500 cursor-pointer"
+                    >
+                      <option value="auto">{translate('encoding_auto')}</option>
+                      <option value="utf-8">{translate('encoding_utf8')}</option>
+                      <option value="windows-1256">{translate('encoding_win1256')}</option>
+                    </select>
+                  </div>
                 </div>
               )}
 
@@ -755,6 +802,30 @@ export const SmartImportModal: React.FC<SmartImportModalProps> = ({
                             <option value="auto">-- Leave Empty / فارغ --</option>
                             <option value="male">All Male / كلهم بنين (ذكر)</option>
                             <option value="female">All Female / كلهم بنات (أنثى)</option>
+                          </select>
+                        )}
+
+                        {field.type === 'select' && field.key === 'deacon' && (
+                          <select
+                            value={defaultValues.deacon || 'auto'}
+                            onChange={(e) => setDefaultValues({ ...defaultValues, deacon: e.target.value })}
+                            className="w-full p-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-xs font-semibold"
+                          >
+                            <option value="auto">-- Leave Empty / فارغ --</option>
+                            <option value="true">All Deacons / كلهم شمامسة (نعم)</option>
+                            <option value="false">Not Deacons / مش شمامسة (لا)</option>
+                          </select>
+                        )}
+
+                        {field.type === 'select' && field.key === 'schoolType' && (
+                          <select
+                            value={defaultValues.schoolType || ''}
+                            onChange={(e) => setDefaultValues({ ...defaultValues, schoolType: e.target.value })}
+                            className="w-full p-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-xs font-semibold"
+                          >
+                            <option value="">-- Leave Empty / فارغ --</option>
+                            <option value="National">National / ناشونال (عربي / تجريبي / لغات)</option>
+                            <option value="International">International / انترناشونال (دولي)</option>
                           </select>
                         )}
 

@@ -15,6 +15,8 @@ export const TARGET_FIELDS: TargetFieldDef[] = [
   { key: 'gender', label: 'Gender (النوع)', category: 'profile', type: 'select' },
   { key: 'dob', label: 'Date of Birth (تاريخ الميلاد)', category: 'profile', type: 'date' },
   { key: 'school', label: 'School (المدرسة)', category: 'profile', type: 'text' },
+  { key: 'schoolType', label: 'School Type (نوع المدرسة)', category: 'profile', type: 'select' },
+  { key: 'deacon', label: 'Deacon (شماس)', category: 'profile', type: 'select' },
   { key: 'fatherOfConfession', label: 'Father of Confession (أب الاعتراف)', category: 'profile', type: 'text' },
   
   { key: 'street', label: 'Street (الشارع)', category: 'address', type: 'text' },
@@ -22,14 +24,17 @@ export const TARGET_FIELDS: TargetFieldDef[] = [
   { key: 'floor', label: 'Floor (الدور)', category: 'address', type: 'text' },
   { key: 'apartment', label: 'Apartment (الشقة)', category: 'address', type: 'text' },
   { key: 'region', label: 'Region / Area (المنطقة)', category: 'address', type: 'text' },
+  { key: 'landmark', label: 'Landmark (علامة مميزة)', category: 'address', type: 'text' },
 
   { key: 'kidMob', label: 'Kid Mobile (موبايل الطالب)', category: 'contacts', type: 'tel' },
   { key: 'fatherName', label: 'Father Name (اسم الأب)', category: 'contacts', type: 'text' },
   { key: 'fatherProfession', label: 'Father Job (وظيفة الأب)', category: 'contacts', type: 'text' },
   { key: 'fatherMob', label: 'Father Mobile (موبايل الأب)', category: 'contacts', type: 'tel' },
+  { key: 'fatherDOB', label: 'Father DOB (تاريخ ميلاد الأب)', category: 'contacts', type: 'date' },
   { key: 'motherName', label: 'Mother Name (اسم الأم)', category: 'contacts', type: 'text' },
   { key: 'motherProfession', label: 'Mother Job (وظيفة الأم)', category: 'contacts', type: 'text' },
   { key: 'motherMob', label: 'Mother Mobile (موبايل الأم)', category: 'contacts', type: 'tel' },
+  { key: 'motherDOB', label: 'Mother DOB (تاريخ ميلاد الأم)', category: 'contacts', type: 'date' },
   { key: 'otherMob', label: 'Other Mobile (تليفون آخر)', category: 'contacts', type: 'tel' },
 
   { key: 'notes', label: 'Notes (ملاحظات)', category: 'notes', type: 'text' },
@@ -53,13 +58,17 @@ function cleanHeader(header: string): string {
  * Bilingual heuristic mapping dictionary (Option 3 - Fast Offline Layer).
  */
 const HEURISTIC_PATTERNS: Record<string, string[]> = {
-  // Specific composite names first
+  // Specific composite names & parent birthdays first
+  fatherDOB: ['fatherdob', 'father birth', 'تاريخ ميلاد الاب', 'ميلاد الاب', 'تاريخ ميلاد والده', 'تاريخ ميلاد الوالد', 'سن الاب', 'تاريخ ميلاد ولي الامر'],
   fatherName: ['fathername', 'father name', 'اسم الاب', 'اسم الوالد', 'والد الطالب', 'اسم ولي الامر', 'اسم ولي أمر'],
   fatherProfession: ['fatherprofession', 'fatherjob', 'fatheroccupation', 'وظيفة الاب', 'مهنة الاب', 'عمل الاب', 'شغل الاب'],
   fatherMob: ['fathermob', 'fatherphone', 'موبايل الاب', 'تليفون الاب', 'رقم الاب', 'موبايل ولي الامر', 'تليفون ولي الامر', 'تليفون بابا', 'موبايل بابا', 'هاتف الاب', 'ولي الامر', 'موبايل ولي أمر', 'رقم ولي الامر', 'تليفون ولي الأمر'],
+  
+  motherDOB: ['motherdob', 'mother birth', 'تاريخ ميلاد الام', 'ميلاد الام', 'تاريخ ميلاد والدته', 'تاريخ ميلاد الوالدة', 'سن الام'],
   motherName: ['mothername', 'mother name', 'اسم الام', 'اسم الوالدة', 'والدة الطالب'],
   motherProfession: ['motherprofession', 'motherjob', 'motheroccupation', 'وظيفة الام', 'مهنة الام', 'عمل الام', 'شغل الام'],
   motherMob: ['mothermob', 'motherphone', 'موبايل الام', 'تليفون الام', 'رقم الام', 'تليفون ماما', 'موبايل ماما', 'هاتف الام', 'تليفون والدة'],
+  
   otherMob: ['othermob', 'otherphone', 'emergencyphone', 'تليفون اخر', 'موبايل اخر', 'رقم طوارئ', 'هاتف اخر'],
   kidMob: ['kidmob', 'kidphone', 'studentmobile', 'studentphone', 'موبايل الطالب', 'تليفون الطالب', 'رقم الطالب', 'موبايل الطفل', 'هاتف الطالب', 'موبايل', 'تليفون'],
   
@@ -67,7 +76,9 @@ const HEURISTIC_PATTERNS: Record<string, string[]> = {
   fullName: ['fullname', 'studentname', 'kidname', 'اسم الطالب', 'الاسم بالكامل', 'اسم الطفل', 'اسم المخدوم', 'full name', 'name', 'الاسم', 'اسم التلميذ', 'الاسم رباعي', 'الاسم ثلاثي', 'الاسم ثنائي', 'اسم الطالب/الطالبة', 'student full name'],
   gender: ['gender', 'sex', 'النوع', 'الجنس', 'بنت ولد', 'ولد بنت', 'النوع (بنت/ولد)', 'بنت/ولد'],
   dob: ['dob', 'birthdate', 'dateofbirth', 'birth date', 'تاريخ الميلاد', 'الميلاد', 'تاريخ ميلاد', 'تاريخ', 'السن', 'تاريخ_الميلاد', 'تاريخ_ميلاد', 'ميلاد', 'date of birth', 'bdate', 'birthday'],
+  schoolType: ['schooltype', 'نوع المدرسة', 'نوع المدرسه', 'نظام التعليم', 'لغات', 'تجريبي', 'خاص', 'حكومي', 'ناشونال', 'انترناشونال', 'national', 'international', 'school type'],
   school: ['school', 'المدرسة', 'مدرسة'],
+  deacon: ['deacon', 'شماس', 'مرتسم شماس', 'رتبة شماس', 'شموسية', 'شموسيه', 'هل شماس', 'رتبة الشموسية'],
   fatherOfConfession: ['fatherofconfession', 'confessionfather', 'abouna', 'اب الاعتراف', 'اسم اب الاعتراف', 'ابونا', 'كاهن الاعتراف', 'اب اعتراف الطالب'],
   
   // Address
@@ -75,6 +86,7 @@ const HEURISTIC_PATTERNS: Record<string, string[]> = {
   building: ['building', 'bldg', 'العمارة', 'رقم العمارة', 'عمارة'],
   floor: ['floor', 'الدور', 'رقم الدور'],
   apartment: ['apartment', 'apt', 'الشقة', 'رقم الشقة'],
+  landmark: ['landmark', 'علامة مميزة', 'علامه مميزه', 'اقرب مكان', 'بجوار', 'علامة مميزة للعنوان', 'علامه مميزه للعنوان'],
   region: ['region', 'district', 'area', 'city', 'المنطقة', 'الحي', 'المدينة', 'العنوان', 'السكن'],
   notes: ['notes', 'comments', 'remarks', 'ملاحظات', 'ملاحظة', 'تعليقات'],
 };
@@ -220,6 +232,16 @@ export function autoMapHeadersHeuristically(sheetHeaders: string[]): Record<stri
           continue;
         }
 
+        // Prevent generic dob from grabbing parent birth dates
+        if (fieldKey === 'dob' && (cleaned.includes('اب') || cleaned.includes('ام') || cleaned.includes('father') || cleaned.includes('mother') || cleaned.includes('والد') || cleaned.includes('والده'))) {
+          continue;
+        }
+
+        // Prevent generic school name from grabbing school type
+        if (fieldKey === 'school' && (cleaned.includes('نوع') || cleaned.includes('type') || cleaned.includes('نظام'))) {
+          continue;
+        }
+
         const subMatch = patterns.some((p) => {
           const cp = cleanHeader(p);
           return cp.length >= 3 && (cleaned.includes(cp) || cp.includes(cleaned));
@@ -305,36 +327,93 @@ export interface ParsedSpreadsheet {
   sheetNames: string[];
   sheets: Record<string, any[][]>;
   rawRows: any[][];
+  detectedEncoding?: string;
+  isCsv?: boolean;
 }
 
 /**
  * Parses an Excel or CSV file into raw 2D row arrays per sheet tab.
+ * Automatically handles UTF-8 (with/without BOM) and Windows-1256 (Arabic Excel ANSI).
  */
-export async function parseSpreadsheetFile(file: File): Promise<ParsedSpreadsheet> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
+export async function parseSpreadsheetFile(
+  file: File,
+  encodingOverride?: string
+): Promise<ParsedSpreadsheet> {
+  const buffer = typeof file.arrayBuffer === 'function'
+    ? await file.arrayBuffer()
+    : await new Promise<ArrayBuffer>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as ArrayBuffer);
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(file);
+      });
+
+  const data = new Uint8Array(buffer);
+
+  // Check binary signatures for Excel workbooks:
+  // ZIP magic bytes: 0x50 0x4B (.xlsx)
+  // OLE2 magic bytes: 0xD0 0xCF 0x11 0xE0 (.xls)
+  const isZip = data.length >= 4 && data[0] === 0x50 && data[1] === 0x4b;
+  const isOle2 = data.length >= 8 && data[0] === 0xd0 && data[1] === 0xcf && data[2] === 0x11 && data[3] === 0xe0;
+  const isExcelBinary = isZip || isOle2;
+
+  let workbook: XLSX.WorkBook;
+  let detectedEncoding = 'utf-8';
+  const isCsv = !isExcelBinary;
+
+  if (isExcelBinary) {
+    workbook = XLSX.read(data, { type: 'array', cellDates: true, codepage: 65001 });
+  } else {
+    // Delimited text file (CSV, TSV, TXT)
+    let text = '';
+    if (encodingOverride && encodingOverride !== 'auto') {
       try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-        const sheets: Record<string, any[][]> = {};
-        for (const name of workbook.SheetNames) {
-          const sheet = workbook.Sheets[name];
-          sheets[name] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-        }
-        const firstSheetName = workbook.SheetNames[0] || '';
-        resolve({
-          sheetNames: workbook.SheetNames,
-          sheets,
-          rawRows: sheets[firstSheetName] || [],
-        });
-      } catch (err) {
-        reject(err);
+        text = new TextDecoder(encodingOverride).decode(data);
+        detectedEncoding = encodingOverride;
+      } catch {
+        text = new TextDecoder('utf-8').decode(data);
+        detectedEncoding = 'utf-8';
       }
-    };
-    reader.onerror = reject;
-    reader.readAsArrayBuffer(file);
-  });
+    } else {
+      // Check BOM signatures
+      if (data.length >= 2 && data[0] === 0xff && data[1] === 0xfe) {
+        detectedEncoding = 'utf-16le';
+        text = new TextDecoder('utf-16le').decode(data);
+      } else if (data.length >= 2 && data[0] === 0xfe && data[1] === 0xff) {
+        detectedEncoding = 'utf-16be';
+        text = new TextDecoder('utf-16be').decode(data);
+      } else {
+        try {
+          text = new TextDecoder('utf-8', { fatal: true }).decode(data);
+          detectedEncoding = 'utf-8';
+        } catch {
+          // If invalid UTF-8 bytes are found, fall back to Windows-1256 (Arabic Excel ANSI)
+          try {
+            text = new TextDecoder('windows-1256').decode(data);
+            detectedEncoding = 'windows-1256';
+          } catch {
+            text = new TextDecoder('utf-8').decode(data);
+            detectedEncoding = 'utf-8';
+          }
+        }
+      }
+    }
+    workbook = XLSX.read(text, { type: 'string', cellDates: true });
+  }
+
+  const sheets: Record<string, any[][]> = {};
+  for (const name of workbook.SheetNames) {
+    const sheet = workbook.Sheets[name];
+    sheets[name] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+  }
+  const firstSheetName = workbook.SheetNames[0] || '';
+  return {
+    sheetNames: workbook.SheetNames,
+    sheets,
+    rawRows: sheets[firstSheetName] || [],
+    detectedEncoding,
+    isCsv,
+  };
 }
 
 export interface ImportResult {
@@ -370,14 +449,7 @@ export async function executeImportBatch(
     classId: string;
   },
   userEmail: string,
-  defaultValues?: {
-    gender?: string;
-    fatherOfConfession?: string;
-    school?: string;
-    region?: string;
-    street?: string;
-    notes?: string;
-  }
+  defaultValues?: Record<string, any>
 ): Promise<ImportResult> {
   const batchId = `import_${Date.now()}`;
   const headers = rows[headerRowIndex].map((h: any) => String(h || '').trim());
@@ -452,10 +524,10 @@ export async function executeImportBatch(
         }
       }
 
-      const normKidMob = normalizePhoneNumber(record.kidMob);
-      const normFatherMob = normalizePhoneNumber(record.fatherMob);
-      const normMotherMob = normalizePhoneNumber(record.motherMob);
-      const normOtherMob = normalizePhoneNumber(record.otherMob);
+      const normKidMob = normalizePhoneNumber(record.kidMob || defaultValues?.kidMob);
+      const normFatherMob = normalizePhoneNumber(record.fatherMob || defaultValues?.fatherMob);
+      const normMotherMob = normalizePhoneNumber(record.motherMob || defaultValues?.motherMob);
+      const normOtherMob = normalizePhoneNumber(record.otherMob || defaultValues?.otherMob);
 
       // Fallback defaults for unmapped / empty fields
       const finalSchool = String(record.school || defaultValues?.school || '').trim();
@@ -463,6 +535,33 @@ export async function executeImportBatch(
       const finalRegion = String(record.region || defaultValues?.region || '').trim();
       const finalStreet = String(record.street || defaultValues?.street || '').trim();
       const finalNotes = String(record.notes || defaultValues?.notes || '').trim();
+
+      // Normalize schoolType
+      let finalSchoolType = String(record.schoolType || defaultValues?.schoolType || '').trim();
+      if (finalSchoolType) {
+        const lowerSt = finalSchoolType.toLowerCase();
+        if (lowerSt.includes('national') || lowerSt.includes('ناشونال') || lowerSt.includes('حكومي') || lowerSt.includes('تجريبي') || lowerSt.includes('لغات')) {
+          finalSchoolType = 'National';
+        } else if (lowerSt.includes('international') || lowerSt.includes('انترناشونال') || lowerSt.includes('دولي')) {
+          finalSchoolType = 'International';
+        }
+      }
+
+      // Parse deacon (boolean)
+      let parsedDeacon: boolean | undefined = undefined;
+      const rawDeacon = record.deacon !== undefined && record.deacon !== null && record.deacon !== '' ? record.deacon : defaultValues?.deacon;
+      if (rawDeacon !== undefined && rawDeacon !== null && rawDeacon !== '' && rawDeacon !== 'auto') {
+        if (typeof rawDeacon === 'boolean') {
+          parsedDeacon = rawDeacon;
+        } else {
+          const s = String(rawDeacon).trim().toLowerCase();
+          parsedDeacon = s === 'true' || s === '1' || s === 'yes' || s === 'نعم' || s === 'شماس' || s === 'ايوه';
+        }
+      }
+
+      const parsedFatherDOB = normalizeDateValue(record.fatherDOB || defaultValues?.fatherDOB);
+      const parsedMotherDOB = normalizeDateValue(record.motherDOB || defaultValues?.motherDOB);
+      const finalLandmark = String(record.landmark || defaultValues?.landmark || '').trim();
 
       // Track attribute counts
       attributeCounts.fullName = (attributeCounts.fullName || 0) + 1;
@@ -475,6 +574,11 @@ export async function executeImportBatch(
       if (normKidMob) attributeCounts.kidMob = (attributeCounts.kidMob || 0) + 1;
       if (finalStreet || finalRegion || record.building) attributeCounts.address = (attributeCounts.address || 0) + 1;
       if (finalSchool) attributeCounts.school = (attributeCounts.school || 0) + 1;
+      if (finalSchoolType) attributeCounts.schoolType = (attributeCounts.schoolType || 0) + 1;
+      if (parsedDeacon !== undefined) attributeCounts.deacon = (attributeCounts.deacon || 0) + 1;
+      if (finalLandmark) attributeCounts.landmark = (attributeCounts.landmark || 0) + 1;
+      if (parsedFatherDOB) attributeCounts.fatherDOB = (attributeCounts.fatherDOB || 0) + 1;
+      if (parsedMotherDOB) attributeCounts.motherDOB = (attributeCounts.motherDOB || 0) + 1;
       if (finalConfession) attributeCounts.fatherOfConfession = (attributeCounts.fatherOfConfession || 0) + 1;
       if (finalNotes) attributeCounts.notes = (attributeCounts.notes || 0) + 1;
 
@@ -498,6 +602,8 @@ export async function executeImportBatch(
           gender: parsedGender,
           dob: parsedDob,
           school: finalSchool,
+          schoolType: finalSchoolType || undefined,
+          deacon: parsedDeacon,
           fatherOfConfession: finalConfession,
         },
         activeAssignment: {
@@ -511,15 +617,18 @@ export async function executeImportBatch(
           floor: String(record.floor || '').trim(),
           apartment: String(record.apartment || '').trim(),
           region: finalRegion,
+          landmark: finalLandmark || undefined,
         },
         contacts: {
           kidMob: normKidMob,
           fatherName: fatherNameStr,
           fatherProfession: String(record.fatherProfession || '').trim(),
           fatherMob: normFatherMob,
+          fatherDOB: parsedFatherDOB || undefined,
           motherName: String(safeMotherName || '').trim(),
           motherProfession: String(record.motherProfession || '').trim(),
           motherMob: normMotherMob,
+          motherDOB: parsedMotherDOB || undefined,
           otherMob: normOtherMob,
         },
         notes: finalNotes,

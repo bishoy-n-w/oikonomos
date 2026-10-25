@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { autoMapHeadersHeuristically, normalizeDateValue, autoDetectHeaderRow } from '../services/smartImport';
+import * as XLSX from 'xlsx';
+import { 
+  autoMapHeadersHeuristically, 
+  normalizeDateValue, 
+  autoDetectHeaderRow,
+  parseSpreadsheetFile 
+} from '../services/smartImport';
 import { normalizePhoneNumber } from '../services/googleContacts';
 
 describe('Smart Import & Bulk Operations Logic', () => {
@@ -72,6 +78,38 @@ describe('Smart Import & Bulk Operations Logic', () => {
       expect(mapped['ملاحظات']).toBe('notes');
     });
 
+    it('maps new attributes (schoolType, deacon, landmark, fatherDOB, motherDOB) in English and Arabic with zero collisions', () => {
+      const headers = [
+        'School Type',
+        'Deacon',
+        'Landmark',
+        'Father DOB',
+        'Mother DOB',
+        'نوع المدرسة',
+        'شماس',
+        'علامة مميزة',
+        'تاريخ ميلاد الأب',
+        'تاريخ ميلاد الأم',
+        'المدرسة',
+        'تاريخ ميلاد الطالب',
+      ];
+
+      const mapped = autoMapHeadersHeuristically(headers);
+
+      expect(mapped['School Type']).toBe('schoolType');
+      expect(mapped['Deacon']).toBe('deacon');
+      expect(mapped['Landmark']).toBe('landmark');
+      expect(mapped['Father DOB']).toBe('fatherDOB');
+      expect(mapped['Mother DOB']).toBe('motherDOB');
+      expect(mapped['نوع المدرسة']).toBe('schoolType');
+      expect(mapped['شماس']).toBe('deacon');
+      expect(mapped['علامة مميزة']).toBe('landmark');
+      expect(mapped['تاريخ ميلاد الأب']).toBe('fatherDOB');
+      expect(mapped['تاريخ ميلاد الأم']).toBe('motherDOB');
+      expect(mapped['المدرسة']).toBe('school');
+      expect(mapped['تاريخ ميلاد الطالب']).toBe('dob');
+    });
+
     it('ignores unrecognized headers gracefully', () => {
       const headers = ['Random Column X', 'Serial Number #'];
       const mapped = autoMapHeadersHeuristically(headers);
@@ -105,6 +143,23 @@ describe('Smart Import & Bulk Operations Logic', () => {
       const normalized = rawNumbers.map((p) => normalizePhoneNumber(p, '+20'));
 
       expect(normalized).toEqual(['+201223344556', '+201009876543', '+201112223334']);
+    });
+
+    it('safely handles numeric phone values from Excel cells without TypeError', () => {
+      // Excel frequently parses phone numbers as raw numbers, stripping the leading 0
+      const numericPhone = 1223344556;
+      expect(normalizePhoneNumber(numericPhone, '+20')).toBe('+201223344556');
+
+      const numericWithCountry = 201009876543;
+      expect(normalizePhoneNumber(numericWithCountry, '+20')).toBe('+201009876543');
+    });
+
+    it('gracefully handles null, undefined, empty, and non-numeric inputs', () => {
+      expect(normalizePhoneNumber(null)).toBe('');
+      expect(normalizePhoneNumber(undefined)).toBe('');
+      expect(normalizePhoneNumber('')).toBe('');
+      expect(normalizePhoneNumber('   ')).toBe('');
+      expect(normalizePhoneNumber('---')).toBe('');
     });
   });
 
@@ -229,6 +284,97 @@ describe('Smart Import & Bulk Operations Logic', () => {
 
       const detected = autoDetectHeaderRow(cleanSheet);
       expect(detected).toBe(0);
+    });
+  });
+
+  describe('Arabic CSV & Excel File Encoding Resilience (parseSpreadsheetFile)', () => {
+    it('parses UTF-8 Arabic CSV files without BOM without mojibake', async () => {
+      const arabicCsv = 'الاسم بالكامل,تاريخ الميلاد,النوع\nجليل سامي,2015-11-10,ولد\nكيرلس مينا,2016-01-05,ولد';
+      const encoded = new TextEncoder().encode(arabicCsv);
+      const file = new File([encoded], 'كشوفات مدارس الأحد.csv', { type: 'text/csv' });
+
+      const parsed = await parseSpreadsheetFile(file);
+
+      expect(parsed.isCsv).toBe(true);
+      expect(parsed.detectedEncoding).toBe('utf-8');
+      expect(parsed.sheetNames).toEqual(['Sheet1']);
+      expect(parsed.rawRows).toHaveLength(3);
+      expect(parsed.rawRows[0]).toEqual(['الاسم بالكامل', 'تاريخ الميلاد', 'النوع']);
+      expect(parsed.rawRows[1][0]).toBe('جليل سامي');
+      expect(parsed.rawRows[2][0]).toBe('كيرلس مينا');
+
+      // Verify header auto-detection and heuristic mapping succeed seamlessly on Arabic headers
+      const headerIdx = autoDetectHeaderRow(parsed.rawRows);
+      expect(headerIdx).toBe(0);
+      const mapping = autoMapHeadersHeuristically(parsed.rawRows[0]);
+      expect(mapping['الاسم بالكامل']).toBe('fullName');
+      expect(mapping['تاريخ الميلاد']).toBe('dob');
+      expect(mapping['النوع']).toBe('gender');
+    });
+
+    it('parses UTF-8 Arabic CSV files with BOM properly', async () => {
+      const arabicCsv = 'اسم الطالب,موبايل الأب\nمارينا سامي,01221112233';
+      const utf8Bytes = new TextEncoder().encode(arabicCsv);
+      const withBom = new Uint8Array([0xef, 0xbb, 0xbf, ...utf8Bytes]);
+      const file = new File([withBom], 'students_bom.csv', { type: 'text/csv' });
+
+      const parsed = await parseSpreadsheetFile(file);
+
+      expect(parsed.isCsv).toBe(true);
+      expect(parsed.detectedEncoding).toBe('utf-8');
+      expect(parsed.rawRows[0]).toEqual(['اسم الطالب', 'موبايل الأب']);
+      expect(parsed.rawRows[1][0]).toBe('مارينا سامي');
+    });
+
+    it('auto-detects and parses Windows-1256 (Arabic Excel ANSI) CSV files', async () => {
+      // Windows-1256 bytes for "الاسم,النوع\nجليل,ولد"
+      const win1256Bytes = new Uint8Array([
+        0xc7, 0xe1, 0xc7, 0xd3, 0xe3, 0x2c, 0xc7, 0xe1, 0xe4, 0xe6, 0xda, 0x0a,
+        0xcc, 0xe1, 0xed, 0xe1, 0x2c, 0xe6, 0xe1, 0xcf
+      ]);
+      const file = new File([win1256Bytes], 'excel_ansi_arabic.csv', { type: 'text/csv' });
+
+      const parsed = await parseSpreadsheetFile(file);
+
+      expect(parsed.isCsv).toBe(true);
+      expect(parsed.detectedEncoding).toBe('windows-1256');
+      expect(parsed.rawRows[0]).toEqual(['الاسم', 'النوع']);
+      expect(parsed.rawRows[1]).toEqual(['جليل', 'ولد']);
+    });
+
+    it('respects explicit encodingOverride when passed', async () => {
+      const win1256Bytes = new Uint8Array([
+        0xc7, 0xe1, 0xc7, 0xd3, 0xe3, 0x2c, 0xc7, 0xe1, 0xe4, 0xe6, 0xda, 0x0a,
+        0xcc, 0xe1, 0xed, 0xe1, 0x2c, 0xe6, 0xe1, 0xcf
+      ]);
+      const file = new File([win1256Bytes], 'excel_ansi_override.csv', { type: 'text/csv' });
+
+      const parsed = await parseSpreadsheetFile(file, 'windows-1256');
+
+      expect(parsed.isCsv).toBe(true);
+      expect(parsed.detectedEncoding).toBe('windows-1256');
+      expect(parsed.rawRows[0]).toEqual(['الاسم', 'النوع']);
+      expect(parsed.rawRows[1]).toEqual(['جليل', 'ولد']);
+    });
+
+    it('parses binary .xlsx files with isCsv: false', async () => {
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet([
+        ['الاسم بالكامل', 'تاريخ الميلاد'],
+        ['مارك أمير', '2014-06-15']
+      ]);
+      XLSX.utils.book_append_sheet(wb, ws, 'فصل داود');
+      const u8 = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+      const file = new File([u8], 'boys_class.xlsx', {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+
+      const parsed = await parseSpreadsheetFile(file);
+
+      expect(parsed.isCsv).toBe(false);
+      expect(parsed.sheetNames).toEqual(['فصل داود']);
+      expect(parsed.rawRows[0]).toEqual(['الاسم بالكامل', 'تاريخ الميلاد']);
+      expect(parsed.rawRows[1][0]).toBe('مارك أمير');
     });
   });
 });
