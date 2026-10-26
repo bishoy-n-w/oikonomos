@@ -552,6 +552,47 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   `photoUrl` is registered in `TARGET_FIELDS` and heuristic mappings (`Photo URL`, `صورة الطالب`, `Avatar`).
     *   Excel export includes the `Photo URL` column.
 
+---
+
+## 24. Home Visits & Pastoral Care Module (الافتقاد المنزلي)
+
+*   **Scoped Storage Architecture:**
+    *   Home visits are stored strictly per active Academic Year and Class:
+        `churches/{churchId}/academicYears/{academicYearId}/classes/{classId}/visits/{visitId}`
+    *   Mirrors attendance event isolation, preventing crossover of pastoral notes between different school terms or classrooms.
+*   **Transparent Team Access:**
+    *   All assigned servants of the classroom and coordinators of the parent Service Group have full read and write access to view past interactions and log new visits.
+*   **60-Day Overdue Pastoral Health Rule:**
+    *   The system calculates the elapsed days between today and the student's most recent interaction:
+        *   🟢 **Recently Visited:** Interacted within the last 30 days ($\le 30\text{d}$).
+        *   🟡 **Due for Care:** Interacted between 31 and 60 days ago ($31 - 60\text{d}$).
+        *   🔴 **Overdue for Care:** No interaction in $>60$ days.
+        *   ⚪ **Never Visited This Term:** Zero visits recorded in the active academic year.
+*   **Tri-Mode View Switcher:**
+    *   **1. 📋 Student Care Roster (`قائمة المخدومين`):**
+        *   Displays enrolled kids in a responsive card grid with student photo avatar, deacon badge, full address, and landmark (`علامة مميزة`).
+        *   **Quick Actions:** 1-tap Google Maps directions link (`https://www.google.com/maps/search/?api=1&query=...`), WhatsApp father/mother buttons, phone call shortcut, and Log Visit button.
+        *   **Pastoral Health Pill:** Shows status badge with days elapsed and date.
+        *   **Expandable History Drawer:** Reveals past interactions with detailed notes and attending servants for that child.
+        *   **Filter Pills:** `[ All Kids ]`, `[ 🔴 Overdue (>60d) ]`, `[ 🟡 Due (30-60d) ]`, `[ 🟢 Recent (≤30d) ]`, `[ ⚪ Never Visited ]`.
+    *   **2. 📜 Pastoral Timeline Feed (`سجل الافتقاد الزمني`):**
+        *   Chronological stream of all classroom visits and phone calls.
+        *   Displays interaction type badge (`🏠 Home Visit`, `📞 Pastoral Phone Call`, `🏥 Hospital Visit`, `⛪ Church 1-on-1`), date, attending servants chips, and discussion notes.
+        *   Shows warning banner for items flagged with `Needs Follow-Up` and their target date.
+        *   Edit and Delete actions for assigned class servants and group coordinators.
+    *   **3. 📊 Care Insights & Statistics (`إحصائيات الافتقاد`):**
+        *   **KPI Cards:** Care Coverage % (visited / total), Total Interactions, Home Visits count, and Overdue students count.
+        *   **Servants Leaderboard:** Ranks servants by number of visits attended.
+        *   **1-Click Formatted Excel Export (.xlsx):** Downloads multi-sheet report (`<Church>_<Class>_Home_Visits_Report.xlsx`) with `Student Care Status` and `Visits Log`.
+*   **Log Visit Modal (`LogVisitModal.tsx`):**
+    *   Pre-selects student or searchable dropdown.
+    *   Date picker defaulting to today.
+    *   Visit type selector: Home Visit, Phone Call, Hospital, Church 1-on-1.
+    *   Multi-select checkboxes of attending servants in the group/class.
+    *   Pastoral discussion notes textarea.
+    *   Follow-up checkbox with optional follow-up date picker.
+    *   Save loading state with animated spinner and Escape key dismissal.
+
 
 
 

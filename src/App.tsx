@@ -11,6 +11,7 @@ import { AttendanceTrackerScreen } from './screens/AttendanceTrackerScreen';
 import { ClassesScreen } from './screens/ClassesScreen';
 import { ServiceGroupsScreen } from './screens/ServiceGroupsScreen';
 import { ChurchesScreen } from './screens/ChurchesScreen';
+import { HomeVisitsScreen } from './screens/HomeVisitsScreen';
 import { parseCurrentRoute, syncRouteToUrl } from './utils/navigation';
 
 const AuthenticatedApp: React.FC = () => {
@@ -63,7 +64,7 @@ const AuthenticatedApp: React.FC = () => {
         {activeTab === 'attendance' && <AttendanceTrackerScreen />}
         {activeTab === 'classes' && <ClassesScreen />}
         {activeTab === 'service_groups' && <ServiceGroupsScreen />}
-        {activeTab === 'home_visits' && <DashboardScreen onNavigate={handleTabChange} />}
+        {activeTab === 'home_visits' && <HomeVisitsScreen />}
         {activeTab === 'churches_config' && <ChurchesScreen />}
       </MainShell>
     </FilterProvider>

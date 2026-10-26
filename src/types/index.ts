@@ -173,6 +173,26 @@ export type AttendanceStatus = 'present' | 'absent' | 'excused';
 
 export type AttendanceEventType = string;
 
+export type VisitType = 'home_visit' | 'phone_call' | 'hospital' | 'church_meeting';
+
+export interface HomeVisit {
+  id: string; // visitId
+  kidId: string;
+  academicYearId: string;
+  serviceGroupId?: string;
+  classId: string;
+  visitDate: string; // YYYY-MM-DD
+  type: VisitType;
+  visitorMisterIds: string[]; // List of servant emails/IDs who attended
+  notes: string;
+  needsFollowUp?: boolean;
+  followUpDate?: string; // YYYY-MM-DD
+  createdAt?: string;
+  createdBy?: string;
+  lastEditAt?: string;
+  lastEditBy?: string;
+}
+
 export interface AttendanceEvent {
   id: string; // eventId
   academicYearId: string;

@@ -206,6 +206,10 @@ service cloud.firestore {
           allow read, write: if isChurchServant(churchId);
         }
 
+        match /visits/{visitId} {
+          allow read, write: if isChurchServant(churchId);
+        }
+
         match /homeVisitsByClassInstance/{instanceId}/visits/{visitId} {
           allow read, write: if isChurchServant(churchId);
         }

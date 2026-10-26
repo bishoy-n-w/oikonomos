@@ -252,7 +252,31 @@ export const translations: Record<Language, Record<string, string>> = {
     address_group: 'Address',
     contacts_group: 'Contacts',
     notes_group: 'Notes',
-    active_term_badge: '(Active)'
+    active_term_badge: '(Active)',
+
+    // Home Visits
+    roster_view: 'Student Care Roster',
+    timeline_view: 'Pastoral Timeline',
+    insights_view: 'Care Insights',
+    recently_visited: 'Recently Visited',
+    due_for_visit: 'Due for Care',
+    overdue_for_visit: 'Overdue for Care',
+    never_visited: 'Never Visited This Term',
+    visit_type_home: 'Home Visit',
+    visit_type_phone: 'Pastoral Phone Call',
+    visit_type_hospital: 'Hospital / Sick',
+    visit_type_church: 'Church 1-on-1',
+    directions_map: 'Directions',
+    attending_servants: 'Attending Servants',
+    needs_follow_up: 'Needs Follow-Up',
+    follow_up_date: 'Follow-Up Date',
+    coverage_rate: 'Care Coverage',
+    total_visits: 'Total Interactions',
+    days_ago: 'days ago',
+    export_visits_excel: 'Export Visits Report',
+    no_visits_logged: 'No visits logged yet',
+    select_class_to_view_visits: 'Please select a Class in the top bar to view home visits',
+    delete_visit_confirm: 'Delete this visit record? This cannot be undone.'
   },
   ar: {
     dashboard: 'لوحة التحكم',
@@ -505,7 +529,31 @@ export const translations: Record<Language, Record<string, string>> = {
     address_group: 'العنوان والسكن',
     contacts_group: 'أرقام التواصل',
     notes_group: 'الملاحظات',
-    active_term_badge: '(الحالية)'
+    active_term_badge: '(الحالية)',
+
+    // Home Visits
+    roster_view: 'قائمة رعاية المخدومين',
+    timeline_view: 'سجل الافتقاد الزمني',
+    insights_view: 'إحصائيات الافتقاد',
+    recently_visited: 'تم الافتقاد حديثاً',
+    due_for_visit: 'يحتاج افتقاد قريباً',
+    overdue_for_visit: 'متأخر في الافتقاد',
+    never_visited: 'لم يفتقد هذا العام',
+    visit_type_home: 'زيارة منزلية',
+    visit_type_phone: 'اتصال هاتفي',
+    visit_type_hospital: 'زيارة مريض',
+    visit_type_church: 'جلسة بالكنيسة',
+    directions_map: 'الموقع على الخريطة',
+    attending_servants: 'الخدام المشاركون',
+    needs_follow_up: 'يحتاج متابعة',
+    follow_up_date: 'تاريخ المتابعة',
+    coverage_rate: 'نسبة تغطية الافتقاد',
+    total_visits: 'إجمالي مرات الافتقاد',
+    days_ago: 'منذ يوم',
+    export_visits_excel: 'تصدير تقرير الافتقاد',
+    no_visits_logged: 'لم يتم تسجيل افتقاد حتى الآن',
+    select_class_to_view_visits: 'برجاء اختيار فصل من الشريط العلوي لعرض الافتقاد',
+    delete_visit_confirm: 'هل أنت متأكد من حذف هذا الافتقاد؟ لا يمكن التراجع عن هذا الإجراء.'
   }
 };
 
