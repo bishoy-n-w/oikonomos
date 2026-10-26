@@ -72,6 +72,8 @@ This document serves as the absolute architectural blueprint and behavioral spec
     2.  **Priority 2 (LocalStorage Caching):** If no URL parameters are present, the system loads the user's previously selected Church, Term, Service Group, and Class from `localStorage`.
     3.  **Priority 3 (System Defaults):** For new users, defaults to the first permitted church and its active academic year.
 *   **Synchronization Lifecycle:**
+    *   **Synchronous State Hydration on Refresh:** React state for `selectedChurchId`, `selectedAcademicYearId`, `selectedServiceGroupId`, and `selectedClassId` initializes synchronously on component mount via lazy initializers reading `parseCurrentRoute()` and `localStorage`, eliminating the initial `null` flash.
+    *   **Tenant Switch Reset Guard:** Downstream filters (Year, Group, Class) are only cleared if the user explicitly switches from one church to a *different* church, preventing premature filter wipes during page reload.
     *   **Tab Switching:** Pushes a new browser history entry (`window.location.hash = ...`), enabling native browser Back and Forward navigation between screens.
     *   **Filter Toggling:** Synchronizes selections to `localStorage` and updates the URL query string using `history.replaceState`, avoiding history spam while keeping the address bar in real-time sync with user selections.
 

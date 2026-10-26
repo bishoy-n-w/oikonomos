@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from './AuthContext';
@@ -35,10 +35,21 @@ const FilterContext = createContext<FilterContextType | undefined>(undefined);
 export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isGlobalAdmin, checkChurchAuthorization } = useAuth();
 
-  const [selectedChurchId, setSelectedChurchId] = useState<string | null>(null);
-  const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<string | null>(null);
-  const [selectedServiceGroupId, setSelectedServiceGroupId] = useState<string | null>(null);
-  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const initialRoute = parseCurrentRoute();
+  const [selectedChurchId, setSelectedChurchId] = useState<string | null>(
+    () => initialRoute.filters.churchId || getFilterFromStorage('churchId') || null
+  );
+  const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<string | null>(
+    () => initialRoute.filters.academicYearId || getFilterFromStorage('academicYearId') || null
+  );
+  const [selectedServiceGroupId, setSelectedServiceGroupId] = useState<string | null>(
+    () => initialRoute.filters.serviceGroupId || getFilterFromStorage('serviceGroupId') || null
+  );
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(
+    () => initialRoute.filters.classId || getFilterFromStorage('classId') || null
+  );
+
+  const prevChurchIdRef = useRef<string | null>(selectedChurchId);
 
   const [churches, setChurches] = useState<DropdownItem[]>([]);
   const [churchRolesMap, setChurchRolesMap] = useState<Record<string, UserRole>>({});
@@ -139,13 +150,18 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // 2. When church changes, listen to its academic years and service groups
   useEffect(() => {
+    // Only reset downstream filters if transitioning to a different church, not on initial mount
+    if (prevChurchIdRef.current && prevChurchIdRef.current !== selectedChurchId) {
+      setSelectedAcademicYearId(null);
+      setSelectedServiceGroupId(null);
+      setSelectedClassId(null);
+    }
+    prevChurchIdRef.current = selectedChurchId;
+
     if (!selectedChurchId) {
       setAcademicYears([]);
       setServiceGroups([]);
       setClasses([]);
-      setSelectedAcademicYearId(null);
-      setSelectedServiceGroupId(null);
-      setSelectedClassId(null);
       return;
     }
 
@@ -177,14 +193,11 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       if (items.length > 0) {
         setSelectedAcademicYearId((prev) => {
-          if (prev && items.some((y) => y.id === prev)) return prev;
-
           const urlYear = parseCurrentRoute().filters.academicYearId;
-          if (urlYear && items.some((y) => y.id === urlYear)) return urlYear;
-
           const cachedYear = getFilterFromStorage('academicYearId');
-          if (cachedYear && items.some((y) => y.id === cachedYear)) return cachedYear;
+          const target = prev || urlYear || cachedYear;
 
+          if (target && items.some((y) => y.id === target)) return target;
           if (activeYearId && items.some((y) => y.id === activeYearId)) return activeYearId;
 
           return items[0].id;
@@ -336,16 +349,27 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!selectedChurchId) return;
 
     saveFilterToStorage('churchId', selectedChurchId);
-    saveFilterToStorage('academicYearId', selectedAcademicYearId);
-    saveFilterToStorage('serviceGroupId', selectedServiceGroupId);
-    saveFilterToStorage('classId', selectedClassId);
+    if (selectedAcademicYearId) {
+      saveFilterToStorage('academicYearId', selectedAcademicYearId);
+    }
+    if (selectedServiceGroupId) {
+      saveFilterToStorage('serviceGroupId', selectedServiceGroupId);
+    } else if (selectedServiceGroupId === null && !parseCurrentRoute().filters.serviceGroupId) {
+      saveFilterToStorage('serviceGroupId', null);
+    }
+    if (selectedClassId) {
+      saveFilterToStorage('classId', selectedClassId);
+    } else if (selectedClassId === null && !parseCurrentRoute().filters.classId) {
+      saveFilterToStorage('classId', null);
+    }
 
-    const currentTab = parseCurrentRoute().tab;
+    const currentRoute = parseCurrentRoute();
+    const currentTab = currentRoute.tab;
     syncRouteToUrl(currentTab, {
       churchId: selectedChurchId,
-      academicYearId: selectedAcademicYearId,
-      serviceGroupId: selectedServiceGroupId,
-      classId: selectedClassId,
+      academicYearId: selectedAcademicYearId || currentRoute.filters.academicYearId,
+      serviceGroupId: selectedServiceGroupId !== null ? selectedServiceGroupId : (currentRoute.filters.serviceGroupId || null),
+      classId: selectedClassId !== null ? selectedClassId : (currentRoute.filters.classId || null),
     }, false);
   }, [selectedChurchId, selectedAcademicYearId, selectedServiceGroupId, selectedClassId]);
 

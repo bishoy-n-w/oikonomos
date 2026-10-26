@@ -111,6 +111,45 @@ describe('Hash Navigation & Filter Persistence Utilities', () => {
       expect(localStorage.getItem(STORAGE_KEYS.lastTab)).toBe('classes');
       expect(window.location.hash).toBe('#/classes?church=c1&class=cl2');
     });
+
+    it('simulates page refresh: retains full filter matrix from URL parameters', () => {
+      const beforeRefreshUrl = buildHashUrl('attendance', {
+        churchId: 'church_10',
+        academicYearId: 'year_2026',
+        serviceGroupId: 'group_boys',
+        classId: 'class_grade5',
+      });
+      window.location.hash = beforeRefreshUrl;
+
+      const afterRefresh = parseCurrentRoute();
+      expect(afterRefresh.tab).toBe('attendance');
+      expect(afterRefresh.filters.churchId).toBe('church_10');
+      expect(afterRefresh.filters.academicYearId).toBe('year_2026');
+      expect(afterRefresh.filters.serviceGroupId).toBe('group_boys');
+      expect(afterRefresh.filters.classId).toBe('class_grade5');
+    });
+
+    it('simulates page refresh: recalls filters from localStorage when bare hash URL is used', () => {
+      saveFilterToStorage('churchId', 'church_cached');
+      saveFilterToStorage('academicYearId', 'year_cached');
+      saveFilterToStorage('serviceGroupId', 'group_cached');
+      saveFilterToStorage('classId', 'class_cached');
+
+      window.location.hash = '#/kids';
+
+      const parsed = parseCurrentRoute();
+      expect(parsed.tab).toBe('kids');
+
+      const churchId = parsed.filters.churchId || getFilterFromStorage('churchId');
+      const academicYearId = parsed.filters.academicYearId || getFilterFromStorage('academicYearId');
+      const serviceGroupId = parsed.filters.serviceGroupId || getFilterFromStorage('serviceGroupId');
+      const classId = parsed.filters.classId || getFilterFromStorage('classId');
+
+      expect(churchId).toBe('church_cached');
+      expect(academicYearId).toBe('year_cached');
+      expect(serviceGroupId).toBe('group_cached');
+      expect(classId).toBe('class_cached');
+    });
   });
 
   describe('Route & Tab Bijective Mapping Parity', () => {
