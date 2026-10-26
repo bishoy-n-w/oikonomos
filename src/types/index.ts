@@ -94,6 +94,7 @@ export interface KidAddress {
   apartment?: string;
   region?: string;
   landmark?: string;
+  geoLocation?: string; // e.g. "geo:30.0444,31.2357" or valid map URL
 }
 
 export interface KidInfo {

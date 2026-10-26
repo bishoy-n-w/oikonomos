@@ -5,16 +5,22 @@ import {
   Calendar, 
   Check, 
   RefreshCw,
-  AlertCircle 
+  AlertCircle,
+  Navigation
 } from 'lucide-react';
 import type { Kid, Mister, HomeVisit, VisitType } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { useModalEscape } from '../../utils/useModalEscape';
+import { captureDeviceGpsLocation } from '../../utils/geo';
 
 interface LogVisitModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (visitData: Omit<HomeVisit, 'id' | 'createdAt' | 'createdBy'>, existingId?: string) => Promise<void>;
+  onSave: (
+    visitData: Omit<HomeVisit, 'id' | 'createdAt' | 'createdBy'>, 
+    existingId?: string,
+    capturedGeo?: string
+  ) => Promise<void>;
   preselectedKidId?: string;
   existingVisit?: HomeVisit | null;
   kids: Kid[];
@@ -46,6 +52,7 @@ export const LogVisitModal: React.FC<LogVisitModalProps> = ({
   const [notes, setNotes] = useState(existingVisit?.notes || '');
   const [needsFollowUp, setNeedsFollowUp] = useState(Boolean(existingVisit?.needsFollowUp));
   const [followUpDate, setFollowUpDate] = useState(existingVisit?.followUpDate || '');
+  const [saveCurrentGps, setSaveCurrentGps] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -63,6 +70,7 @@ export const LogVisitModal: React.FC<LogVisitModalProps> = ({
       setNotes(existingVisit?.notes || '');
       setNeedsFollowUp(Boolean(existingVisit?.needsFollowUp));
       setFollowUpDate(existingVisit?.followUpDate || '');
+      setSaveCurrentGps(false);
       setIsSaving(false);
     }
   }, [isOpen, existingVisit, preselectedKidId, kids, currentServantEmail]);
@@ -91,6 +99,17 @@ export const LogVisitModal: React.FC<LogVisitModalProps> = ({
 
     setIsSaving(true);
     try {
+      let capturedGeo: string | undefined = undefined;
+      if (saveCurrentGps) {
+        try {
+          const gps = await captureDeviceGpsLocation();
+          capturedGeo = gps.geoUri;
+        } catch (gpsErr: any) {
+          console.warn('GPS capture error during visit save:', gpsErr);
+          alert(`Notice: ${gpsErr.message || 'Could not capture GPS location.'} Proceeding to save visit.`);
+        }
+      }
+
       await onSave(
         {
           kidId,
@@ -103,7 +122,8 @@ export const LogVisitModal: React.FC<LogVisitModalProps> = ({
           needsFollowUp,
           followUpDate: needsFollowUp ? followUpDate || undefined : undefined,
         },
-        existingVisit?.id
+        existingVisit?.id,
+        capturedGeo
       );
       onClose();
     } catch (err: any) {
@@ -275,6 +295,24 @@ export const LogVisitModal: React.FC<LogVisitModalProps> = ({
                 </div>
               )}
             </div>
+
+            {/* Optional GPS Capture if kid has no location */}
+            {selectedKid && !selectedKid.address?.geoLocation && (
+              <div className="p-3 rounded-2xl bg-teal-50/60 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/50">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={saveCurrentGps}
+                    onChange={(e) => setSaveCurrentGps(e.target.checked)}
+                    className="rounded text-teal-600 focus:ring-teal-500 w-4 h-4 cursor-pointer"
+                  />
+                  <span className="font-bold text-teal-900 dark:text-teal-200 text-xs flex items-center gap-1.5">
+                    <Navigation className="w-3.5 h-3.5 text-teal-600" />
+                    <span>{translate('save_gps_with_visit')}</span>
+                  </span>
+                </label>
+              </div>
+            )}
 
             {/* Buttons */}
             <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-zinc-100 dark:border-zinc-800">

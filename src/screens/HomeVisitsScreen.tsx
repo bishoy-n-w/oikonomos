@@ -15,6 +15,10 @@ import { useFilter } from '../context/FilterContext';
 import type { Kid, Mister, HomeVisit, ClassDoc } from '../types';
 import { LogVisitModal } from '../components/visits/LogVisitModal';
 import { 
+  getUniversalNavigationUrl, 
+  captureDeviceGpsLocation 
+} from '../utils/geo';
+import { 
   Home, 
   MapPin, 
   Plus, 
@@ -28,7 +32,8 @@ import {
   Users, 
   MessageSquare,
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  Navigation
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -56,12 +61,35 @@ export const HomeVisitsScreen: React.FC = () => {
   const [timelineTypeFilter, setTimelineTypeFilter] = useState<string>('all');
   const [expandedKidHistories, setExpandedKidHistories] = useState<Record<string, boolean>>({});
 
-  // Modal state
+  // Modal & Pin state
   const [logModalOpen, setLogModalOpen] = useState(false);
   const [preselectedKidId, setPreselectedKidId] = useState<string | undefined>(undefined);
   const [editingVisit, setEditingVisit] = useState<HomeVisit | null>(null);
+  const [pinningKidId, setPinningKidId] = useState<string | null>(null);
 
   const canEdit = selectedClassId ? canEditClass(selectedClassId) : false;
+
+  // Pin student home location using device GPS
+  const handlePinLocation = async (kidId: string) => {
+    if (!selectedChurchId) return;
+    setPinningKidId(kidId);
+    try {
+      const captured = await captureDeviceGpsLocation();
+      const kidRef = doc(db, 'churches', selectedChurchId, 'kids', kidId);
+      await setDoc(kidRef, {
+        address: {
+          geoLocation: captured.geoUri,
+        },
+        lastEditAt: new Date().toISOString(),
+        lastEditBy: user?.email || '',
+      }, { merge: true });
+      alert(translate('location_captured'));
+    } catch (err: any) {
+      alert(err.message || translate('location_permission_denied'));
+    } finally {
+      setPinningKidId(null);
+    }
+  };
 
   // 1. Listen to Class Document to extract roster student IDs
   useEffect(() => {
@@ -291,7 +319,8 @@ export const HomeVisitsScreen: React.FC = () => {
   // Handle Save Visit
   const handleSaveVisit = async (
     visitData: Omit<HomeVisit, 'id' | 'createdAt' | 'createdBy'>,
-    existingId?: string
+    existingId?: string,
+    capturedGeo?: string
   ) => {
     if (!selectedChurchId || !selectedAcademicYearId || !selectedClassId) return;
 
@@ -327,6 +356,22 @@ export const HomeVisitsScreen: React.FC = () => {
     };
 
     await setDoc(targetDoc, payload, { merge: true });
+
+    if (capturedGeo && visitData.kidId) {
+      try {
+        const kidRef = doc(db, 'churches', selectedChurchId, 'kids', visitData.kidId);
+        await setDoc(kidRef, {
+          address: {
+            geoLocation: capturedGeo,
+          },
+          lastEditAt: nowIso,
+          lastEditBy: user?.email || '',
+        }, { merge: true });
+      } catch (err) {
+        console.warn('Could not update kid geoLocation from visit:', err);
+      }
+    }
+
     setEditingVisit(null);
   };
 
@@ -367,6 +412,7 @@ export const HomeVisitsScreen: React.FC = () => {
       'Region': kid.address?.region || '',
       'Street': kid.address?.street || '',
       'Landmark': kid.address?.landmark || '',
+      'GPS Location': kid.address?.geoLocation || '',
       'Father Mobile': kid.contacts?.fatherMob || '',
       'Mother Mobile': kid.contacts?.motherMob || '',
     }));
@@ -721,6 +767,46 @@ export const HomeVisitsScreen: React.FC = () => {
                         </a>
                       )}
                     </div>
+
+                    {/* GPS Navigation & Pinning Bar */}
+                    {kid.address?.geoLocation ? (
+                      <div className="flex items-center gap-1.5 pt-1">
+                        <a
+                          href={getUniversalNavigationUrl(kid.address.geoLocation, fullAddress)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-xl bg-teal-50 dark:bg-teal-950/60 hover:bg-teal-100 text-teal-800 dark:text-teal-200 text-[11px] font-bold border border-teal-200 dark:border-teal-800 transition"
+                          title={translate('navigate')}
+                        >
+                          <Navigation className="w-3.5 h-3.5 text-teal-600" />
+                          <span>{translate('navigate')}</span>
+                        </a>
+                        <a
+                          href={`https://wa.me/?text=${encodeURIComponent(`سلام ونعمة، ده لوكيشن بيت الطالب (${kid.info.fullName}): ${getUniversalNavigationUrl(kid.address.geoLocation, fullAddress)}`)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 transition"
+                          title={translate('share_location')}
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                        </a>
+                      </div>
+                    ) : (
+                      canEdit && (
+                        <div className="pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handlePinLocation(kid.id)}
+                            disabled={pinningKidId === kid.id}
+                            className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-xl border border-dashed border-teal-300 dark:border-teal-700 bg-teal-50/50 dark:bg-teal-950/30 hover:bg-teal-50 text-teal-700 dark:text-teal-300 text-[11px] font-bold transition cursor-pointer disabled:opacity-50"
+                            title="Capture current phone GPS and save as student home location"
+                          >
+                            <Navigation className="w-3 h-3 text-teal-600" />
+                            <span>{pinningKidId === kid.id ? translate('saving') : translate('pin_home_location')}</span>
+                          </button>
+                        </div>
+                      )
+                    )}
                   </div>
 
                   {/* Bottom Action Footer */}

@@ -1,5 +1,6 @@
 import type { Kid } from '../types';
 import { getGoogleAccessToken, requestContactsPermission } from './auth';
+import { getUniversalNavigationUrl } from '../utils/geo';
 
 export interface SyncResult {
   success: boolean;
@@ -69,6 +70,26 @@ export function transformKidToGooglePerson(kid: Kid, churchName: string, classNa
     });
   }
 
+  const navUrl = kid.address?.geoLocation
+    ? getUniversalNavigationUrl(kid.address.geoLocation)
+    : '';
+
+  const addressText = [
+    kid.address?.street,
+    kid.address?.building ? `Bldg ${kid.address.building}` : '',
+    kid.address?.apartment ? `Apt ${kid.address.apartment}` : '',
+    kid.address?.region,
+    kid.address?.landmark ? `(Near: ${kid.address.landmark})` : '',
+  ].filter(Boolean).join(', ');
+
+  const bioLines = [
+    `Sunday School Student - ${kid.info.fullName}`,
+    kid.contacts?.fatherName ? `Father: ${kid.contacts.fatherName}` : '',
+    kid.contacts?.motherName ? `Mother: ${kid.contacts.motherName}` : '',
+    addressText ? `Address: ${addressText}` : '',
+    navUrl ? `📍 Home Map: ${navUrl}` : '',
+  ].filter(Boolean).join('. ');
+
   return {
     names: [
       {
@@ -84,10 +105,18 @@ export function transformKidToGooglePerson(kid: Kid, churchName: string, classNa
     ],
     biographies: [
       {
-        value: `Sunday School Student - ${kid.info.fullName}. Father: ${kid.contacts?.fatherName || 'N/A'}, Mother: ${kid.contacts?.motherName || 'N/A'}. Address: ${kid.address?.region || ''}`,
+        value: bioLines,
         contentType: 'TEXT_PLAIN',
       },
     ],
+    addresses: addressText ? [
+      {
+        type: 'home',
+        formattedValue: addressText,
+        streetAddress: kid.address?.street || undefined,
+        city: kid.address?.region || undefined,
+      }
+    ] : undefined,
     phoneNumbers: phoneNumbers.length > 0 ? phoneNumbers : undefined,
   };
 }

@@ -276,7 +276,17 @@ export const translations: Record<Language, Record<string, string>> = {
     export_visits_excel: 'Export Visits Report',
     no_visits_logged: 'No visits logged yet',
     select_class_to_view_visits: 'Please select a Class in the top bar to view home visits',
-    delete_visit_confirm: 'Delete this visit record? This cannot be undone.'
+    delete_visit_confirm: 'Delete this visit record? This cannot be undone.',
+
+    // Geolocation
+    geo_location: 'GPS Location / Map Link',
+    capture_current_location: 'Capture Current GPS',
+    pin_home_location: 'Pin Home Location',
+    navigate: 'Navigate',
+    valid_gps_coords: 'Valid GPS Coordinates',
+    location_captured: 'Location captured successfully',
+    share_location: 'Share Location',
+    save_gps_with_visit: 'Save current GPS location as student home'
   },
   ar: {
     dashboard: 'لوحة التحكم',
@@ -553,7 +563,17 @@ export const translations: Record<Language, Record<string, string>> = {
     export_visits_excel: 'تصدير تقرير الافتقاد',
     no_visits_logged: 'لم يتم تسجيل افتقاد حتى الآن',
     select_class_to_view_visits: 'برجاء اختيار فصل من الشريط العلوي لعرض الافتقاد',
-    delete_visit_confirm: 'هل أنت متأكد من حذف هذا الافتقاد؟ لا يمكن التراجع عن هذا الإجراء.'
+    delete_visit_confirm: 'هل أنت متأكد من حذف هذا الافتقاد؟ لا يمكن التراجع عن هذا الإجراء.',
+
+    // Geolocation
+    geo_location: 'موقع الخريطة (GPS)',
+    capture_current_location: 'تحديد موقعي الحالي',
+    pin_home_location: 'تثبيت موقع المنزل',
+    navigate: 'اتجاهات السير',
+    valid_gps_coords: 'إحداثيات صحيحة',
+    location_captured: 'تم تحديد الموقع بنجاح',
+    share_location: 'مشاركة اللوكيشن',
+    save_gps_with_visit: 'حفظ الموقع الحالي كموقع لمنزل الطالب'
   }
 };
 

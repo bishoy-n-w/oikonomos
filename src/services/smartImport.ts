@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx';
 import { collection, writeBatch, doc, query, where, getDocs, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { normalizePhoneNumber } from './googleContacts';
+import { normalizeGeoInput } from '../utils/geo';
 
 export interface TargetFieldDef {
   key: string;
@@ -26,6 +27,7 @@ export const TARGET_FIELDS: TargetFieldDef[] = [
   { key: 'apartment', label: 'Apartment (الشقة)', category: 'address', type: 'text' },
   { key: 'region', label: 'Region / Area (المنطقة)', category: 'address', type: 'text' },
   { key: 'landmark', label: 'Landmark (علامة مميزة)', category: 'address', type: 'text' },
+  { key: 'geoLocation', label: 'GPS Location / Map Link (موقع الخريطة)', category: 'address', type: 'text' },
 
   { key: 'kidMob', label: 'Kid Mobile (موبايل الطالب)', category: 'contacts', type: 'tel' },
   { key: 'fatherName', label: 'Father Name (اسم الأب)', category: 'contacts', type: 'text' },
@@ -89,6 +91,7 @@ const HEURISTIC_PATTERNS: Record<string, string[]> = {
   floor: ['floor', 'الدور', 'رقم الدور'],
   apartment: ['apartment', 'apt', 'الشقة', 'رقم الشقة'],
   landmark: ['landmark', 'علامة مميزة', 'علامه مميزه', 'اقرب مكان', 'بجوار', 'علامة مميزة للعنوان', 'علامه مميزه للعنوان'],
+  geoLocation: ['geolocation', 'location', 'gps', 'coordinates', 'map', 'موقع', 'لوكيشن', 'خريطة', 'رابط الخريطة', 'احداثيات', 'احداثيات الموقع', 'موقع المنزل', 'عنوان الخريطة'],
   region: ['region', 'district', 'area', 'city', 'المنطقة', 'الحي', 'المدينة', 'العنوان', 'السكن'],
   notes: ['notes', 'comments', 'remarks', 'ملاحظات', 'ملاحظة', 'تعليقات'],
 };
@@ -564,6 +567,7 @@ export async function executeImportBatch(
       const parsedFatherDOB = normalizeDateValue(record.fatherDOB || defaultValues?.fatherDOB);
       const parsedMotherDOB = normalizeDateValue(record.motherDOB || defaultValues?.motherDOB);
       const finalLandmark = String(record.landmark || defaultValues?.landmark || '').trim();
+      const finalGeoLocation = normalizeGeoInput(record.geoLocation || defaultValues?.geoLocation);
       const finalPhotoUrl = String(record.photoUrl || defaultValues?.photoUrl || '').trim();
 
       // Track attribute counts
@@ -580,6 +584,7 @@ export async function executeImportBatch(
       if (finalSchoolType) attributeCounts.schoolType = (attributeCounts.schoolType || 0) + 1;
       if (parsedDeacon !== undefined) attributeCounts.deacon = (attributeCounts.deacon || 0) + 1;
       if (finalLandmark) attributeCounts.landmark = (attributeCounts.landmark || 0) + 1;
+      if (finalGeoLocation) attributeCounts.geoLocation = (attributeCounts.geoLocation || 0) + 1;
       if (parsedFatherDOB) attributeCounts.fatherDOB = (attributeCounts.fatherDOB || 0) + 1;
       if (parsedMotherDOB) attributeCounts.motherDOB = (attributeCounts.motherDOB || 0) + 1;
       if (finalConfession) attributeCounts.fatherOfConfession = (attributeCounts.fatherOfConfession || 0) + 1;
@@ -623,6 +628,7 @@ export async function executeImportBatch(
           apartment: String(record.apartment || '').trim(),
           region: finalRegion,
           landmark: finalLandmark || undefined,
+          geoLocation: finalGeoLocation || undefined,
         },
         contacts: {
           kidMob: normKidMob,

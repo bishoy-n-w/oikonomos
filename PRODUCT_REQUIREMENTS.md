@@ -593,6 +593,39 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   Follow-up checkbox with optional follow-up date picker.
     *   Save loading state with animated spinner and Escape key dismissal.
 
+---
+
+## 25. Geolocation, Cross-Platform Navigation & Home Pinning (تحديد موقع المنزل والخرائط)
+
+*   **Canonical Storage (`KidAddress.geoLocation`):**
+    *   Stored under `churches/{churchId}/kids/{kidId}.address.geoLocation` in standardized Geo URI format (`geo:30.044400,31.235700`) or valid map web link.
+*   **Universal Cross-Platform Navigation Resolver:**
+    *   Eliminates broken `geo:` links on iOS and Desktop browsers by dynamically resolving destination URLs:
+        *   **iOS Devices (iPhone / iPad / Mac Safari):** Opens Apple Maps natively (`https://maps.apple.com/?daddr=${lat},${lng}&dirflg=d`).
+        *   **Android Devices & Desktop Browsers:** Opens Google Maps turn-by-turn navigation (`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`).
+        *   **Address Fallback:** If coordinates are missing, falls back to Google Maps search using registered address and landmark.
+*   **Intelligent Link & Coordinate Parser:**
+    *   Recognizes and extracts coordinates from:
+        *   WhatsApp shared location pins (`maps.google.com/maps?q=loc:lat,lng`).
+        *   Google Maps web queries, desktop paths (`/@lat,lng`), and data parameters (`!3dlat!4dlng`).
+        *   Apple Maps shared links (`?q=lat,lng` or `?ll=lat,lng`).
+        *   Waze links (`?ll=lat,lng`).
+        *   Raw coordinates (`30.0444, 31.2357`) and Geo URIs (`geo:lat,lng`).
+        *   Preserves shortened map links (`maps.app.goo.gl`).
+*   **Device Hardware GPS Capture:**
+    *   Allows servants standing at a student's home to capture coordinates directly from the device's GPS chip using `navigator.geolocation.getCurrentPosition({ enableHighAccuracy: true })`.
+*   **Home Visits Integration:**
+    *   **Student Care Cards:**
+        *   When location is registered: displays a green **"🚗 Navigate / اتجاهات السير"** button and **"Share via WhatsApp"** button to send coordinates to co-servants.
+        *   When location is missing: displays a dashed **"📍 Pin Home Location / تثبيت موقع المنزل"** button to capture and save device GPS in 1 tap.
+    *   **Log Visit Modal:** Provides a checkbox (`[✓] Save current GPS location as student home`) to capture and record home coordinates simultaneously while logging the visit.
+*   **Google Contacts Integration:**
+    *   Injects clickable universal map link into contact biographies and Google People API address entries.
+*   **Smart Import & Excel Export:**
+    *   `geoLocation` is registered in `TARGET_FIELDS` and `HEURISTIC_PATTERNS`.
+    *   Import engine normalizes links and coordinates into `geo:lat,lng`.
+    *   Excel exports include dedicated `GPS Location` column.
+
 
 
 

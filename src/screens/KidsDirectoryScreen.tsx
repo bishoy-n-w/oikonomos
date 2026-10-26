@@ -12,6 +12,12 @@ import { SmartImportModal } from '../components/kids/SmartImportModal';
 import { normalizePhoneNumber } from '../services/googleContacts';
 import { normalizeDateStr, safeRender } from '../utils/formatters';
 import { useModalEscape } from '../utils/useModalEscape';
+import { 
+  parseGeoCoordinates, 
+  captureDeviceGpsLocation, 
+  getUniversalNavigationUrl, 
+  normalizeGeoInput 
+} from '../utils/geo';
 import type { Kid, ClassDoc, KidVersion } from '../types';
 import { 
   Plus, 
@@ -25,7 +31,8 @@ import {
   X, 
   Layers,
   RefreshCw,
-  Users 
+  Users,
+  Navigation 
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -105,6 +112,7 @@ export const KidsDirectoryScreen: React.FC = () => {
           address: {
             ...(d.address || {}),
             landmark: d.address?.landmark || d.landmark || '',
+            geoLocation: d.address?.geoLocation || d.geoLocation || '',
           },
           contacts: {
             ...(d.contacts || {}),
@@ -553,6 +561,7 @@ export const KidsDirectoryScreen: React.FC = () => {
       'Apartment': k.address?.apartment || '',
       'Region': k.address?.region || '',
       'Landmark': k.address?.landmark || '',
+      'GPS Location': k.address?.geoLocation || '',
       'Kid Mobile': k.contacts?.kidMob || '',
       'Father Name': k.contacts?.fatherName || '',
       'Father Profession': k.contacts?.fatherProfession || '',
@@ -998,7 +1007,22 @@ export const KidsDirectoryScreen: React.FC = () => {
                         <td className="px-3 py-4 whitespace-nowrap text-zinc-500">{kid.address?.floor || '-'}</td>
                         <td className="px-3 py-4 whitespace-nowrap text-zinc-500">{kid.address?.apartment || '-'}</td>
                         <td className="px-4 py-4 whitespace-nowrap text-zinc-700 dark:text-zinc-300 font-medium">{kid.address?.region || '-'}</td>
-                        <td className="px-4 py-4 whitespace-nowrap text-zinc-500">{kid.address?.landmark || '-'}</td>
+                        <td className="px-4 py-4 whitespace-nowrap text-zinc-500">
+                          <div className="flex items-center gap-1.5">
+                            <span>{kid.address?.landmark || '-'}</span>
+                            {kid.address?.geoLocation && (
+                              <a
+                                href={getUniversalNavigationUrl(kid.address.geoLocation, [kid.address.street, kid.address.region].filter(Boolean).join(', '))}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="p-1 rounded-md text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/40 transition shrink-0"
+                                title="Open GPS Location / Directions"
+                              >
+                                <Navigation className="w-3.5 h-3.5" />
+                              </a>
+                            )}
+                          </div>
+                        </td>
                       </>
                     )}
 
@@ -1278,6 +1302,8 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
   const [apartment, setApartment] = useState(existingKid?.address?.apartment || '');
   const [region, setRegion] = useState(existingKid?.address?.region || '');
   const [landmark, setLandmark] = useState(existingKid?.address?.landmark || '');
+  const [geoLocation, setGeoLocation] = useState(existingKid?.address?.geoLocation || '');
+  const [isCapturingGps, setIsCapturingGps] = useState(false);
 
   // Contacts
   const [kidMob, setKidMob] = useState(existingKid?.contacts?.kidMob || '');
@@ -1329,6 +1355,7 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
           apartment,
           region,
           landmark: landmark.trim() || undefined,
+          geoLocation: normalizeGeoInput(geoLocation) || undefined,
         },
         contacts: {
           kidMob,
@@ -1679,6 +1706,65 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
                   placeholder="e.g. Near St. George Church / بجوار ..."
                   className="w-full p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"
                 />
+              </div>
+            </div>
+
+            {/* GeoLocation with GPS Capture and Map Preview */}
+            <div className="pt-1">
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
+                  {translate('geo_location')}
+                </label>
+                <div className="flex items-center gap-2">
+                  {parseGeoCoordinates(geoLocation) && (
+                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full">
+                      ✓ {translate('valid_gps_coords')}
+                    </span>
+                  )}
+                  {geoLocation && (
+                    <a
+                      href={getUniversalNavigationUrl(geoLocation)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[10px] font-bold text-teal-600 hover:underline flex items-center gap-1"
+                    >
+                      <Navigation className="w-2.5 h-2.5" />
+                      <span>{translate('navigate')}</span>
+                    </a>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  value={geoLocation}
+                  onChange={(e) => setGeoLocation(e.target.value)}
+                  placeholder="e.g. geo:30.0444,31.2357 or paste Google/Apple Maps / WhatsApp link"
+                  className="w-full p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-mono"
+                />
+                <button
+                  type="button"
+                  disabled={isCapturingGps}
+                  onClick={async () => {
+                    setIsCapturingGps(true);
+                    try {
+                      const captured = await captureDeviceGpsLocation();
+                      setGeoLocation(captured.geoUri);
+                    } catch (err: any) {
+                      alert(err.message || translate('location_permission_denied'));
+                    } finally {
+                      setIsCapturingGps(false);
+                    }
+                  }}
+                  className="flex items-center gap-1 px-3 py-2 rounded-xl bg-teal-50 dark:bg-teal-950/60 hover:bg-teal-100 text-teal-700 dark:text-teal-300 font-bold text-xs border border-teal-200 dark:border-teal-800 transition cursor-pointer disabled:opacity-50 shrink-0"
+                  title="Capture current location from phone/device GPS"
+                >
+                  {isCapturingGps ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Navigation className="w-3.5 h-3.5" />
+                  )}
+                  <span>{translate('capture_current_location')}</span>
+                </button>
               </div>
             </div>
           </div>
