@@ -18,6 +18,7 @@ export const TARGET_FIELDS: TargetFieldDef[] = [
   { key: 'schoolType', label: 'School Type (نوع المدرسة)', category: 'profile', type: 'select' },
   { key: 'deacon', label: 'Deacon (شماس)', category: 'profile', type: 'select' },
   { key: 'fatherOfConfession', label: 'Father of Confession (أب الاعتراف)', category: 'profile', type: 'text' },
+  { key: 'photoUrl', label: 'Photo URL / Image (صورة الطالب)', category: 'profile', type: 'text' },
   
   { key: 'street', label: 'Street (الشارع)', category: 'address', type: 'text' },
   { key: 'building', label: 'Building (العمارة)', category: 'address', type: 'text' },
@@ -80,6 +81,7 @@ const HEURISTIC_PATTERNS: Record<string, string[]> = {
   school: ['school', 'المدرسة', 'مدرسة'],
   deacon: ['deacon', 'شماس', 'مرتسم شماس', 'رتبة شماس', 'شموسية', 'شموسيه', 'هل شماس', 'رتبة الشموسية'],
   fatherOfConfession: ['fatherofconfession', 'confessionfather', 'abouna', 'اب الاعتراف', 'اسم اب الاعتراف', 'ابونا', 'كاهن الاعتراف', 'اب اعتراف الطالب'],
+  photoUrl: ['photourl', 'photo', 'image', 'picture', 'avatar', 'صورة', 'صوره', 'رابط الصورة', 'لينك الصورة', 'صورة الطالب', 'صورة التلميذ'],
   
   // Address
   street: ['street', 'الشارع', 'اسم الشارع'],
@@ -562,6 +564,7 @@ export async function executeImportBatch(
       const parsedFatherDOB = normalizeDateValue(record.fatherDOB || defaultValues?.fatherDOB);
       const parsedMotherDOB = normalizeDateValue(record.motherDOB || defaultValues?.motherDOB);
       const finalLandmark = String(record.landmark || defaultValues?.landmark || '').trim();
+      const finalPhotoUrl = String(record.photoUrl || defaultValues?.photoUrl || '').trim();
 
       // Track attribute counts
       attributeCounts.fullName = (attributeCounts.fullName || 0) + 1;
@@ -580,6 +583,7 @@ export async function executeImportBatch(
       if (parsedFatherDOB) attributeCounts.fatherDOB = (attributeCounts.fatherDOB || 0) + 1;
       if (parsedMotherDOB) attributeCounts.motherDOB = (attributeCounts.motherDOB || 0) + 1;
       if (finalConfession) attributeCounts.fatherOfConfession = (attributeCounts.fatherOfConfession || 0) + 1;
+      if (finalPhotoUrl) attributeCounts.photoUrl = (attributeCounts.photoUrl || 0) + 1;
       if (finalNotes) attributeCounts.notes = (attributeCounts.notes || 0) + 1;
 
       // Sample records for visual confirmation in completion report
@@ -605,6 +609,7 @@ export async function executeImportBatch(
           schoolType: finalSchoolType || undefined,
           deacon: parsedDeacon,
           fatherOfConfession: finalConfession,
+          photoUrl: finalPhotoUrl || undefined,
         },
         activeAssignment: {
           academicYearId: assignment.academicYearId,

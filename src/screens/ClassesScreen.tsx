@@ -886,9 +886,22 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
                           : 'bg-zinc-50/50 dark:bg-zinc-800/40 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800'
                       }`}
                     >
-                      <div>
-                        <p className="font-bold text-zinc-900 dark:text-zinc-100">{mister.displayName}</p>
-                        <p className="text-[10px] text-zinc-400 font-mono">{mister.email}</p>
+                      <div className="flex items-center gap-2.5">
+                        {mister.personalInfo?.photoUrl ? (
+                          <img
+                            src={mister.personalInfo.photoUrl}
+                            alt={mister.displayName}
+                            className="w-7 h-7 rounded-full object-cover shrink-0 border border-zinc-200 dark:border-zinc-700"
+                          />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-teal-100 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 flex items-center justify-center font-bold text-[10px] shrink-0">
+                            {mister.displayName.slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <div>
+                          <p className="font-bold text-zinc-900 dark:text-zinc-100">{mister.displayName}</p>
+                          <p className="text-[10px] text-zinc-400 font-mono">{mister.email}</p>
+                        </div>
                       </div>
                       <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${
                         isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'border-zinc-300 dark:border-zinc-600'

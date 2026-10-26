@@ -1054,13 +1054,26 @@ export const AttendanceTrackerScreen: React.FC = () => {
                       key={kid.id}
                       className="p-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-rose-200/80 dark:border-rose-900/60 flex items-center justify-between gap-2 shadow-2xs"
                     >
-                      <div className="min-w-0">
-                        <p className="font-extrabold text-xs text-zinc-900 dark:text-zinc-100 truncate">
-                          <bdi>{kid.info.fullName}</bdi>
-                        </p>
-                        <p className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold">
-                          Missed {consecutiveCount} consecutive sessions
-                        </p>
+                      <div className="flex items-center gap-2 min-w-0">
+                        {kid.info.photoUrl ? (
+                          <img
+                            src={kid.info.photoUrl}
+                            alt={kid.info.fullName}
+                            className="w-7 h-7 rounded-full object-cover shrink-0 border border-rose-200 dark:border-rose-800"
+                          />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 flex items-center justify-center font-bold text-[10px] shrink-0">
+                            {kid.info.fullName.charAt(0)}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="font-extrabold text-xs text-zinc-900 dark:text-zinc-100 truncate">
+                            <bdi>{kid.info.fullName}</bdi>
+                          </p>
+                          <p className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold">
+                            Missed {consecutiveCount} consecutive sessions
+                          </p>
+                        </div>
                       </div>
 
                       {/* Instant Follow-up Actions */}
@@ -1280,19 +1293,27 @@ export const AttendanceTrackerScreen: React.FC = () => {
                         {/* Student Name & Avatar with floating mini badge */}
                         <div className="flex items-center gap-3">
                           <div className="relative shrink-0">
-                            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-sm ${
-                              isPresent
-                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                                : isAbsent
-                                ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
-                                : isExcused
-                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
-                                : kid.info.gender === 'female'
-                                ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/60'
-                                : 'bg-teal-50 text-teal-600 dark:bg-teal-950/60'
-                            }`}>
-                              {kid.info.fullName.charAt(0)}
-                            </div>
+                            {kid.info.photoUrl ? (
+                              <img
+                                src={kid.info.photoUrl}
+                                alt={kid.info.fullName}
+                                className="w-11 h-11 rounded-2xl object-cover shrink-0 shadow-xs border border-zinc-200 dark:border-zinc-700"
+                              />
+                            ) : (
+                              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-sm ${
+                                isPresent
+                                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                                  : isAbsent
+                                  ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
+                                  : isExcused
+                                  ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                                  : kid.info.gender === 'female'
+                                  ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/60'
+                                  : 'bg-teal-50 text-teal-600 dark:bg-teal-950/60'
+                              }`}>
+                                {kid.info.fullName.charAt(0)}
+                              </div>
+                            )}
                             {/* Floating mini badge on avatar */}
                             {isPresent && (
                               <span className="absolute -bottom-1 -end-1 w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-xs">

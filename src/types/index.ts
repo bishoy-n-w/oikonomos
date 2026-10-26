@@ -104,6 +104,7 @@ export interface KidInfo {
   schoolType?: 'National' | 'International' | string;
   deacon?: boolean;
   fatherOfConfession?: string;
+  photoUrl?: string;
 }
 
 export interface KidActiveAssignment {
@@ -144,6 +145,7 @@ export interface MisterPersonalInfo {
   job?: string;
   address?: string;
   notes?: string;
+  photoUrl?: string;
   createdAt?: string;
   createdBy?: string;
   lastEditAt?: string;

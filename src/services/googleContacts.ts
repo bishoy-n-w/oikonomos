@@ -191,6 +191,31 @@ export async function syncKidsToGoogleContacts(
 
           if (res.ok) {
             successCount++;
+            // If student has a profile picture, sync photo to Google Contact
+            if (kid.info.photoUrl) {
+              try {
+                const createdPerson = await res.json();
+                const photoBytes = kid.info.photoUrl.includes(',')
+                  ? kid.info.photoUrl.split(',')[1]
+                  : kid.info.photoUrl;
+
+                if (createdPerson.resourceName && photoBytes) {
+                  await fetch(
+                    `https://people.googleapis.com/v1/${createdPerson.resourceName}:updateContactPhoto`,
+                    {
+                      method: 'PATCH',
+                      headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({ photoBytes }),
+                    }
+                  );
+                }
+              } catch {
+                // Non-fatal if photo sync fails
+              }
+            }
           }
         })
       );

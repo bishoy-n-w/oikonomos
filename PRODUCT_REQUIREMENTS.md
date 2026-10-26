@@ -520,6 +520,36 @@ Enables Sunday School servants and administrators to synchronize church contact 
 *   **Synchronized Class Form Saving:**
     *   When saving a classroom in `ClassesScreen`, any added or removed students have their `activeAssignment.classId` updated in the `kids` collection in the same `writeBatch`, maintaining 100% two-way consistency across collections.
 
+---
+
+## 23. Profile Pictures (Option 1 Client-Compressed WebP in Firestore & Google Contacts Sync)
+
+*   **Zero-Cost Architecture (100% Free Spark Tier):**
+    *   Avoids the Firebase Storage pay-as-you-go (Blaze plan) credit card requirement entirely.
+    *   Images are compressed client-side before upload and saved directly within Cloud Firestore documents (`kid.info.photoUrl` and `mister.personalInfo.photoUrl`) as lightweight base64 Data URLs (`data:image/webp;base64,...`).
+*   **Client-Side Canvas Processing & WebP Compression:**
+    *   **Square Center Crop:** Automatically calculates the centered square aspect ratio to eliminate distorted portraits.
+    *   **Dimensional Constraint:** Rescaled to $128 \times 128$ px (optimal sharp resolution for mobile & web circular avatars).
+    *   **Format & Quality:** Encoded as WebP at $70\%$ quality (with automatic JPEG fallback).
+    *   **Storage Footprint:** Each profile image occupies only **$3\text{ KB} - 6\text{ KB}$**, which is less than $0.6\%$ of the $1\text{ MB}$ single Firestore document limit.
+*   **Device Camera & File Selection:**
+    *   **`ProfilePhotoUploader` Component:** Reusable avatar component displaying the circular photo with gender-themed initials fallback.
+    *   **Upload from Device:** Hidden file input supporting any image format from local storage or photo galleries.
+    *   **Take Photo:**
+        *   On mobile devices: Natively invokes the front-facing camera via `<input capture="user" />`.
+        *   On desktop browsers: Launches an in-app webcam viewfinder modal utilizing `navigator.mediaDevices.getUserMedia` with a circular framing guide, live preview, and "Snap Photo" capture button.
+    *   **Remove Photo:** Allows clearing previously uploaded photos.
+*   **Cross-Application Avatar Rendering:**
+    *   **Kids Directory:** Renders circular photos in student rows (28px) and a photo uploader inside `KidFormModal`.
+    *   **Servants Directory:** Renders circular servant photos in table rows and a photo uploader in `MisterFormModal` (self-service servants can update their own picture).
+    *   **Attendance Tracker:** Displays student photos in the Weekly Checklist roll-call cards (44px) and in Pastoral Care absence alert banners.
+    *   **Classes Screen:** Renders photo avatars in the servant and student picker modals.
+*   **Google Contacts Photo Sync:**
+    *   When syncing a classroom roster to Google Contacts via the People API, if a student possesses a `photoUrl`, the base64 payload is extracted and pushed to `PATCH https://people.googleapis.com/v1/{resourceName}:updateContactPhoto`, allowing servants to see students' photos in their mobile contacts.
+*   **Smart Import & Excel Export:**
+    *   `photoUrl` is registered in `TARGET_FIELDS` and heuristic mappings (`Photo URL`, `صورة الطالب`, `Avatar`).
+    *   Excel export includes the `Photo URL` column.
+
 
 
 

@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { useFilter } from '../context/FilterContext';
 import { HeaderFilterMatrix, type ColumnFilterConfig } from '../components/common/HeaderFilterMatrix';
+import { ProfilePhotoUploader } from '../components/common/ProfilePhotoUploader';
 import { normalizeDateStr, safeRender } from '../utils/formatters';
 import { useModalEscape } from '../utils/useModalEscape';
 import type { Mister, ServiceGroup, ClassDoc } from '../types';
@@ -336,13 +337,26 @@ export const ServantsDirectoryScreen: React.FC = () => {
 
                     {/* 2. DisplayName */}
                     <td className="px-5 py-4 font-bold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5">
-                        <span>{mister.displayName}</span>
-                        {isSelf && (
-                          <span className="text-[10px] font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/80 px-1.5 py-0.2 rounded-full border border-teal-200 dark:border-teal-800">
-                            You
-                          </span>
+                      <div className="flex items-center gap-2.5">
+                        {mister.personalInfo?.photoUrl ? (
+                          <img
+                            src={mister.personalInfo.photoUrl}
+                            alt={mister.displayName}
+                            className="w-7 h-7 rounded-full object-cover shrink-0 shadow-xs border border-zinc-200 dark:border-zinc-700"
+                          />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-teal-100 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 flex items-center justify-center font-bold text-[10px] shrink-0">
+                            {mister.displayName.slice(0, 2).toUpperCase()}
+                          </div>
                         )}
+                        <div className="flex items-center gap-1.5">
+                          <span>{mister.displayName}</span>
+                          {isSelf && (
+                            <span className="text-[10px] font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/80 px-1.5 py-0.2 rounded-full border border-teal-200 dark:border-teal-800">
+                              You
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
 
@@ -507,6 +521,7 @@ const MisterFormModal: React.FC<MisterFormModalProps> = ({
   const [job, setJob] = useState(existingMister?.personalInfo?.job || '');
   const [address, setAddress] = useState(existingMister?.personalInfo?.address || '');
   const [notes, setNotes] = useState(existingMister?.personalInfo?.notes || '');
+  const [photoUrl, setPhotoUrl] = useState(existingMister?.personalInfo?.photoUrl || '');
 
   const canEditRoleAndActive = isAdmin && (!isSelf || existingMister === null);
 
@@ -532,6 +547,7 @@ const MisterFormModal: React.FC<MisterFormModalProps> = ({
           job,
           address,
           notes,
+          photoUrl: photoUrl || undefined,
         }
       );
     } catch (err: any) {
@@ -556,6 +572,21 @@ const MisterFormModal: React.FC<MisterFormModalProps> = ({
 
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
           <fieldset disabled={isSaving} className="space-y-4">
+          {/* Profile Photo Uploader */}
+          <div className="flex items-center gap-4 p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700/60">
+            <ProfilePhotoUploader
+              photoUrl={photoUrl}
+              name={displayName}
+              gender={gender}
+              onPhotoChange={(url) => setPhotoUrl(url || '')}
+              size="md"
+            />
+            <div className="text-xs">
+              <p className="font-bold text-zinc-900 dark:text-zinc-100">{translate('profile_photo')}</p>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">Click photo to upload from device or capture with camera.</p>
+            </div>
+          </div>
+
           {/* Mandated Fields */}
           <div className="grid grid-cols-2 gap-3">
             <div>

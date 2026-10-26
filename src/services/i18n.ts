@@ -213,6 +213,10 @@ export const translations: Record<Language, Record<string, string>> = {
     address: 'Address',
     male: 'Male',
     female: 'Female',
+    profile_photo: 'Profile Photo',
+    upload_photo: 'Upload from Device',
+    take_photo: 'Take Photo',
+    remove_photo: 'Remove Photo',
 
     // Subtitles
     churches_subtitle: 'Church tenants, active academic timelines, and grade-to-group taxonomy',
@@ -462,6 +466,10 @@ export const translations: Record<Language, Record<string, string>> = {
     address: 'العنوان',
     male: 'ولد',
     female: 'بنت',
+    profile_photo: 'صورة الملف الشخصي',
+    upload_photo: 'رفع صورة من الجهاز',
+    take_photo: 'التقاط صورة بالكاميرا',
+    remove_photo: 'حذف الصورة',
 
     // Subtitles
     churches_subtitle: 'إدارة الكنائس، والسنوات الدراسية الحالية، وتوزيع المراحل على أسر الخدمة',

@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { useFilter } from '../context/FilterContext';
 import { HeaderFilterMatrix, type ColumnFilterConfig } from '../components/common/HeaderFilterMatrix';
+import { ProfilePhotoUploader } from '../components/common/ProfilePhotoUploader';
 import { GoogleContactsSyncModal } from '../components/kids/GoogleContactsSyncModal';
 import { BulkAssignmentModal } from '../components/kids/BulkAssignmentModal';
 import { SmartImportModal } from '../components/kids/SmartImportModal';
@@ -99,6 +100,7 @@ export const KidsDirectoryScreen: React.FC = () => {
             schoolType: d.info?.schoolType || d.schoolType || '',
             deacon: typeof d.info?.deacon === 'boolean' ? d.info.deacon : typeof d.deacon === 'boolean' ? d.deacon : undefined,
             fatherOfConfession: String(d.info?.fatherOfConfession || d.fatherOfConfession || ''),
+            photoUrl: d.info?.photoUrl || d.photoUrl || '',
           },
           address: {
             ...(d.address || {}),
@@ -561,6 +563,7 @@ export const KidsDirectoryScreen: React.FC = () => {
       'Mother Mobile': k.contacts?.motherMob || '',
       'Mother DOB': k.contacts?.motherDOB || '',
       'Other Mobile': k.contacts?.otherMob || '',
+      'Photo URL': k.info.photoUrl || '',
       'Notes': k.notes || '',
     }));
 
@@ -916,17 +919,34 @@ export const KidsDirectoryScreen: React.FC = () => {
 
                     {/* Full Name: Permanently visible, click to edit! */}
                     <td className="px-5 py-4 whitespace-nowrap font-bold text-zinc-900 dark:text-zinc-100">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveKid(kid);
-                          setEditModalOpen(true);
-                        }}
-                        className="hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start font-bold"
-                        title="Click to edit student profile"
-                      >
-                        {kid.info.fullName}
-                      </button>
+                      <div className="flex items-center gap-2.5">
+                        {kid.info.photoUrl ? (
+                          <img
+                            src={kid.info.photoUrl}
+                            alt={kid.info.fullName}
+                            className="w-7 h-7 rounded-full object-cover shrink-0 shadow-xs border border-zinc-200 dark:border-zinc-700"
+                          />
+                        ) : (
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${
+                            kid.info.gender === 'female'
+                              ? 'bg-rose-100 text-rose-600 dark:bg-rose-950/80 dark:text-rose-300'
+                              : 'bg-teal-100 text-teal-700 dark:bg-teal-950/80 dark:text-teal-300'
+                          }`}>
+                            {kid.info.fullName.slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveKid(kid);
+                            setEditModalOpen(true);
+                          }}
+                          className="hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start font-bold"
+                          title="Click to edit student profile"
+                        >
+                          {kid.info.fullName}
+                        </button>
+                      </div>
                     </td>
 
                     {/* Assignment Columns */}
@@ -1244,6 +1264,7 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
   );
   const [deacon, setDeacon] = useState<boolean>(Boolean(existingKid?.info.deacon));
   const [fatherOfConfession, setFatherOfConfession] = useState(existingKid?.info.fatherOfConfession || '');
+  const [photoUrl, setPhotoUrl] = useState(existingKid?.info.photoUrl || '');
 
   // Assignment
   const [academicYearId, setAcademicYearId] = useState(asgn.academicYearId || initialYearId);
@@ -1294,6 +1315,7 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
           schoolType: computedSchoolType || undefined,
           deacon,
           fatherOfConfession,
+          photoUrl: photoUrl || undefined,
         },
         activeAssignment: {
           academicYearId,
@@ -1344,6 +1366,21 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
 
         <form onSubmit={handleSubmit} className="space-y-5 text-xs">
           <fieldset disabled={isSaving} className="space-y-5">
+          {/* Profile Photo Uploader */}
+          <div className="flex items-center gap-4 p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700/60">
+            <ProfilePhotoUploader
+              photoUrl={photoUrl}
+              name={fullName}
+              gender={gender}
+              onPhotoChange={(url) => setPhotoUrl(url || '')}
+              size="md"
+            />
+            <div className="text-xs">
+              <p className="font-bold text-zinc-900 dark:text-zinc-100">{translate('profile_photo')}</p>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">Click photo to upload from device or capture with camera.</p>
+            </div>
+          </div>
+
           {/* Section 1: Active Assignment */}
           <div className="p-3.5 rounded-2xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/50 space-y-2">
             <h4 className="font-bold text-purple-900 dark:text-purple-300">Classroom Assignment</h4>
