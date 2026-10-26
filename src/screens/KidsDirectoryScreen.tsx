@@ -10,7 +10,7 @@ import { GoogleContactsSyncModal } from '../components/kids/GoogleContactsSyncMo
 import { BulkAssignmentModal } from '../components/kids/BulkAssignmentModal';
 import { SmartImportModal } from '../components/kids/SmartImportModal';
 import { normalizePhoneNumber } from '../services/googleContacts';
-import { normalizeDateStr, safeRender } from '../utils/formatters';
+import { normalizeDateStr, safeRender, sanitizeExcelCell } from '../utils/formatters';
 import { useModalEscape } from '../utils/useModalEscape';
 import { 
   parseGeoCoordinates, 
@@ -32,7 +32,8 @@ import {
   Layers,
   RefreshCw,
   Users,
-  Navigation 
+  Navigation,
+  UserMinus 
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -47,7 +48,10 @@ export const KidsDirectoryScreen: React.FC = () => {
     churches, 
     classes, 
     serviceGroups, 
-    academicYears 
+    academicYears,
+    canEditClass,
+    canViewClass,
+    userGroupRoles 
   } = useFilter();
 
   const [kids, setKids] = useState<Kid[]>([]);
@@ -66,6 +70,7 @@ export const KidsDirectoryScreen: React.FC = () => {
 
   // Header Filtering Matrix state
   const [filters, setFilters] = useState<Record<string, string>>({});
+  const [displayLimit, setDisplayLimit] = useState(60);
 
   // Modals
   const [syncModalOpen, setSyncModalOpen] = useState(false);
@@ -77,6 +82,65 @@ export const KidsDirectoryScreen: React.FC = () => {
   const [activeKid, setActiveKid] = useState<Kid | null>(null);
 
   const isAdmin = userRole === 'Admin' || userRole === 'owner';
+  const isChurchAdminOrOwner = isAdmin;
+
+  const canManageKid = (kid: Kid) => {
+    if (isChurchAdminOrOwner) return true;
+    const kidClassId = kid.activeAssignment?.classId;
+    if (!kidClassId) return false;
+    return canEditClass(kidClassId);
+  };
+
+  const canSeeKid = (kid: Kid) => {
+    if (isChurchAdminOrOwner) return true;
+    const kidClassId = kid.activeAssignment?.classId;
+    if (!kidClassId) return false;
+    return canViewClass(kidClassId);
+  };
+
+  const canAddStudent = isChurchAdminOrOwner || classes.some((c) => canEditClass(c.id));
+  const canBulkReassign = Boolean(isChurchAdminOrOwner || (selectedServiceGroupId && userGroupRoles[selectedServiceGroupId] === 'admin'));
+  const canBulkDelete = Boolean(isChurchAdminOrOwner);
+
+  const handleRemoveFromClass = async (kid: Kid) => {
+    if (!selectedChurchId || !canManageKid(kid)) return;
+    if (!window.confirm(translate('remove_from_class_confirm'))) return;
+
+    const oldClassId = kid.activeAssignment?.classId;
+    const yearId = kid.activeAssignment?.academicYearId || selectedAcademicYearId;
+
+    const kidRef = doc(db, 'churches', selectedChurchId, 'kids', kid.id);
+    await setDoc(kidRef, {
+      activeAssignment: {
+        ...kid.activeAssignment,
+        classId: '',
+      },
+      lastEditAt: new Date().toISOString(),
+      lastEditBy: user?.email,
+    }, { merge: true });
+
+    if (oldClassId && yearId) {
+      try {
+        const classRef = doc(db, 'churches', selectedChurchId, 'classes', oldClassId);
+        const snap = await getDoc(classRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          const yearsMap = data.academicYears || {};
+          const yData = yearsMap[yearId] || {};
+          const curIds: string[] = yData.KidIds || yData.kids || [];
+          const filtered = curIds.filter((id) => id !== kid.id);
+          await setDoc(classRef, {
+            academicYears: {
+              ...yearsMap,
+              [yearId]: { ...yData, KidIds: filtered, kids: filtered },
+            },
+          }, { merge: true });
+        }
+      } catch (err) {
+        console.warn('Could not remove kid from class doc:', err);
+      }
+    }
+  };
 
   useModalEscape(() => setBulkDeleteConfirmOpen(false), bulkDeleteConfirmOpen);
   useModalEscape(() => setBulkModalOpen(false), bulkModalOpen && !bulkDeleteConfirmOpen);
@@ -214,6 +278,9 @@ export const KidsDirectoryScreen: React.FC = () => {
 
   // Filtered Kids: respects Top Cascading Filters AND Header Filter Matrix
   const filteredKids = kids.filter((kid) => {
+    // 0. Permission check: Class teachers and group servants only see students they are authorized for
+    if (!canSeeKid(kid)) return false;
+
     const asgn = kid.activeAssignment || {};
 
     // Top Filter: Academic Year
@@ -328,6 +395,7 @@ export const KidsDirectoryScreen: React.FC = () => {
 
   // Multi-select helpers
   const allFilteredSelected = filteredKids.length > 0 && filteredKids.every((k) => selectedKidIds.includes(k.id));
+  const displayedKids = filteredKids.slice(0, displayLimit);
 
   const toggleSelectAll = () => {
     if (allFilteredSelected) {
@@ -545,35 +613,35 @@ export const KidsDirectoryScreen: React.FC = () => {
   const handleExportExcel = () => {
     const rows = filteredKids.map((k) => ({
       'Active': k.active ? 'Yes' : 'No',
-      'Full Name': k.info.fullName,
-      'Year': resolveYearName(k.activeAssignment?.academicYearId),
-      'Group': resolveGroupName(k.activeAssignment?.serviceGroupId),
-      'Class': resolveClassName(k.activeAssignment?.classId),
-      'Gender': k.info.gender,
-      'DOB': k.info.dob || '',
-      'School': k.info.school || '',
-      'School Type': k.info.schoolType || '',
+      'Full Name': sanitizeExcelCell(k.info.fullName),
+      'Year': sanitizeExcelCell(resolveYearName(k.activeAssignment?.academicYearId)),
+      'Group': sanitizeExcelCell(resolveGroupName(k.activeAssignment?.serviceGroupId)),
+      'Class': sanitizeExcelCell(resolveClassName(k.activeAssignment?.classId)),
+      'Gender': sanitizeExcelCell(k.info.gender),
+      'DOB': sanitizeExcelCell(k.info.dob || ''),
+      'School': sanitizeExcelCell(k.info.school || ''),
+      'School Type': sanitizeExcelCell(k.info.schoolType || ''),
       'Deacon': k.info.deacon ? 'Yes' : 'No',
-      'Father of Confession': k.info.fatherOfConfession || '',
-      'Street': k.address?.street || '',
-      'Building': k.address?.building || '',
-      'Floor': k.address?.floor || '',
-      'Apartment': k.address?.apartment || '',
-      'Region': k.address?.region || '',
-      'Landmark': k.address?.landmark || '',
-      'GPS Location': k.address?.geoLocation || '',
-      'Kid Mobile': k.contacts?.kidMob || '',
-      'Father Name': k.contacts?.fatherName || '',
-      'Father Profession': k.contacts?.fatherProfession || '',
-      'Father Mobile': k.contacts?.fatherMob || '',
-      'Father DOB': k.contacts?.fatherDOB || '',
-      'Mother Name': k.contacts?.motherName || '',
-      'Mother Profession': k.contacts?.motherProfession || '',
-      'Mother Mobile': k.contacts?.motherMob || '',
-      'Mother DOB': k.contacts?.motherDOB || '',
-      'Other Mobile': k.contacts?.otherMob || '',
-      'Photo URL': k.info.photoUrl || '',
-      'Notes': k.notes || '',
+      'Father of Confession': sanitizeExcelCell(k.info.fatherOfConfession || ''),
+      'Street': sanitizeExcelCell(k.address?.street || ''),
+      'Building': sanitizeExcelCell(k.address?.building || ''),
+      'Floor': sanitizeExcelCell(k.address?.floor || ''),
+      'Apartment': sanitizeExcelCell(k.address?.apartment || ''),
+      'Region': sanitizeExcelCell(k.address?.region || ''),
+      'Landmark': sanitizeExcelCell(k.address?.landmark || ''),
+      'GPS Location': sanitizeExcelCell(k.address?.geoLocation || ''),
+      'Kid Mobile': sanitizeExcelCell(k.contacts?.kidMob || ''),
+      'Father Name': sanitizeExcelCell(k.contacts?.fatherName || ''),
+      'Father Profession': sanitizeExcelCell(k.contacts?.fatherProfession || ''),
+      'Father Mobile': sanitizeExcelCell(k.contacts?.fatherMob || ''),
+      'Father DOB': sanitizeExcelCell(k.contacts?.fatherDOB || ''),
+      'Mother Name': sanitizeExcelCell(k.contacts?.motherName || ''),
+      'Mother Profession': sanitizeExcelCell(k.contacts?.motherProfession || ''),
+      'Mother Mobile': sanitizeExcelCell(k.contacts?.motherMob || ''),
+      'Mother DOB': sanitizeExcelCell(k.contacts?.motherDOB || ''),
+      'Other Mobile': sanitizeExcelCell(k.contacts?.otherMob || ''),
+      'Photo URL': sanitizeExcelCell(k.info.photoUrl || ''),
+      'Notes': sanitizeExcelCell(k.notes || ''),
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
@@ -634,7 +702,7 @@ export const KidsDirectoryScreen: React.FC = () => {
           </button>
 
           {/* Add Kid */}
-          {isAdmin && (
+          {canAddStudent && (
             <button
               onClick={() => {
                 setActiveKid(null);
@@ -710,7 +778,7 @@ export const KidsDirectoryScreen: React.FC = () => {
 
       {/* 1. MOBILE ADAPTIVE TOUCH CARDS (< md) */}
       <div className="md:hidden space-y-3">
-        {filteredKids.map((kid) => {
+        {displayedKids.map((kid) => {
           const fatherPhone = kid.contacts?.fatherMob;
           const motherPhone = kid.contacts?.motherMob;
           const kidPhone = kid.contacts?.kidMob;
@@ -748,16 +816,35 @@ export const KidsDirectoryScreen: React.FC = () => {
                   </div>
                 </div>
 
-                {isAdmin && (
-                  <button
-                    onClick={() => {
-                      setActiveKid(kid);
-                      setEditModalOpen(true);
-                    }}
-                    className="p-2 rounded-xl text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition"
-                  >
-                    <Edit3 className="w-4 h-4" />
-                  </button>
+                {canManageKid(kid) && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => {
+                        setActiveKid(kid);
+                        setEditModalOpen(true);
+                      }}
+                      className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition"
+                      title={translate('edit')}
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+                    {kid.activeAssignment?.classId && (
+                      <button
+                        onClick={() => handleRemoveFromClass(kid)}
+                        className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition"
+                        title={translate('remove_from_class')}
+                      >
+                        <UserMinus className="w-4 h-4" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDeleteKid(kid.id, kid.info.fullName)}
+                      className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                      title={translate('delete')}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -804,6 +891,18 @@ export const KidsDirectoryScreen: React.FC = () => {
             </div>
           );
         })}
+
+        {filteredKids.length > displayLimit && (
+          <div className="flex items-center justify-center p-2">
+            <button
+              type="button"
+              onClick={() => setDisplayLimit((prev) => prev + 60)}
+              className="w-full py-2.5 rounded-2xl text-xs font-bold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-teal-600 hover:bg-zinc-50 transition cursor-pointer"
+            >
+              Show More ({displayedKids.length} of {filteredKids.length})
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 2. DESKTOP HIGH-DENSITY 22-COLUMN TABLE (>= md) */}
@@ -896,7 +995,7 @@ export const KidsDirectoryScreen: React.FC = () => {
                 onChange={handleFilterChange}
               />
 
-              {filteredKids.map((kid) => {
+              {displayedKids.map((kid) => {
                 const asgn = kid.activeAssignment || {};
                 const isSelected = selectedKidIds.includes(kid.id);
 
@@ -1062,7 +1161,7 @@ export const KidsDirectoryScreen: React.FC = () => {
                     {/* Actions */}
                     <td className="px-5 py-4 text-end whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
-                        {isAdmin && (
+                        {canManageKid(kid) && (
                           <>
                             <button
                               onClick={() => {
@@ -1070,14 +1169,23 @@ export const KidsDirectoryScreen: React.FC = () => {
                                 setEditModalOpen(true);
                               }}
                               className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
-                              title="Edit Kid"
+                              title={translate('edit')}
                             >
                               <Edit3 className="w-4 h-4" />
                             </button>
+                            {kid.activeAssignment?.classId && (
+                              <button
+                                onClick={() => handleRemoveFromClass(kid)}
+                                className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition cursor-pointer"
+                                title={translate('remove_from_class')}
+                              >
+                                <UserMinus className="w-4 h-4" />
+                              </button>
+                            )}
                             <button
                               onClick={() => handleDeleteKid(kid.id, kid.info.fullName)}
                               className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
-                              title="Delete Kid"
+                              title={translate('delete')}
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -1091,11 +1199,22 @@ export const KidsDirectoryScreen: React.FC = () => {
             </tbody>
           </table>
         </div>
+        {filteredKids.length > displayLimit && (
+          <div className="flex items-center justify-center p-3 border-t border-zinc-100 dark:border-zinc-800">
+            <button
+              type="button"
+              onClick={() => setDisplayLimit((prev) => prev + 60)}
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 hover:bg-teal-100 transition cursor-pointer"
+            >
+              Show More Students ({displayedKids.length} of {filteredKids.length})
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Floating Bulk Action Bar (Visible when >= 1 student selected) */}
       {selectedKidIds.length > 0 && (
-        <div className="fixed bottom-20 lg:bottom-6 inset-x-4 max-w-xl mx-auto z-40 p-3 sm:p-4 rounded-3xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xl flex items-center justify-between border border-zinc-700 dark:border-zinc-300 animate-in slide-in-from-bottom duration-200">
+        <div className="fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] inset-x-4 max-w-xl mx-auto z-40 p-3 sm:p-4 rounded-3xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xl flex items-center justify-between border border-zinc-700 dark:border-zinc-300 animate-in slide-in-from-bottom duration-200">
           <div className="flex items-center gap-2 sm:gap-2.5">
             <span className="w-7 h-7 rounded-full bg-purple-600 text-white flex items-center justify-center font-extrabold text-xs">
               {selectedKidIds.length}
@@ -1106,15 +1225,17 @@ export const KidsDirectoryScreen: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <button
-              onClick={() => setBulkModalOpen(true)}
-              className="flex items-center gap-1 px-3 sm:px-4 py-2 rounded-xl font-bold text-xs bg-purple-600 hover:bg-purple-700 text-white transition active:scale-95 shadow-md shadow-purple-600/30 cursor-pointer"
-            >
-              <Users className="w-3.5 h-3.5" />
-              <span>{translate('change_assignment')}</span>
-            </button>
+            {canBulkReassign && (
+              <button
+                onClick={() => setBulkModalOpen(true)}
+                className="flex items-center gap-1 px-3 sm:px-4 py-2 rounded-xl font-bold text-xs bg-purple-600 hover:bg-purple-700 text-white transition active:scale-95 shadow-md shadow-purple-600/30 cursor-pointer"
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>{translate('change_assignment')}</span>
+              </button>
+            )}
 
-            {isAdmin && (
+            {canBulkDelete && (
               <button
                 onClick={() => setBulkDeleteConfirmOpen(true)}
                 className="flex items-center gap-1 px-3 sm:px-3.5 py-2 rounded-xl font-bold text-xs bg-rose-600 hover:bg-rose-700 text-white transition active:scale-95 shadow-md shadow-rose-600/30 cursor-pointer"
@@ -1235,6 +1356,7 @@ export const KidsDirectoryScreen: React.FC = () => {
           initialYearId={selectedAcademicYearId || academicYears[0]?.id || ''}
           initialGroupId={selectedServiceGroupId || serviceGroups[0]?.id || ''}
           initialClassId={selectedClassId || classes[0]?.id || ''}
+          canChangeAssignment={canBulkReassign}
           onClose={() => {
             setEditModalOpen(false);
             setActiveKid(null);
@@ -1255,6 +1377,7 @@ interface KidFormModalProps {
   initialYearId: string;
   initialGroupId: string;
   initialClassId: string;
+  canChangeAssignment?: boolean;
   onClose: () => void;
   onSave: (kidData: Partial<Kid>) => void;
 }
@@ -1267,6 +1390,7 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
   initialYearId,
   initialGroupId,
   initialClassId,
+  canChangeAssignment = true,
   onClose,
   onSave,
 }) => {
@@ -1381,12 +1505,12 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-      <div className="w-full max-w-2xl bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[90vh] overflow-y-auto">
+      <div className="w-full max-w-2xl bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[90dvh] pb-[max(1.5rem,env(safe-area-inset-bottom))] overflow-y-auto">
         <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800 mb-4">
           <h3 className="font-bold text-base text-zinc-900 dark:text-zinc-100">
             {existingKid ? `${translate('edit')} ${translate('kids')}: ${existingKid.info.fullName}` : translate('add_student')}
           </h3>
-          <button onClick={onClose} disabled={isSaving} className="p-1 text-zinc-400 hover:text-zinc-600">
+          <button onClick={onClose} disabled={isSaving} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-zinc-400 hover:text-zinc-600 rounded-full cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -1416,8 +1540,9 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
                 <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Academic Year</label>
                 <select
                   value={academicYearId}
+                  disabled={!canChangeAssignment}
                   onChange={(e) => setAcademicYearId(e.target.value)}
-                  className="w-full p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"
+                  className="w-full p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {academicYears.map((y) => (
                     <option key={y.id} value={y.id}>{y.displayName}</option>
@@ -1429,8 +1554,9 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
                 <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Service Group</label>
                 <select
                   value={serviceGroupId}
+                  disabled={!canChangeAssignment}
                   onChange={(e) => setServiceGroupId(e.target.value)}
-                  className="w-full p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"
+                  className="w-full p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {serviceGroups.map((g) => (
                     <option key={g.id} value={g.id}>{g.displayName}</option>
@@ -1442,13 +1568,17 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
                 <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Class</label>
                 <select
                   value={classId}
+                  disabled={!canChangeAssignment}
                   onChange={(e) => setClassId(e.target.value)}
-                  className="w-full p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"
+                  className="w-full p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {classes.map((c) => (
                     <option key={c.id} value={c.id}>{c.displayName}</option>
                   ))}
                 </select>
+                {!canChangeAssignment && (
+                  <p className="text-[10px] text-zinc-400 mt-1">Assignment managed by Church/Group Admin</p>
+                )}
               </div>
             </div>
           </div>

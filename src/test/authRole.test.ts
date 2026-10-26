@@ -143,4 +143,92 @@ describe('Role & Authorization Evaluation Logic', () => {
       expect(permitted).toBe(false);
     });
   });
+
+  describe('Student CRUD Role Matrix & Audit Enforcement', () => {
+    interface KidDoc {
+      activeAssignment?: {
+        serviceGroupId?: string;
+        classId?: string;
+        academicYearId?: string;
+      };
+      createdBy?: string;
+      lastEditBy?: string;
+    }
+
+    function canTeacherUpdateKid(
+      teacherEmail: string,
+      assignedClassId: string,
+      currentKid: KidDoc,
+      targetUpdate: KidDoc
+    ): boolean {
+      // Must be assigned to kid's current class
+      if (currentKid.activeAssignment?.classId !== assignedClassId) return false;
+
+      // Audit check: caller email must match lastEditBy
+      if (targetUpdate.lastEditBy?.toLowerCase() !== teacherEmail.toLowerCase()) return false;
+
+      // Class change check: teacher can keep class same, or clear it, but cannot change to another class
+      const targetClass = targetUpdate.activeAssignment?.classId;
+      if (targetClass && targetClass !== assignedClassId) {
+        return false;
+      }
+
+      return true;
+    }
+
+    it('allows class teacher to update details of kids in their class', () => {
+      const currentKid: KidDoc = {
+        activeAssignment: { classId: 'class_grade4', serviceGroupId: 'grp_primary' },
+      };
+      const update: KidDoc = {
+        activeAssignment: { classId: 'class_grade4', serviceGroupId: 'grp_primary' },
+        lastEditBy: 'teacher@church.org',
+      };
+      expect(canTeacherUpdateKid('teacher@church.org', 'class_grade4', currentKid, update)).toBe(true);
+    });
+
+    it('allows class teacher to remove kid from class by clearing classId', () => {
+      const currentKid: KidDoc = {
+        activeAssignment: { classId: 'class_grade4', serviceGroupId: 'grp_primary' },
+      };
+      const update: KidDoc = {
+        activeAssignment: { classId: '', serviceGroupId: 'grp_primary' },
+        lastEditBy: 'teacher@church.org',
+      };
+      expect(canTeacherUpdateKid('teacher@church.org', 'class_grade4', currentKid, update)).toBe(true);
+    });
+
+    it('blocks class teacher from transferring kid to another class', () => {
+      const currentKid: KidDoc = {
+        activeAssignment: { classId: 'class_grade4', serviceGroupId: 'grp_primary' },
+      };
+      const update: KidDoc = {
+        activeAssignment: { classId: 'class_grade5', serviceGroupId: 'grp_primary' }, // Attempt transfer
+        lastEditBy: 'teacher@church.org',
+      };
+      expect(canTeacherUpdateKid('teacher@church.org', 'class_grade4', currentKid, update)).toBe(false);
+    });
+
+    it('blocks teacher from updating kids not in their class', () => {
+      const otherKid: KidDoc = {
+        activeAssignment: { classId: 'class_other', serviceGroupId: 'grp_primary' },
+      };
+      const update: KidDoc = {
+        activeAssignment: { classId: 'class_other', serviceGroupId: 'grp_primary' },
+        lastEditBy: 'teacher@church.org',
+      };
+      expect(canTeacherUpdateKid('teacher@church.org', 'class_grade4', otherKid, update)).toBe(false);
+    });
+
+    it('enforces audit integrity: rejects update if lastEditBy does not match authenticated email', () => {
+      const currentKid: KidDoc = {
+        activeAssignment: { classId: 'class_grade4', serviceGroupId: 'grp_primary' },
+      };
+      const update: KidDoc = {
+        activeAssignment: { classId: 'class_grade4', serviceGroupId: 'grp_primary' },
+        lastEditBy: 'admin_spoofed@church.org', // Spoofed email
+      };
+      expect(canTeacherUpdateKid('teacher@church.org', 'class_grade4', currentKid, update)).toBe(false);
+    });
+  });
 });

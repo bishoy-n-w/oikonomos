@@ -55,3 +55,17 @@ export function safeRender(val: any, fallback: string = '-'): string {
   }
   return String(val);
 }
+
+/**
+ * Sanitizes cell values to prevent CSV / Excel Formula Injection (OWASP A03).
+ * Prepends an apostrophe if the value starts with dangerous trigger characters (=, +, -, @, \t, \r).
+ */
+export function sanitizeExcelCell(val: any): string {
+  if (val === null || val === undefined) return '';
+  const str = String(val).trim();
+  if (!str) return '';
+  if (/^[=+\-@\t\r]/.test(str)) {
+    return `'${str}`;
+  }
+  return str;
+}

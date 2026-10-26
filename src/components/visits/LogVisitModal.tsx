@@ -137,7 +137,7 @@ export const LogVisitModal: React.FC<LogVisitModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-      <div className="w-full max-w-xl bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[90vh] overflow-y-auto">
+      <div className="w-full max-w-xl bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[90dvh] pb-[max(1.5rem,env(safe-area-inset-bottom))] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800 mb-4">
           <div className="flex items-center gap-2.5">
@@ -155,7 +155,8 @@ export const LogVisitModal: React.FC<LogVisitModalProps> = ({
             type="button" 
             onClick={onClose} 
             disabled={isSaving} 
-            className="p-1 rounded-full text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
+            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
@@ -234,7 +235,15 @@ export const LogVisitModal: React.FC<LogVisitModalProps> = ({
                   return (
                     <div
                       key={m.id}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => handleToggleVisitor(emailKey)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleToggleVisitor(emailKey);
+                        }
+                      }}
                       className={`flex items-center justify-between p-2 rounded-xl border text-[11px] cursor-pointer transition select-none ${
                         isChecked
                           ? 'bg-teal-50 dark:bg-teal-950/80 border-teal-300 dark:border-teal-700 text-teal-800 dark:text-teal-200 font-bold'

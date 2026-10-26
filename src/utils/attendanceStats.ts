@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
-import type { AttendanceEvent, Kid, GroupEventType } from '../types';
+import type { Kid, AttendanceEvent, GroupEventType } from '../types';
+import { sanitizeExcelCell } from './formatters';
 
 export interface StudentStatsSummary {
   kid: Kid;
@@ -275,9 +276,9 @@ export function exportAttendanceReportExcel(
     const rate = conductedEvents.length > 0 ? Math.round((p / conductedEvents.length) * 100) : 0;
 
     return [
-      kid.info.fullName,
-      kid.contacts?.fatherName || '',
-      kid.contacts?.fatherMob || kid.contacts?.kidMob || '',
+      sanitizeExcelCell(kid.info.fullName),
+      sanitizeExcelCell(kid.contacts?.fatherName || ''),
+      sanitizeExcelCell(kid.contacts?.fatherMob || kid.contacts?.kidMob || ''),
       ...sessionValues,
       p,
       a,

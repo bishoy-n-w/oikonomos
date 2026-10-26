@@ -6,6 +6,7 @@ import {
   setDoc, 
   deleteDoc, 
   query, 
+  where,
   orderBy 
 } from 'firebase/firestore';
 import { db } from '../services/firebase';
@@ -14,6 +15,7 @@ import { useApp } from '../context/AppContext';
 import { useFilter } from '../context/FilterContext';
 import type { Kid, Mister, HomeVisit, ClassDoc } from '../types';
 import { LogVisitModal } from '../components/visits/LogVisitModal';
+import { sanitizeExcelCell } from '../utils/formatters';
 import { 
   getUniversalNavigationUrl, 
   captureDeviceGpsLocation 
@@ -108,19 +110,22 @@ export const HomeVisitsScreen: React.FC = () => {
     return () => unsub();
   }, [selectedChurchId, selectedClassId]);
 
-  // 2. Listen to Kids for the active church
+  // 2. Listen to Kids for the active church and selected class
   useEffect(() => {
     if (!selectedChurchId) {
       setKids([]);
       return;
     }
-    const kidsRef = collection(db, 'churches', selectedChurchId, 'kids');
-    const unsub = onSnapshot(kidsRef, (snap) => {
+    const kidsQuery = selectedClassId
+      ? query(collection(db, 'churches', selectedChurchId, 'kids'), where('activeAssignment.classId', '==', selectedClassId))
+      : collection(db, 'churches', selectedChurchId, 'kids');
+
+    const unsub = onSnapshot(kidsQuery, (snap) => {
       const items: Kid[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
       setKids(items);
     });
     return () => unsub();
-  }, [selectedChurchId]);
+  }, [selectedChurchId, selectedClassId]);
 
   // 3. Listen to Misters
   useEffect(() => {
@@ -403,18 +408,18 @@ export const HomeVisitsScreen: React.FC = () => {
 
     // Sheet 1: Student Care Roster
     const rosterSheetData = kidsWithCareStatus.map(({ kid, status, latestVisit, daysAgo }) => ({
-      'Student Name': kid.info.fullName,
-      'Gender': kid.info.gender,
+      'Student Name': sanitizeExcelCell(kid.info.fullName),
+      'Gender': sanitizeExcelCell(kid.info.gender),
       'Care Status': status === 'recently_visited' ? 'Recently Visited' : status === 'due_for_visit' ? 'Due for Care' : status === 'overdue_for_visit' ? 'Overdue for Care' : 'Never Visited',
       'Days Ago': daysAgo === Infinity ? 'Never' : daysAgo,
       'Last Visit Date': latestVisit ? latestVisit.visitDate : 'Never',
       'Last Interaction Type': latestVisit ? latestVisit.type : '-',
-      'Region': kid.address?.region || '',
-      'Street': kid.address?.street || '',
-      'Landmark': kid.address?.landmark || '',
-      'GPS Location': kid.address?.geoLocation || '',
-      'Father Mobile': kid.contacts?.fatherMob || '',
-      'Mother Mobile': kid.contacts?.motherMob || '',
+      'Region': sanitizeExcelCell(kid.address?.region || ''),
+      'Street': sanitizeExcelCell(kid.address?.street || ''),
+      'Landmark': sanitizeExcelCell(kid.address?.landmark || ''),
+      'GPS Location': sanitizeExcelCell(kid.address?.geoLocation || ''),
+      'Father Mobile': sanitizeExcelCell(kid.contacts?.fatherMob || ''),
+      'Mother Mobile': sanitizeExcelCell(kid.contacts?.motherMob || ''),
     }));
     const wsRoster = XLSX.utils.json_to_sheet(rosterSheetData);
     XLSX.utils.book_append_sheet(wb, wsRoster, 'Student Care Status');
@@ -423,12 +428,12 @@ export const HomeVisitsScreen: React.FC = () => {
     const visitsSheetData = visits.map((v) => ({
       'Visit Date': v.visitDate,
       'Interaction Type': v.type === 'home_visit' ? 'Home Visit' : v.type === 'phone_call' ? 'Phone Call' : v.type,
-      'Student Name': kidsMap[v.kidId]?.info.fullName || v.kidId,
-      'Attending Servants': v.visitorMisterIds.map((id) => mistersMap[id] || id).join(', '),
-      'Pastoral Notes': v.notes || '',
+      'Student Name': sanitizeExcelCell(kidsMap[v.kidId]?.info.fullName || v.kidId),
+      'Attending Servants': sanitizeExcelCell(v.visitorMisterIds.map((id) => mistersMap[id] || id).join(', ')),
+      'Pastoral Notes': sanitizeExcelCell(v.notes || ''),
       'Needs Follow-Up': v.needsFollowUp ? 'Yes' : 'No',
       'Follow-Up Date': v.followUpDate || '',
-      'Recorded By': v.createdBy || '',
+      'Recorded By': sanitizeExcelCell(v.createdBy || ''),
     }));
     const wsVisits = XLSX.utils.json_to_sheet(visitsSheetData);
     XLSX.utils.book_append_sheet(wb, wsVisits, 'Visits Log');

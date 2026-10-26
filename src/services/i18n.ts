@@ -286,7 +286,9 @@ export const translations: Record<Language, Record<string, string>> = {
     valid_gps_coords: 'Valid GPS Coordinates',
     location_captured: 'Location captured successfully',
     share_location: 'Share Location',
-    save_gps_with_visit: 'Save current GPS location as student home'
+    save_gps_with_visit: 'Save current GPS location as student home',
+    remove_from_class: 'Remove from Class',
+    remove_from_class_confirm: 'Remove this student from the class? The student profile will remain in the church directory.'
   },
   ar: {
     dashboard: 'لوحة التحكم',
@@ -573,7 +575,9 @@ export const translations: Record<Language, Record<string, string>> = {
     valid_gps_coords: 'إحداثيات صحيحة',
     location_captured: 'تم تحديد الموقع بنجاح',
     share_location: 'مشاركة اللوكيشن',
-    save_gps_with_visit: 'حفظ الموقع الحالي كموقع لمنزل الطالب'
+    save_gps_with_visit: 'حفظ الموقع الحالي كموقع لمنزل الطالب',
+    remove_from_class: 'إلغاء التسكين من الفصل',
+    remove_from_class_confirm: 'هل أنت متأكد من إلغاء تسكين الطالب من هذا الفصل؟ سيظل ملف الطالب محفوظاً.'
   }
 };
 

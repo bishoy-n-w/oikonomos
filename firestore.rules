@@ -88,6 +88,24 @@ service cloud.firestore {
       );
     }
 
+    // Helper: Is the user an assigned servant in this specific class?
+    function isClassServant(churchId, classId, yearId) {
+      return isAuthenticated() && 
+             isChurchServant(churchId) &&
+             exists(/databases/$(database)/documents/churches/$(churchId)/classes/$(classId)) &&
+             yearId != null &&
+             get(/databases/$(database)/documents/churches/$(churchId)/classes/$(classId)).data.academicYears != null &&
+             get(/databases/$(database)/documents/churches/$(churchId)/classes/$(classId)).data.academicYears[yearId] != null &&
+             (
+               (get(/databases/$(database)/documents/churches/$(churchId)/classes/$(classId)).data.academicYears[yearId].Misters != null &&
+                (request.auth.token.email in get(/databases/$(database)/documents/churches/$(churchId)/classes/$(classId)).data.academicYears[yearId].Misters ||
+                 request.auth.token.email.lower() in get(/databases/$(database)/documents/churches/$(churchId)/classes/$(classId)).data.academicYears[yearId].Misters)) ||
+               (get(/databases/$(database)/documents/churches/$(churchId)/classes/$(classId)).data.academicYears[yearId].MistersIds != null &&
+                (request.auth.token.email in get(/databases/$(database)/documents/churches/$(churchId)/classes/$(classId)).data.academicYears[yearId].MistersIds ||
+                 request.auth.token.email.lower() in get(/databases/$(database)/documents/churches/$(churchId)/classes/$(classId)).data.academicYears[yearId].MistersIds))
+             );
+    }
+
     // --- CHURCHES COLLECTION ---
     match /churches/{churchId} {
       // Allow read to ANY authenticated user so they can view church names and request to join!
@@ -142,9 +160,55 @@ service cloud.firestore {
         allow read, write: if isChurchServant(churchId);
       }
       
-      // Kids Directory (PII)
+      // Kids Directory (PII & Role-Based CRUD)
       match /kids/{kidId} {
-        allow read, write: if isChurchServant(churchId);
+        // Read: Church Admin, Group Servant of student's group, or Class Servant of student's class
+        allow read: if isChurchAdmin(churchId) || 
+                       (resource.data.activeAssignment != null && (
+                         isGroupServant(churchId, resource.data.activeAssignment.serviceGroupId) ||
+                         isClassServant(churchId, resource.data.activeAssignment.classId, resource.data.activeAssignment.academicYearId)
+                       ));
+        
+        // Create: Church Admin, Group Admin of target group, or Class Servant adding to their own class
+        // Audit check: request.resource.data.createdBy must match caller email
+        allow create: if (
+                        isChurchAdmin(churchId) || 
+                        (request.resource.data.activeAssignment != null && (
+                          isGroupAdmin(churchId, request.resource.data.activeAssignment.serviceGroupId) ||
+                          isClassServant(churchId, request.resource.data.activeAssignment.classId, request.resource.data.activeAssignment.academicYearId)
+                        ))
+                      ) &&
+                      (request.resource.data.createdBy == request.auth.token.email || 
+                       request.resource.data.createdBy == request.auth.token.email.lower());
+
+        // Update:
+        // - Church Admin can update any kid and reassign classes freely
+        // - Group Admin can update and reassign kids within their group
+        // - Class Servant can update student details, but CANNOT transfer to a different class!
+        // Audit check: request.resource.data.lastEditBy must match caller email
+        allow update: if (
+                        isChurchAdmin(churchId) || 
+                        (resource.data.activeAssignment != null && (
+                          isGroupAdmin(churchId, resource.data.activeAssignment.serviceGroupId) ||
+                          (
+                            isClassServant(churchId, resource.data.activeAssignment.classId, resource.data.activeAssignment.academicYearId) &&
+                            (
+                              request.resource.data.activeAssignment.classId == resource.data.activeAssignment.classId ||
+                              request.resource.data.activeAssignment.classId == null ||
+                              request.resource.data.activeAssignment.classId == ''
+                            )
+                          )
+                        ))
+                      ) &&
+                      (request.resource.data.lastEditBy == request.auth.token.email || 
+                       request.resource.data.lastEditBy == request.auth.token.email.lower());
+
+        // Delete: Church Admin, Group Admin of student's group, or Class Servant of student's class
+        allow delete: if isChurchAdmin(churchId) || 
+                        (resource.data.activeAssignment != null && (
+                          isGroupAdmin(churchId, resource.data.activeAssignment.serviceGroupId) ||
+                          isClassServant(churchId, resource.data.activeAssignment.classId, resource.data.activeAssignment.academicYearId)
+                        ));
         
         match /versions/{versionId} {
           allow read, write: if isChurchServant(churchId);
@@ -153,7 +217,10 @@ service cloud.firestore {
       
       // Service Groups
       match /serviceGroups/{serviceGroupId} {
-        allow read, write: if isChurchServant(churchId);
+        allow read: if isChurchServant(churchId);
+        allow create, delete: if (request.auth != null && !exists(/databases/$(database)/documents/global_admins/_lock)) ||
+                              isChurchAdmin(churchId);
+        allow update: if isChurchAdmin(churchId) || isGroupAdmin(churchId, serviceGroupId);
         
         match /mistersMemberships/{memId} {
           allow read: if isChurchServant(churchId);
@@ -189,10 +256,16 @@ service cloud.firestore {
             // 2. Edit access: Church Admin, Group Admin of this service group, or designated Class Mister
             allow write: if isChurchAdmin(churchId) || 
                             isGroupAdmin(churchId, get(/databases/$(database)/documents/churches/$(churchId)/classes/$(classId)).data.academicYears[yearId].serviceGroupId) ||
-                            (
-                              request.auth.token.email in get(/databases/$(database)/documents/churches/$(churchId)/classes/$(classId)).data.academicYears[yearId].Misters ||
-                              request.auth.token.email in get(/databases/$(database)/documents/churches/$(churchId)/classes/$(classId)).data.academicYears[yearId].MistersIds
-                            );
+                            isClassServant(churchId, classId, yearId);
+          }
+
+          // Pastoral Visits stored under Academic Year -> Class
+          match /visits/{visitId} {
+            allow read: if isChurchAdmin(churchId) || 
+                           isGroupServant(churchId, get(/databases/$(database)/documents/churches/$(churchId)/classes/$(classId)).data.academicYears[yearId].serviceGroupId);
+            allow write: if isChurchAdmin(churchId) || 
+                            isGroupAdmin(churchId, get(/databases/$(database)/documents/churches/$(churchId)/classes/$(classId)).data.academicYears[yearId].serviceGroupId) ||
+                            isClassServant(churchId, classId, yearId);
           }
         }
 
@@ -203,10 +276,6 @@ service cloud.firestore {
         }
 
         match /attendanceEvents/{eventId} {
-          allow read, write: if isChurchServant(churchId);
-        }
-
-        match /visits/{visitId} {
           allow read, write: if isChurchServant(churchId);
         }
 

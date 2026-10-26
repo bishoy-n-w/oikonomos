@@ -626,6 +626,36 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   Import engine normalizes links and coordinates into `geo:lat,lng`.
     *   Excel exports include dedicated `GPS Location` column.
 
+---
+
+## 26. Architectural Hardening, Role Enforcement & Security Audit (الحماية والصلاحيات المعمارية)
+
+*   **Refined Student Role & Permission Matrix (2-Tier Enforcement in UI and `firestore.rules`):**
+    *   **Global Owner & Church Admin:** Unrestricted CRUD and transfer across all church classes and groups.
+    *   **Service Group Admin:** Full CRUD and transfer across classes within their designated service group.
+    *   **Class Teacher (`isClassServant`):**
+        *   **Read:** Restricted strictly to students in their assigned classroom (`canSeeKid`).
+        *   **Create / Add:** Permitted strictly to their own assigned class; class selector is locked in `KidFormModal`.
+        *   **Edit:** Permitted on student profile, address, GPS, and contacts within their assigned class.
+        *   **Delete:** Permitted to delete students in their own assigned class.
+        *   **Remove from Class:** Dedicated 1-tap action unassigns child from class while retaining profile in church directory.
+        *   **Transfer:** Blocked in UI (`disabled` selectors) and denied by Firestore security rules (`request.resource.data.activeAssignment.classId == resource.data.activeAssignment.classId || request.resource.data.activeAssignment.classId == ''`).
+*   **Formula Injection Sanitization (OWASP A03):**
+    *   All user-supplied values in Excel export routines (`KidsDirectoryScreen`, `HomeVisitsScreen`, `AttendanceTrackerScreen`) are escaped via `sanitizeExcelCell` to neutralize formula trigger characters (`=`, `+`, `-`, `@`, `\t`, `\r`), preventing DDE code execution and data exfiltration in Microsoft Excel.
+*   **Audit Trail Integrity:**
+    *   Firestore security rules enforce caller identity validation on student records:
+        *   `request.resource.data.createdBy == request.auth.token.email` on creation.
+        *   `request.resource.data.lastEditBy == request.auth.token.email` on update.
+*   **Database Query Scoping & Server-Side Compound Indexing:**
+    *   `firestore.indexes.json` defines composite indexes for `visits` (`kidId` ASC + `visitDate` DESC) and `attendanceEvents` (`type` ASC + `eventDate` DESC).
+    *   Queries in `HomeVisitsScreen` and `KidsDirectoryScreen` scope `onSnapshot` subscriptions by `activeAssignment.classId` to prevent full-collection church scans.
+*   **Cross-Platform Mobile UI/UX Hardening:**
+    *   **Safe Area Insets:** Floating action bars and modals apply `env(safe-area-inset-bottom)` to prevent obstruction by iOS Home Indicator bars.
+    *   **Dynamic Viewport Height (`100dvh`):** Modals adapt dynamically to Android and iOS virtual keyboards without pushing headers off-screen.
+    *   **Touch Targets:** Action buttons adhere to Apple HIG ($44\times 44$ pt) and Material guidelines ($48\times 48$ px).
+    *   **Semantic Accessibility:** Interactive chips and cards implement ARIA roles (`role="button"`), `tabIndex={0}`, and Enter/Space keyboard handlers.
+    *   **Lazy High-Density Roster Rendering:** High-density roster tables and cards render in progressive 60-student chunks with a "Show More" trigger, guaranteeing 60fps scrolling and low memory consumption on mobile devices.
+
 
 
 
