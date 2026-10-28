@@ -60,6 +60,9 @@ jobs:
             }
           '
 
+      - name: Run Linter (Oxlint)
+        run: npm run lint
+
       - name: Run Tests
         run: npm test
 

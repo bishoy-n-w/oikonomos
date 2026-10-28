@@ -698,6 +698,28 @@ Enables Sunday School servants and administrators to synchronize church contact 
 *   **Multi-Tenant State Isolation:**
     *   All directory and configuration views must immediately clear local state arrays (`setKids([])`, `setServants([])`, `setClasses([])`, `setGroups([])`, counters) when `!selectedChurchId` occurs.
 
+---
+
+## 28. Build Optimization, DevEx & Deployment Architecture (معايير البناء وتجربة المطور والنشر)
+
+*   **Vendor Code-Splitting & Modular Chunking:**
+    *   Vite build pipeline implements functional Rollup chunk partitioning (`manualChunks`), isolating heavy external dependencies:
+        *   `vendor`: React and React-DOM runtimes.
+        *   `firebase`: Core Firebase SDK modules (`app`, `auth`, `firestore`).
+        *   `xlsx`: SheetJS parsing engine for imports and exports.
+        *   `icons`: Lucide React SVG icon tree.
+    *   Main application chunk size is kept under 450 kB (reduced from 1.64 MB), accelerating First Contentful Paint (FCP) and Time to Interactive (TTI) on mobile cellular connections while maximizing long-term browser asset caching.
+*   **Automated CI/CD Quality Gate (GitHub Actions):**
+    *   The deployment pipeline (`.github/workflows/deploy_web.yml`) enforces a strict multi-tier quality gate prior to deployment:
+        1.  Clean dependency hydration via `npm ci`.
+        2.  Automated extraction of Firebase Web credentials from `FIREBASE_OPTIONS_DART` secrets into `.env.local`.
+        3.  Static code analysis and linter validation via `npm run lint` (Oxlint).
+        4.  Full automated test suite execution via `npm test` (Vitest).
+        5.  Production bundle compilation via `npm run build`.
+        6.  Static site deployment to GitHub Pages with `404.html` SPA client-side fallback routing.
+*   **Environment Configuration Governance:**
+    *   `.env.example` provides an audited template for all required and optional runtime environment variables (`VITE_FIREBASE_*` and `BASE_PATH`).
+
 
 
 

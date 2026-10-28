@@ -557,14 +557,14 @@ export const KidsDirectoryScreen: React.FC = () => {
     setIsDeletingBulk(true);
     try {
       const batchSize = 400;
-      let deletedCount = 0;
+      let _deletedCount = 0;
       for (let i = 0; i < selectedKidIds.length; i += batchSize) {
         const chunk = selectedKidIds.slice(i, i + batchSize);
         const batch = writeBatch(db);
         chunk.forEach((kId) => {
           const kidRef = doc(db, 'churches', selectedChurchId, 'kids', kId);
           batch.delete(kidRef);
-          deletedCount++;
+          _deletedCount++;
         });
         await batch.commit();
       }

@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
@@ -9,7 +9,18 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
-  // @ts-expect-error vitest config
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/xlsx')) return 'xlsx';
+          if (id.includes('node_modules/firebase')) return 'firebase';
+          if (id.includes('node_modules/lucide-react')) return 'icons';
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) return 'vendor';
+        },
+      },
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',

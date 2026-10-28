@@ -1,36 +1,47 @@
-# Oikonomos Application Backlog & Roadmap
+# Oikonomos Application Roadmap & Engineering Backlog
 
-This todo list outlines planned enhancements, features, and technical tasks for Oikonomos, categorized by priority and phase. 
-
----
-
-## 🟥 Phase 1: Security & Compliance (High Priority)
-- [TODO] **Email Domain Whitelisting:** Enforce a sign-in filter (e.g., in a Firebase Auth Blocking Cloud Function) that only permits specific email domains or pre-approved lists to authenticate, preventing arbitrary `@gmail.com` registrations.
-- [IGNORE] **Time-To-Live (TTL) Policies:** Enable TTL rules in Firestore on `versions` and old attendance events to automatically purge child data after they graduate out of the Sunday School age bracket (complying with COPPA/GDPR minor-privacy regulations).
-- [TODO] **Automated Integration Tests:** Write widget and integration tests for the `BootstrapGuard` to verify that uninitialized database deployments always secure themselves correctly.
+This backlog outlines completed milestones and forward-looking engineering initiatives for **Oikonomos (Sunday School Admin & CRM)**.
 
 ---
 
-## 🟨 Phase 2: User Experience Polish (Medium Priority)
-- [TODO] **🌓 Dark Mode Toggle:** Integrate a theme switcher inside the `MainShell` sidebar using a stateful `ThemeMode` builder to easily switch between light and dark modes.
-- [TODO] **🖼️ Profile Picture Uploads:** Binds Firebase Storage to the Kids Profile form, letting teachers upload or snap photos of children to display next to their name in the Attendance and Directory lists. The system should handle image compression and resizing for optimal performance and storage saving in database.
-- [TODO] **🔍 Advanced Filtering & Search:** Add inline search bars and tag filters (by Grade, Gender, or Status) on the Kids and Servants directories.
+## ✅ Completed Milestones
+
+### 📱 Phase 1: Responsive Dual-Mode UI/UX Overhaul
+- [x] **Viewport & Notch Avoidance:** Modernized viewport with `viewport-fit=cover`, dynamic viewport heights (`dvh`), and safe-area inset bottom padding (`env(safe-area-inset-bottom)`).
+- [x] **Touch Target Compliance (Apple HIG & WCAG 2.5.5 / 2.5.8):** Enforced $\ge 44\times 44$px interactive hit targets on mobile (attendance 3-state pills, WhatsApp/call shortcuts, navigation tabs) while maintaining high-density desktop mouse sizing.
+- [x] **Mobile Adaptive Touch Cards:** Replaced wide 7–12 column tables on mobile with touch-friendly adaptive cards for the Servants Directory and Classes Management screens.
+- [x] **Categorized Mobile Navigation:** Transformed 5th mobile tab to a streamlined "More" drawer categorized into Pastoral Care and Administration.
+- [x] **Active Context Visibility:** Added dynamic active Class / Service Group badges to the mobile filter chip in TopAppBar.
+- [x] **Accessibility (WCAG 2.1 SC 1.4.4):** Restored pinch-to-zoom scaling and prevented iOS Safari form auto-zoom via responsive input sizing.
+
+### 🛡️ Phase 2: Code Health & Data Integrity Remediation
+- [x] **Firestore Subscription Lifecycle:** Fixed nested subcollection listener memory leaks in `ChurchesScreen` using tracked `unsubNested` disposal.
+- [x] **Asynchronous Concurrency:** Replaced un-awaited `forEach(async ...)` loops with `await Promise.all(...)` during bulk deletions.
+- [x] **Debounce & Unmount Hygiene:** Hardened the 900ms attendance auto-save engine with `isMountedRef` and unmount timer cancellation.
+- [x] **Class Roster Reconciliation:** Atomically pruned reassigned and reverted student IDs from old classroom rosters during bulk assignments and import batch reverts.
+- [x] **Multi-Tenant State Isolation:** Added explicit state array resets on tenant switches across all directory and management views.
+- [x] **Defensive Null-Safety:** Applied optional chaining across all dynamic user profile attributes.
+
+### 🧪 Phase 3: QA Architecture & Security Expansion
+- [x] **OWASP A03 Formula Injection Defense:** Hardened `sanitizeExcelCell` to neutralize leading `=`, `+`, `-`, `@`, `\t`, `\r` trigger prefixes across all CSV/Excel exports.
+- [x] **LIFO Modal Escape Stack:** Verified nested modal dismissal ordering and cleanup via `useModalEscape`.
+- [x] **Attendance Statistics & Ranking Engine:** Validated `topAttendees`, `lowestAttendees`, and core-only consecutive absence evaluations.
+- [x] **Multi-Format Date Normalization:** Validated `normalizeDateStr` across native Dates, Firestore Timestamps, and string formats.
 
 ---
 
-## 🟩 Phase 3: Features & Analytics (Feature Expansion)
-- [TODO] **📊 Visual Attendance Charts:** Integrate the `fl_chart` package to render beautiful, interactive analytics graphs on the `DashboardScreen` showing attendance rate over time.
-- [TODO] **📥 CSV/Excel Data Export:** Add a "Download Roster" action on class and directory views, allowing coordinators to export clean spreadsheet reports (`.csv`/`.xlsx`) for offline archive or printing.
-- [TODO] **🔔 Home Visit Reminders:** Automatically detect which children have not received a pastoral home visit in the last 60 days and highlight them on the Dashboard as "Overdue for Care."
-- [TODO] **📧 Email Notifications:** Trigger automated email summary notifications to teachers when a new attendance event is logged or when they are assigned to a new Class group.
+## 🚀 Forward Roadmap & Feature Backlog
 
----
+### 🟥 Priority 1: Cloud Security & Access Governance
+- [ ] **Email Domain Restriction:** Implement a Firebase Auth Blocking Cloud Function to restrict sign-ins to pre-approved Google Workspace domains or an invitation whitelist.
+- [ ] **Time-To-Live (TTL) Compliance Policy:** Configure Firestore TTL rules to auto-archive minor personal data and historic attendance snapshots after students graduate.
+- [ ] **Automated E2E Testing Suite:** Add Playwright browser integration tests for critical multi-step flows (Excel smart import, attendance roll-call, bulk assignment).
 
-## 🟦 Phase 4: Localization & Scaling (Long-Term)
-- [TODO] **🌍 Internationalization (i18n):** Implement Flutter’s standard localization framework to easily translate Oikonomos’s interface into **Arabic**, **English**, or **French** dynamically.
-- [TODO] **📱 Native Responsive Shell:** Adapt the `MainShell` to seamlessly switch from a desktop `NavigationRail` sidebar to a mobile `NavigationBar` bottom tab when the screen width drops below 600px.
+### 🟨 Priority 2: Pastoral Communications & Push Reminders
+- [ ] **PWA Web Push Notifications:** Enable Service Worker push notifications to remind servants of weekly roll-calls and overdue home visitations.
+- [ ] **Bulk SMS / WhatsApp Campaign Templates:** Pre-compose announcement messages for feast liturgies, trips, and parent meetings.
+- [ ] **Pastoral Visit Scheduling Calendar:** Integration with Google Calendar to schedule and track upcoming home visits directly within the app.
 
----
-
-### 💡 Contributing
-If you are running a fork of Oikonomos, feel free to pick up any of these tasks! Mark your pull request with the corresponding checkbox reference.
+### 🟩 Priority 3: Offline Sync & PWA Cache Hardening
+- [ ] **Persistent Firestore Offline Cache:** Enable IndexedDB offline persistence for attendance logging in church basements with weak cellular reception.
+- [ ] **Background Sync:** Queue offline attendance marks and automatically sync with Firestore upon network reconnection.
