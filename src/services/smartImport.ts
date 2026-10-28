@@ -82,7 +82,7 @@ const HEURISTIC_PATTERNS: Record<string, string[]> = {
   kidMob: ['kidmob', 'kidphone', 'studentmobile', 'studentphone', 'موبايل الطالب', 'تليفون الطالب', 'رقم الطالب', 'موبايل الطفل', 'هاتف الطالب', 'موبايل', 'تليفون'],
   
   // Student profile
-  fullName: ['fullname', 'studentname', 'kidname', 'اسم الطالب', 'الاسم بالكامل', 'اسم الطفل', 'اسم المخدوم', 'full name', 'name', 'الاسم', 'اسم التلميذ', 'الاسم رباعي', 'الاسم ثلاثي', 'الاسم ثنائي', 'اسم الطالب/الطالبة', 'student full name'],
+  fullName: ['fullname', 'studentname', 'kidname', 'اسم الطالب', 'الاسم بالكامل', 'اسم الطفل', 'اسم المخدوم', 'اسم المخدوم بالكامل', 'full name', 'name', 'الاسم', 'اسم التلميذ', 'الاسم رباعي', 'الاسم ثلاثي', 'الاسم ثنائي', 'اسم الطالب/الطالبة', 'student full name'],
   gender: ['gender', 'sex', 'النوع', 'الجنس', 'بنت ولد', 'ولد بنت', 'النوع (بنت/ولد)', 'بنت/ولد'],
   dob: [
     'dob', 'birthdate', 'dateofbirth', 'birth date', 'تاريخ الميلاد', 'الميلاد', 'تاريخ ميلاد', 'تاريخ', 

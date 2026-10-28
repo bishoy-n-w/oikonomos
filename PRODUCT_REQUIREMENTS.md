@@ -260,6 +260,8 @@ The platform enforces a mandatory automated validation policy. Every core mechan
 14. **LIFO Modal Escape Dismissal Stack:** Verifying that `useModalEscape` pops only the top-most nested modal and restores the parent modal upon child unmount.
 15. **Attendance Statistics & Ranking Sorts:** Accurate computation of attendance rates, best session identification, and ranking sort order (`topAttendees` and `lowestAttendees`).
 16. **Core Event Filtering for Pastoral Alerts:** Verification that voluntary/non-core sessions (`isCore: false`) are ignored during consecutive absence calculations.
+17. **Security & Threat Hardening Invariants (`SEC-01` - `SEC-06`):** Validating permanent lock immutability, Day-0 self-UID bootstrap binding, ephemeral sessionStorage token isolation with localStorage purging, case-insensitive group role matching, assignment tampering freezes, and version subcollection RBAC inheritance.
+18. **End-to-End User Flow Integrations:** Validating real-world workflows: Sunday roll-call with localized WhatsApp pastoral alerts, bilingual onboarding with Egyptian Arabic month parsing and atomic classroom roster reconciliation, and home visitation with universal GPS navigation URL resolution.
 
 ---
 
