@@ -257,19 +257,24 @@ export const ClassesScreen: React.FC = () => {
 
     // Step 3: Bidirectional sync with Kids collection
     const previouslyAssignedKids = allKids.filter((k) => k.activeAssignment?.classId === docId);
+    
+    const kidOperations: Array<{ ref: any, payload: any }> = [];
 
     // Update newly assigned kids
     kidIds.forEach((kId) => {
       const kRef = doc(db, 'churches', selectedChurchId, 'kids', kId);
-      batch.update(kRef, {
-        'activeAssignment.academicYearId': academicYearId,
-        'activeAssignment.serviceGroupId': serviceGroupId,
-        'activeAssignment.classId': docId,
-        academicYearId,
-        serviceGroupId,
-        classId: docId,
-        lastEditAt: new Date().toISOString(),
-        lastEditBy: user?.email,
+      kidOperations.push({
+        ref: kRef,
+        payload: {
+          'activeAssignment.academicYearId': academicYearId,
+          'activeAssignment.serviceGroupId': serviceGroupId,
+          'activeAssignment.classId': docId,
+          academicYearId,
+          serviceGroupId,
+          classId: docId,
+          lastEditAt: new Date().toISOString(),
+          lastEditBy: user?.email,
+        }
       });
     });
 
@@ -278,15 +283,33 @@ export const ClassesScreen: React.FC = () => {
       .filter((k) => !kidIds.includes(k.id))
       .forEach((k) => {
         const kRef = doc(db, 'churches', selectedChurchId, 'kids', k.id);
-        batch.update(kRef, {
-          'activeAssignment.classId': '',
-          classId: '',
-          lastEditAt: new Date().toISOString(),
-          lastEditBy: user?.email,
+        kidOperations.push({
+          ref: kRef,
+          payload: {
+            'activeAssignment.classId': '',
+            classId: '',
+            lastEditAt: new Date().toISOString(),
+            lastEditBy: user?.email,
+          }
         });
       });
 
+    // Process all kid updates in chunked 400-op batches (reserving space for class/group)
+    const BATCH_LIMIT = 400;
+    
+    // Commit the primary batch (Class + Group)
     await batch.commit();
+
+    // Commit kid assignment chunks sequentially
+    for (let i = 0; i < kidOperations.length; i += BATCH_LIMIT) {
+      const chunk = kidOperations.slice(i, i + BATCH_LIMIT);
+      const chunkBatch = writeBatch(db);
+      chunk.forEach((op) => {
+        chunkBatch.update(op.ref, op.payload);
+      });
+      await chunkBatch.commit();
+    }
+
     setAddModalOpen(false);
     setEditClass(null);
   };

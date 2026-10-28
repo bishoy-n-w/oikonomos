@@ -82,8 +82,10 @@ export function transformKidToGooglePerson(kid: Kid, churchName: string, classNa
     kid.address?.landmark ? `(Near: ${kid.address.landmark})` : '',
   ].filter(Boolean).join(', ');
 
+  const studentName = kid.info?.fullName || 'Student';
+
   const bioLines = [
-    `Sunday School Student - ${kid.info.fullName}`,
+    `Sunday School Student - ${studentName}`,
     kid.contacts?.fatherName ? `Father: ${kid.contacts.fatherName}` : '',
     kid.contacts?.motherName ? `Mother: ${kid.contacts.motherName}` : '',
     addressText ? `Address: ${addressText}` : '',
@@ -93,7 +95,7 @@ export function transformKidToGooglePerson(kid: Kid, churchName: string, classNa
   return {
     names: [
       {
-        givenName: `[SS] ${kid.info.fullName}`,
+        givenName: `[SS] ${studentName}`,
         familyName: '',
       },
     ],
@@ -221,7 +223,7 @@ export async function syncKidsToGoogleContacts(
           if (res.ok) {
             successCount++;
             // If student has a profile picture, sync photo to Google Contact
-            if (kid.info.photoUrl) {
+            if (kid.info?.photoUrl) {
               try {
                 const createdPerson = await res.json();
                 const photoBytes = kid.info.photoUrl.includes(',')
@@ -245,6 +247,8 @@ export async function syncKidsToGoogleContacts(
                 // Non-fatal if photo sync fails
               }
             }
+          } else if (res.status === 401 || res.status === 403) {
+            throw new Error('Google Contacts authorization expired. Please reconnect Google Contacts.');
           }
         })
       );

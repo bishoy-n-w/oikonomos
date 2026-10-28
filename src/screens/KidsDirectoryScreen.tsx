@@ -1400,11 +1400,11 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
   const { translate } = useApp();
   const asgn = existingKid?.activeAssignment || {};
 
-  const [fullName, setFullName] = useState(existingKid?.info.fullName || '');
-  const [gender, setGender] = useState<'male' | 'female'>(existingKid?.info.gender || 'male');
-  const [dob, setDob] = useState(existingKid?.info.dob || '');
-  const [school, setSchool] = useState(existingKid?.info.school || '');
-  const initialSchoolType = existingKid?.info.schoolType || '';
+  const [fullName, setFullName] = useState(existingKid?.info?.fullName || '');
+  const [gender, setGender] = useState<'male' | 'female'>(existingKid?.info?.gender || 'male');
+  const [dob, setDob] = useState(existingKid?.info?.dob || '');
+  const [school, setSchool] = useState(existingKid?.info?.school || '');
+  const initialSchoolType = existingKid?.info?.schoolType || '';
   const [schoolTypeCategory, setSchoolTypeCategory] = useState<'National' | 'International' | 'other' | ''>(
     initialSchoolType === 'National' || initialSchoolType === 'International'
       ? initialSchoolType
@@ -1413,9 +1413,9 @@ const KidFormModal: React.FC<KidFormModalProps> = ({
   const [customSchoolType, setCustomSchoolType] = useState(
     initialSchoolType && initialSchoolType !== 'National' && initialSchoolType !== 'International' ? initialSchoolType : ''
   );
-  const [deacon, setDeacon] = useState<boolean>(Boolean(existingKid?.info.deacon));
-  const [fatherOfConfession, setFatherOfConfession] = useState(existingKid?.info.fatherOfConfession || '');
-  const [photoUrl, setPhotoUrl] = useState(existingKid?.info.photoUrl || '');
+  const [deacon, setDeacon] = useState<boolean>(Boolean(existingKid?.info?.deacon));
+  const [fatherOfConfession, setFatherOfConfession] = useState(existingKid?.info?.fatherOfConfession || '');
+  const [photoUrl, setPhotoUrl] = useState(existingKid?.info?.photoUrl || '');
 
   // Assignment
   const [academicYearId, setAcademicYearId] = useState(asgn.academicYearId || initialYearId);
