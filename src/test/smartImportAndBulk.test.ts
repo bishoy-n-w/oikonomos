@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import * as XLSX from 'xlsx';
 import { 
   autoMapHeadersHeuristically, 
-  normalizeDateValue, 
+  normalizeDateValue,
+  normalizeDateValueWithMeta,
+  sanitizeFirestorePayload,
   autoDetectHeaderRow,
   parseSpreadsheetFile 
 } from '../services/smartImport';
@@ -375,6 +377,151 @@ describe('Smart Import & Bulk Operations Logic', () => {
       expect(parsed.sheetNames).toEqual(['فصل داود']);
       expect(parsed.rawRows[0]).toEqual(['الاسم بالكامل', 'تاريخ الميلاد']);
       expect(parsed.rawRows[1][0]).toBe('مارك أمير');
+    });
+  });
+
+  describe('Arabic Month Names & Year 2000 Default Date Parsing', () => {
+    it('normalizes Arabic month names without year to default year 2000', () => {
+      expect(normalizeDateValue('8 فبراير')).toBe('2000-02-08');
+      expect(normalizeDateValue('1-ديسمبر')).toBe('2000-12-01');
+      expect(normalizeDateValue('6-يوليو')).toBe('2000-07-06');
+      expect(normalizeDateValue('15 نوفمبر')).toBe('2000-11-15');
+      expect(normalizeDateValue('20 يناير')).toBe('2000-01-20');
+      expect(normalizeDateValue('11- اغسطس')).toBe('2000-08-11');
+      expect(normalizeDateValue('18 مايو')).toBe('2000-05-18');
+      expect(normalizeDateValue('24 نوفمبر')).toBe('2000-11-24');
+      expect(normalizeDateValue('10 يناير ')).toBe('2000-01-10');
+      expect(normalizeDateValue('10 اغسطس ')).toBe('2000-08-10');
+    });
+
+    it('normalizes Arabic month names with explicit year accurately', () => {
+      expect(normalizeDateValue('15 فبراير 2012')).toBe('2012-02-15');
+      expect(normalizeDateValue('2014-مارس-25')).toBe('2014-03-25');
+      expect(normalizeDateValue('٢٢ أكتوبر ٢٠١٠')).toBe('2010-10-22');
+      expect(normalizeDateValue('5 إبريل 2015')).toBe('2015-04-05');
+    });
+
+    it('returns metadata indicating whether default year was applied via normalizeDateValueWithMeta', () => {
+      const yearLess = normalizeDateValueWithMeta('8 فبراير', '2000');
+      expect(yearLess.date).toBe('2000-02-08');
+      expect(yearLess.usedDefaultYear).toBe(true);
+
+      const withYear = normalizeDateValueWithMeta('8 فبراير 2013', '2000');
+      expect(withYear.date).toBe('2013-02-08');
+      expect(withYear.usedDefaultYear).toBe(false);
+
+      const standardIso = normalizeDateValueWithMeta('2014-05-19');
+      expect(standardIso.date).toBe('2014-05-19');
+      expect(standardIso.usedDefaultYear).toBe(false);
+    });
+  });
+
+  describe('Header Disambiguation: Academic Year vs. Birth Dates', () => {
+    it('does NOT map academic year / grade headers to dob', () => {
+      const academicHeaders = [
+        'السنة الدراسية ',
+        'المرحلة الدراسية',
+        'الصف الدراسي',
+        'السنة الدراسية',
+      ];
+      const mapping = autoMapHeadersHeuristically(academicHeaders);
+      expect(mapping['السنة الدراسية ']).toBeUndefined();
+      expect(mapping['المرحلة الدراسية']).toBeUndefined();
+      expect(mapping['الصف الدراسي']).toBeUndefined();
+      expect(mapping['السنة الدراسية']).toBeUndefined();
+    });
+
+    it('accurately maps all genuine birth date variants to dob', () => {
+      const birthHeaders = [
+        'تاريخ الميلاد ',
+        'سنة الميلاد',
+        'عيد الميلاد',
+        'ميلاد',
+        'السن',
+        'سن الطالب',
+        'تاريخ ميلاد الطالب',
+      ];
+      const mapping = autoMapHeadersHeuristically(birthHeaders);
+      expect(mapping['تاريخ الميلاد ']).toBe('dob');
+      expect(mapping['سنة الميلاد']).toBe('dob');
+      expect(mapping['عيد الميلاد']).toBe('dob');
+      expect(mapping['ميلاد']).toBe('dob');
+      expect(mapping['السن']).toBe('dob');
+      expect(mapping['سن الطالب']).toBe('dob');
+      expect(mapping['تاريخ ميلاد الطالب']).toBe('dob');
+    });
+
+    it('correctly maps the exact columns from the Sunday School weekly sheet', () => {
+      const actualHeaders = [
+        'الاسم ',
+        'السنة الدراسية ',
+        'تليفون شخصي ',
+        'تليفون الام ',
+        'اب الاعتراف ',
+        'العنوان ',
+        'المدرسة ',
+        'تاريخ الميلاد ',
+        'عمل الاب ',
+        'اسم الام',
+      ];
+      const mapping = autoMapHeadersHeuristically(actualHeaders);
+
+      expect(mapping['الاسم ']).toBe('fullName');
+      expect(mapping['السنة الدراسية ']).toBeUndefined(); // Should NOT collide with dob!
+      expect(mapping['تليفون شخصي ']).toBe('kidMob');
+      expect(mapping['تليفون الام ']).toBe('motherMob');
+      expect(mapping['اب الاعتراف ']).toBe('fatherOfConfession');
+      expect(mapping['العنوان ']).toBe('region');
+      expect(mapping['المدرسة ']).toBe('school');
+      expect(mapping['تاريخ الميلاد ']).toBe('dob');
+      expect(mapping['عمل الاب ']).toBe('fatherProfession');
+      expect(mapping['اسم الام']).toBe('motherName');
+    });
+  });
+
+  describe('Firestore Payload Sanitization (sanitizeFirestorePayload)', () => {
+    it('recursively removes undefined fields preventing WriteBatch.set() crashes', () => {
+      const rawPayload = {
+        fullName: 'كارن اسامة',
+        info: {
+          dob: '2000-02-08',
+          schoolType: undefined,
+          deacon: undefined,
+          photoUrl: undefined,
+        },
+        address: {
+          region: 'ش خليف المأمون',
+          landmark: undefined,
+          geoLocation: undefined,
+        },
+        contacts: {
+          fatherDOB: undefined,
+          motherDOB: undefined,
+          fatherMob: '+201299925403',
+        },
+        nullField: null,
+        numField: 42,
+        boolField: false,
+      };
+
+      const clean = sanitizeFirestorePayload(rawPayload);
+
+      expect(clean.info).toEqual({ dob: '2000-02-08' });
+      expect('schoolType' in clean.info).toBe(false);
+      expect('deacon' in clean.info).toBe(false);
+      expect('photoUrl' in clean.info).toBe(false);
+
+      expect(clean.address).toEqual({ region: 'ش خليف المأمون' });
+      expect('landmark' in clean.address).toBe(false);
+      expect('geoLocation' in clean.address).toBe(false);
+
+      expect(clean.contacts).toEqual({ fatherMob: '+201299925403' });
+      expect('fatherDOB' in clean.contacts).toBe(false);
+      expect('motherDOB' in clean.contacts).toBe(false);
+
+      expect(clean.nullField).toBeNull();
+      expect(clean.numField).toBe(42);
+      expect(clean.boolField).toBe(false);
     });
   });
 });

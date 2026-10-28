@@ -62,12 +62,18 @@ function cleanHeader(header: string): string {
  */
 const HEURISTIC_PATTERNS: Record<string, string[]> = {
   // Specific composite names & parent birthdays first
-  fatherDOB: ['fatherdob', 'father birth', 'تاريخ ميلاد الاب', 'ميلاد الاب', 'تاريخ ميلاد والده', 'تاريخ ميلاد الوالد', 'سن الاب', 'تاريخ ميلاد ولي الامر'],
+  fatherDOB: [
+    'fatherdob', 'father birth', 'تاريخ ميلاد الاب', 'ميلاد الاب', 'تاريخ ميلاد والده', 'تاريخ ميلاد الوالد', 'سن الاب', 'تاريخ ميلاد ولي الامر',
+    'سنة ميلاد الاب', 'سنه ميلاد الاب', 'سنة ميلاد الوالد', 'سنه ميلاد الوالد', 'عيد ميلاد الاب', 'عيد ميلاد الوالد'
+  ],
   fatherName: ['fathername', 'father name', 'اسم الاب', 'اسم الوالد', 'والد الطالب', 'اسم ولي الامر', 'اسم ولي أمر'],
   fatherProfession: ['fatherprofession', 'fatherjob', 'fatheroccupation', 'وظيفة الاب', 'مهنة الاب', 'عمل الاب', 'شغل الاب'],
   fatherMob: ['fathermob', 'fatherphone', 'موبايل الاب', 'تليفون الاب', 'رقم الاب', 'موبايل ولي الامر', 'تليفون ولي الامر', 'تليفون بابا', 'موبايل بابا', 'هاتف الاب', 'ولي الامر', 'موبايل ولي أمر', 'رقم ولي الامر', 'تليفون ولي الأمر'],
   
-  motherDOB: ['motherdob', 'mother birth', 'تاريخ ميلاد الام', 'ميلاد الام', 'تاريخ ميلاد والدته', 'تاريخ ميلاد الوالدة', 'سن الام'],
+  motherDOB: [
+    'motherdob', 'mother birth', 'تاريخ ميلاد الام', 'ميلاد الام', 'تاريخ ميلاد والدته', 'تاريخ ميلاد الوالدة', 'سن الام',
+    'سنة ميلاد الام', 'سنه ميلاد الام', 'سنة ميلاد الوالدة', 'سنه ميلاد الوالدة', 'عيد ميلاد الام', 'عيد ميلاد الوالدة'
+  ],
   motherName: ['mothername', 'mother name', 'اسم الام', 'اسم الوالدة', 'والدة الطالب'],
   motherProfession: ['motherprofession', 'motherjob', 'motheroccupation', 'وظيفة الام', 'مهنة الام', 'عمل الام', 'شغل الام'],
   motherMob: ['mothermob', 'motherphone', 'موبايل الام', 'تليفون الام', 'رقم الام', 'تليفون ماما', 'موبايل ماما', 'هاتف الام', 'تليفون والدة'],
@@ -78,7 +84,11 @@ const HEURISTIC_PATTERNS: Record<string, string[]> = {
   // Student profile
   fullName: ['fullname', 'studentname', 'kidname', 'اسم الطالب', 'الاسم بالكامل', 'اسم الطفل', 'اسم المخدوم', 'full name', 'name', 'الاسم', 'اسم التلميذ', 'الاسم رباعي', 'الاسم ثلاثي', 'الاسم ثنائي', 'اسم الطالب/الطالبة', 'student full name'],
   gender: ['gender', 'sex', 'النوع', 'الجنس', 'بنت ولد', 'ولد بنت', 'النوع (بنت/ولد)', 'بنت/ولد'],
-  dob: ['dob', 'birthdate', 'dateofbirth', 'birth date', 'تاريخ الميلاد', 'الميلاد', 'تاريخ ميلاد', 'تاريخ', 'السن', 'تاريخ_الميلاد', 'تاريخ_ميلاد', 'ميلاد', 'date of birth', 'bdate', 'birthday'],
+  dob: [
+    'dob', 'birthdate', 'dateofbirth', 'birth date', 'تاريخ الميلاد', 'الميلاد', 'تاريخ ميلاد', 'تاريخ', 
+    'سنة الميلاد', 'سنه الميلاد', 'سنة ميلاد', 'سنه ميلاد', 'عيد الميلاد', 'عيد ميلاد', 'تاريخ_الميلاد', 'تاريخ_ميلاد',
+    'السن', 'سن الطالب', 'ميلاد', 'date of birth', 'bdate', 'birthday'
+  ],
   schoolType: ['schooltype', 'نوع المدرسة', 'نوع المدرسه', 'نظام التعليم', 'لغات', 'تجريبي', 'خاص', 'حكومي', 'ناشونال', 'انترناشونال', 'national', 'international', 'school type'],
   school: ['school', 'المدرسة', 'مدرسة'],
   deacon: ['deacon', 'شماس', 'مرتسم شماس', 'رتبة شماس', 'شموسية', 'شموسيه', 'هل شماس', 'رتبة الشموسية'],
@@ -97,19 +107,71 @@ const HEURISTIC_PATTERNS: Record<string, string[]> = {
 };
 
 /**
- * Normalizes various raw date inputs (Date objects, Excel serial numbers, DD/MM/YYYY, YYYY-MM-DD, Arabic numerals)
- * into ISO standard YYYY-MM-DD format.
+ * Bilingual Arabic and Levant month mapping to 2-digit month strings.
  */
-export function normalizeDateValue(raw: any): string {
-  if (raw === null || raw === undefined || raw === '') return '';
+const ARABIC_MONTH_MAP: Record<string, string> = {
+  'تشرين الاول': '10', 'تشرين الأول': '10',
+  'تشرين الثاني': '11',
+  'كانون الاول': '12', 'كانون الأول': '12',
+  'كانون الثاني': '01',
+  'يناير': '01',
+  'فبراير': '02',
+  'مارس': '03',
+  'ابريل': '04', 'إبريل': '04',
+  'مايو': '05',
+  'يونيو': '06',
+  'يوليو': '07',
+  'اغسطس': '08', 'أغسطس': '08',
+  'سبتمبر': '09',
+  'اكتوبر': '10', 'أكتوبر': '10',
+  'نوفمبر': '11',
+  'ديسمبر': '12',
+  'شباط': '02',
+  'اذار': '03', 'آذار': '03',
+  'نيسان': '04',
+  'ايار': '05', 'أيار': '05',
+  'حزيران': '06',
+  'تموز': '07',
+  'ايلول': '09', 'أيلول': '09',
+};
+
+/**
+ * Recursively removes keys with `undefined` values from an object,
+ * preventing Firestore `WriteBatch.set()` or `setDoc()` crashes.
+ */
+export function sanitizeFirestorePayload<T>(obj: T): T {
+  if (obj === null || obj === undefined || typeof obj !== 'object') {
+    return obj;
+  }
+  if (obj instanceof Date) {
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeFirestorePayload) as unknown as T;
+  }
+  const clean: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      clean[key] = sanitizeFirestorePayload(value);
+    }
+  }
+  return clean as T;
+}
+
+/**
+ * Normalizes various raw date inputs (Date objects, Excel serial numbers, DD/MM/YYYY, YYYY-MM-DD, Arabic numerals,
+ * and Arabic month names with or without year) into ISO standard YYYY-MM-DD format with metadata.
+ */
+export function normalizeDateValueWithMeta(raw: any, defaultYear: string = '2000'): { date: string; usedDefaultYear: boolean } {
+  if (raw === null || raw === undefined || raw === '') return { date: '', usedDefaultYear: false };
 
   // 1. Native Date instance (from XLSX cellDates: true)
   if (raw instanceof Date) {
-    if (isNaN(raw.getTime())) return '';
+    if (isNaN(raw.getTime())) return { date: '', usedDefaultYear: false };
     const y = raw.getFullYear();
     const m = String(raw.getMonth() + 1).padStart(2, '0');
     const d = String(raw.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
+    return { date: `${y}-${m}-${d}`, usedDefaultYear: false };
   }
 
   // 2. Convert Arabic-Indic digits (٠-٩) to ASCII digits (0-9)
@@ -123,7 +185,7 @@ export function normalizeDateValue(raw: any): string {
       const y = excelDate.getFullYear();
       const m = String(excelDate.getMonth() + 1).padStart(2, '0');
       const d = String(excelDate.getDate()).padStart(2, '0');
-      return `${y}-${m}-${d}`;
+      return { date: `${y}-${m}-${d}`, usedDefaultYear: false };
     }
   }
 
@@ -133,7 +195,7 @@ export function normalizeDateValue(raw: any): string {
     const y = isoMatch[1];
     const m = isoMatch[2].padStart(2, '0');
     const d = isoMatch[3].padStart(2, '0');
-    return `${y}-${m}-${d}`;
+    return { date: `${y}-${m}-${d}`, usedDefaultYear: false };
   }
 
   // 5. DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY
@@ -142,7 +204,7 @@ export function normalizeDateValue(raw: any): string {
     const d = dmyMatch[1].padStart(2, '0');
     const m = dmyMatch[2].padStart(2, '0');
     const y = dmyMatch[3];
-    return `${y}-${m}-${d}`;
+    return { date: `${y}-${m}-${d}`, usedDefaultYear: false };
   }
 
   // 6. DD/MM/YY or MM/DD/YY (2-digit year)
@@ -152,19 +214,74 @@ export function normalizeDateValue(raw: any): string {
     const m = dmyShort[2].padStart(2, '0');
     const yearPrefix = parseInt(dmyShort[3], 10) > 30 ? '19' : '20';
     const y = `${yearPrefix}${dmyShort[3]}`;
-    return `${y}-${m}-${d}`;
+    return { date: `${y}-${m}-${d}`, usedDefaultYear: false };
   }
 
-  // 7. General JS Date parsing fallback
+  // 7. Arabic Month name matching (e.g. "8 فبراير", "1-ديسمبر", "15 نوفمبر 2011", "2012/فبراير/10")
+  const normalizedStr = str.replace(/[أإآ]/g, 'ا').toLowerCase();
+  let matchedMonth = '';
+  let matchedMonthKey = '';
+
+  for (const [mName, mNum] of Object.entries(ARABIC_MONTH_MAP)) {
+    const normMName = mName.replace(/[أإآ]/g, 'ا');
+    if (normalizedStr.includes(normMName)) {
+      matchedMonth = mNum;
+      matchedMonthKey = normMName;
+      break;
+    }
+  }
+
+  if (matchedMonth) {
+    const withoutMonth = normalizedStr.replace(matchedMonthKey, ' ');
+    const digits = withoutMonth.match(/\d+/g);
+    if (digits && digits.length > 0) {
+      const nums = digits.map((n) => parseInt(n, 10));
+      let day = 1;
+      let year = defaultYear;
+      let usedDefaultYear = true;
+
+      if (nums.length === 1) {
+        day = nums[0];
+      } else if (nums.length >= 2) {
+        if (nums[0] > 1900 && nums[0] < 2100) {
+          year = String(nums[0]);
+          day = nums[1];
+          usedDefaultYear = false;
+        } else if (nums[1] > 1900 && nums[1] < 2100) {
+          year = String(nums[1]);
+          day = nums[0];
+          usedDefaultYear = false;
+        } else {
+          day = nums[0];
+          const y2 = nums[1];
+          year = String(y2 > 30 ? 1900 + y2 : 2000 + y2);
+          usedDefaultYear = false;
+        }
+      }
+      return {
+        date: `${year}-${matchedMonth}-${String(day).padStart(2, '0')}`,
+        usedDefaultYear,
+      };
+    }
+  }
+
+  // 8. General JS Date parsing fallback
   const parsed = new Date(str);
   if (!isNaN(parsed.getTime()) && parsed.getFullYear() > 1920 && parsed.getFullYear() < 2100) {
     const y = parsed.getFullYear();
     const m = String(parsed.getMonth() + 1).padStart(2, '0');
     const d = String(parsed.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
+    return { date: `${y}-${m}-${d}`, usedDefaultYear: false };
   }
 
-  return '';
+  return { date: '', usedDefaultYear: false };
+}
+
+/**
+ * Normalizes various raw date inputs into ISO standard YYYY-MM-DD format.
+ */
+export function normalizeDateValue(raw: any, defaultYear: string = '2000'): string {
+  return normalizeDateValueWithMeta(raw, defaultYear).date;
 }
 
 /**
@@ -242,6 +359,11 @@ export function autoMapHeadersHeuristically(sheetHeaders: string[]): Record<stri
           continue;
         }
 
+        // Prevent generic dob from grabbing academic year / grade / classroom headers unless it explicitly mentions birth (ميلاد)
+        if (fieldKey === 'dob' && !cleaned.includes('ميلاد') && (cleaned.includes('دراس') || cleaned.includes('مرحل') || cleaned.includes('صف') || cleaned.includes('فصل'))) {
+          continue;
+        }
+
         // Prevent generic school name from grabbing school type
         if (fieldKey === 'school' && (cleaned.includes('نوع') || cleaned.includes('type') || cleaned.includes('نظام'))) {
           continue;
@@ -249,6 +371,10 @@ export function autoMapHeadersHeuristically(sheetHeaders: string[]): Record<stri
 
         const subMatch = patterns.some((p) => {
           const cp = cleanHeader(p);
+          // If pattern is 'السن' (age), do not match words like 'السنة' or 'سنوات' unless it explicitly refers to age
+          if (cp === 'السن' && cleaned !== 'السن' && cleaned !== 'سن' && cleaned !== 'سنالطالب') {
+            return false;
+          }
           return cp.length >= 3 && (cleaned.includes(cp) || cp.includes(cleaned));
         });
         if (subMatch) {
@@ -438,6 +564,7 @@ export interface ImportResult {
     motherMob: string;
     address: string;
   }>;
+  datesWithDefaultYearCount?: number;
 }
 
 /**
@@ -462,6 +589,7 @@ export async function executeImportBatch(
 
   let totalCreated = 0;
   let totalSkipped = 0;
+  let datesWithDefaultYearCount = 0;
   const errors: string[] = [];
   const attributeCounts: Record<string, number> = {};
   const sampleImportedRecords: ImportResult['sampleImportedRecords'] = [];
@@ -494,7 +622,11 @@ export async function executeImportBatch(
       const kidRef = doc(db, 'churches', churchId, 'kids', docId);
       importedKidIds.push(docId);
 
-      const parsedDob = normalizeDateValue(record.dob);
+      const parsedDobMeta = normalizeDateValueWithMeta(record.dob, '2000');
+      const parsedDob = parsedDobMeta.date;
+      if (parsedDobMeta.usedDefaultYear) {
+        datesWithDefaultYearCount++;
+      }
 
       // Gender calculation with fallback to batch default
       let parsedGender: 'male' | 'female' = 'male';
@@ -541,13 +673,57 @@ export async function executeImportBatch(
       const finalStreet = String(record.street || defaultValues?.street || '').trim();
       const finalNotes = String(record.notes || defaultValues?.notes || '').trim();
 
-      // Normalize schoolType
+      // Normalize schoolType with optional auto-detection from school name
       let finalSchoolType = String(record.schoolType || defaultValues?.schoolType || '').trim();
-      if (finalSchoolType) {
-        const lowerSt = finalSchoolType.toLowerCase();
-        if (lowerSt.includes('national') || lowerSt.includes('ناشونال') || lowerSt.includes('حكومي') || lowerSt.includes('تجريبي') || lowerSt.includes('لغات')) {
+      const isAutoDetect = finalSchoolType === 'auto' || (!finalSchoolType && defaultValues?.schoolType === 'auto');
+
+      if (isAutoDetect) {
+        const schoolSource = String(record.school || record.schoolType || '').toLowerCase();
+        if (
+          schoolSource.includes('international') ||
+          schoolSource.includes('انترناشونال') ||
+          schoolSource.includes('دولي') ||
+          schoolSource.includes('امريكان') ||
+          schoolSource.includes('أمريكان') ||
+          schoolSource.includes('بريطاني') ||
+          /\b(ig|ib)\b/i.test(schoolSource)
+        ) {
+          finalSchoolType = 'International';
+        } else if (
+          schoolSource.includes('national') ||
+          schoolSource.includes('ناشونال') ||
+          schoolSource.includes('حكومي') ||
+          schoolSource.includes('تجريبي') ||
+          schoolSource.includes('لغات') ||
+          schoolSource.includes('عربي') ||
+          schoolSource.includes('خاص') ||
+          schoolSource.includes('راهبات')
+        ) {
           finalSchoolType = 'National';
-        } else if (lowerSt.includes('international') || lowerSt.includes('انترناشونال') || lowerSt.includes('دولي')) {
+        } else {
+          finalSchoolType = '';
+        }
+      } else if (finalSchoolType) {
+        const lowerSt = finalSchoolType.toLowerCase();
+        if (
+          lowerSt.includes('national') ||
+          lowerSt.includes('ناشونال') ||
+          lowerSt.includes('حكومي') ||
+          lowerSt.includes('تجريبي') ||
+          lowerSt.includes('لغات') ||
+          lowerSt.includes('عربي') ||
+          lowerSt.includes('خاص') ||
+          lowerSt.includes('راهبات')
+        ) {
+          finalSchoolType = 'National';
+        } else if (
+          lowerSt.includes('international') ||
+          lowerSt.includes('انترناشونال') ||
+          lowerSt.includes('دولي') ||
+          lowerSt.includes('امريكان') ||
+          lowerSt.includes('أمريكان') ||
+          lowerSt.includes('بريطاني')
+        ) {
           finalSchoolType = 'International';
         }
       }
@@ -564,8 +740,8 @@ export async function executeImportBatch(
         }
       }
 
-      const parsedFatherDOB = normalizeDateValue(record.fatherDOB || defaultValues?.fatherDOB);
-      const parsedMotherDOB = normalizeDateValue(record.motherDOB || defaultValues?.motherDOB);
+      const parsedFatherDOB = normalizeDateValue(record.fatherDOB || defaultValues?.fatherDOB, '2000');
+      const parsedMotherDOB = normalizeDateValue(record.motherDOB || defaultValues?.motherDOB, '2000');
       const finalLandmark = String(record.landmark || defaultValues?.landmark || '').trim();
       const finalGeoLocation = normalizeGeoInput(record.geoLocation || defaultValues?.geoLocation);
       const finalPhotoUrl = String(record.photoUrl || defaultValues?.photoUrl || '').trim();
@@ -649,7 +825,7 @@ export async function executeImportBatch(
         lastEditBy: userEmail,
       };
 
-      firestoreBatch.set(kidRef, kidPayload);
+      firestoreBatch.set(kidRef, sanitizeFirestorePayload(kidPayload));
       totalCreated++;
     });
 
@@ -701,6 +877,7 @@ export async function executeImportBatch(
     errors,
     attributeCounts,
     sampleImportedRecords,
+    datesWithDefaultYearCount,
   };
 }
 

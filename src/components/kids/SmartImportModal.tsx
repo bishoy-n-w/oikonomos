@@ -24,7 +24,8 @@ import {
   AlertCircle, 
   ArrowRight, 
   Layers,
-  Globe 
+  Globe,
+  Info 
 } from 'lucide-react';
 
 interface SmartImportModalProps {
@@ -85,6 +86,8 @@ export const SmartImportModal: React.FC<SmartImportModalProps> = ({
   // Batch default values for unmapped/missing fields (one value for all)
   const [defaultValues, setDefaultValues] = useState<Record<string, string>>({
     gender: 'auto',
+    deacon: 'auto',
+    schoolType: 'auto',
     fatherOfConfession: '',
     school: '',
     region: '',
@@ -819,13 +822,14 @@ export const SmartImportModal: React.FC<SmartImportModalProps> = ({
 
                         {field.type === 'select' && field.key === 'schoolType' && (
                           <select
-                            value={defaultValues.schoolType || ''}
+                            value={defaultValues.schoolType ?? 'auto'}
                             onChange={(e) => setDefaultValues({ ...defaultValues, schoolType: e.target.value })}
                             className="w-full p-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-xs font-semibold"
                           >
+                            <option value="auto">⚡ Auto-Detect from School Name / كشف تلقائي من اسم المدرسة</option>
                             <option value="">-- Leave Empty / فارغ --</option>
-                            <option value="National">National / ناشونال (عربي / تجريبي / لغات)</option>
-                            <option value="International">International / انترناشونال (دولي)</option>
+                            <option value="National">All National / كلهم ناشونال (عربي / تجريبي / لغات)</option>
+                            <option value="International">All International / كلهم انترناشونال (دولي)</option>
                           </select>
                         )}
 
@@ -890,6 +894,21 @@ export const SmartImportModal: React.FC<SmartImportModalProps> = ({
                   </p>
                 </div>
               </div>
+
+              {/* Notice when dates lacked years and were assigned year 2000 */}
+              {Boolean(importResult.datesWithDefaultYearCount && importResult.datesWithDefaultYearCount > 0) && (
+                <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-start gap-2.5 text-xs text-amber-900 dark:text-amber-200">
+                  <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold">
+                      {importResult.datesWithDefaultYearCount} birth date(s) had day and month only (e.g. &apos;8 فبراير&apos;). Year 2000 was assigned as default (e.g. 2000-02-08).
+                    </p>
+                    <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">
+                      تم تعيين عام 2000 كعام افتراضي لـ {importResult.datesWithDefaultYearCount} تاريخ ميلاد بدون سنة (مثال: 2000-02-08).
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Imported Attributes Breakdown Grid */}
               <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700 space-y-2.5">
