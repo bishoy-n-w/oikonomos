@@ -66,7 +66,7 @@ describe('Requirements Specifications & Logic Validation', () => {
 
     function getGradesForGroup(groupId: string) {
       return Object.entries(gradesMap)
-        .filter(([_, item]) => item.serviceGroupId === groupId)
+        .filter(([, item]) => item.serviceGroupId === groupId)
         .map(([intKey, item]) => ({ id: intKey, name: item.name }));
     }
 

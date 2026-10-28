@@ -100,11 +100,11 @@ export const ServiceGroupsScreen: React.FC = () => {
 
         // Derive admins and servants from misters map or fallback arrays
         const admins = Object.entries(mistersMap)
-          .filter(([_, role]) => role === 'admin')
+          .filter(([, role]) => role === 'admin')
           .map(([email]) => email);
 
         const servants = Object.entries(mistersMap)
-          .filter(([_, role]) => role === 'servant')
+          .filter(([, role]) => role === 'servant')
           .map(([email]) => email);
 
         return {
@@ -144,7 +144,7 @@ export const ServiceGroupsScreen: React.FC = () => {
   const getGradesForGroup = (groupId: string): Array<{ id: string; name: string }> => {
     if (!currentChurch?.grades) return [];
     return Object.entries(currentChurch.grades)
-      .filter(([_, item]) => item.serviceGroupId === groupId)
+      .filter(([, item]) => item.serviceGroupId === groupId)
       .sort(([a], [b]) => parseInt(a, 10) - parseInt(b, 10))
       .map(([intKey, item]) => ({ id: intKey, name: item.name }));
   };
@@ -245,8 +245,8 @@ export const ServiceGroupsScreen: React.FC = () => {
     if (!selectedChurchId) return;
     const groupRef = doc(db, 'churches', selectedChurchId, 'serviceGroups', groupId);
 
-    const admins = Object.entries(mistersMap).filter(([_, r]) => r === 'admin').map(([e]) => e);
-    const servants = Object.entries(mistersMap).filter(([_, r]) => r === 'servant').map(([e]) => e);
+    const admins = Object.entries(mistersMap).filter(([, r]) => r === 'admin').map(([e]) => e);
+    const servants = Object.entries(mistersMap).filter(([, r]) => r === 'servant').map(([e]) => e);
 
     await setDoc(groupRef, {
       displayName,
@@ -611,8 +611,8 @@ const EditServiceGroupModal: React.FC<EditServiceGroupModalProps> = ({
     setMistersMap(updated);
   };
 
-  const admins = Object.entries(mistersMap).filter(([_, r]) => r === 'admin').map(([e]) => e);
-  const servants = Object.entries(mistersMap).filter(([_, r]) => r === 'servant').map(([e]) => e);
+  const admins = Object.entries(mistersMap).filter(([, r]) => r === 'admin').map(([e]) => e);
+  const servants = Object.entries(mistersMap).filter(([, r]) => r === 'servant').map(([e]) => e);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">

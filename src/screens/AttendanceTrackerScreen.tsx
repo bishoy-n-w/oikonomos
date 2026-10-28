@@ -288,7 +288,7 @@ export const AttendanceTrackerScreen: React.FC = () => {
       setStatuses({});
       setNotesByKid({});
     }
-  }, [selectedEventId]);
+  }, [selectedEvent]);
 
   // 5. Background Auto-Save Engine (Debounced 900ms)
   const persistAttendance = useCallback(

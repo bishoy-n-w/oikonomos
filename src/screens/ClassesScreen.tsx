@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, doc, writeBatch, deleteDoc, getDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
@@ -636,14 +636,17 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
   const [selectedKidIds, setSelectedKidIds] = useState<string[]>(initialKidIds);
 
   // Derive allowed servants based on selected Service Group
-  const targetGroup = serviceGroups.find((g) => g.id === selectedGroupId);
-  const allowedMisterEmails = new Set<string>();
-  if (targetGroup?.data) {
-    const data = targetGroup.data;
-    Object.keys(data.misters || {}).forEach((e) => allowedMisterEmails.add(e.toLowerCase().trim()));
-    (data.admins || []).forEach((e: string) => allowedMisterEmails.add(e.toLowerCase().trim()));
-    (data.servants || []).forEach((e: string) => allowedMisterEmails.add(e.toLowerCase().trim()));
-  }
+  const allowedMisterEmails = useMemo(() => {
+    const set = new Set<string>();
+    const targetGroup = serviceGroups.find((g) => g.id === selectedGroupId);
+    if (targetGroup?.data) {
+      const data = targetGroup.data;
+      Object.keys(data.misters || {}).forEach((e) => set.add(e.toLowerCase().trim()));
+      (data.admins || []).forEach((e: string) => set.add(e.toLowerCase().trim()));
+      (data.servants || []).forEach((e: string) => set.add(e.toLowerCase().trim()));
+    }
+    return set;
+  }, [selectedGroupId, serviceGroups]);
   
   const availableGroupMisters = allMisters.filter((m) => {
     const email = (m.email || m.id || '').toLowerCase().trim();
@@ -653,7 +656,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
   // Auto-clean selected misters if service group changes
   useEffect(() => {
     setSelectedMisterIds((prev) => prev.filter((id) => allowedMisterEmails.has(id.toLowerCase().trim())));
-  }, [selectedGroupId]);
+  }, [selectedGroupId, allowedMisterEmails]);
 
   // Popups for selecting misters and kids
   const [misterPickerOpen, setMisterPickerOpen] = useState(false);
@@ -662,7 +665,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
 
   // Dynamically filter grades based on the selected serviceGroupId from currentChurch.grades!
   const availableGrades = Object.entries(currentChurch?.grades || {})
-    .filter(([_, item]) => item.serviceGroupId === selectedGroupId)
+    .filter(([, item]) => item.serviceGroupId === selectedGroupId)
     .sort(([a], [b]) => parseInt(a, 10) - parseInt(b, 10))
     .map(([intKey, item]) => ({ id: intKey, displayName: `#${intKey} - ${item.name}` }));
 
@@ -671,7 +674,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
     if (availableGrades.length > 0 && !availableGrades.some((g) => g.id === selectedGradeId)) {
       setSelectedGradeId(availableGrades[0].id);
     }
-  }, [selectedGroupId, availableGrades]);
+  }, [selectedGroupId, availableGrades, selectedGradeId]);
 
   const handleToggleMister = (email: string) => {
     const key = email.toLowerCase();

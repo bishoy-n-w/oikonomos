@@ -27,7 +27,8 @@ const AuthenticatedApp: React.FC = () => {
 
     // If initial URL has no hash, establish hash route
     if (!window.location.hash) {
-      syncRouteToUrl(activeTab, parseCurrentRoute().filters, true);
+      const initial = parseCurrentRoute();
+      syncRouteToUrl(initial.tab, initial.filters, true);
     }
 
     window.addEventListener('hashchange', handleHashChange);
