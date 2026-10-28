@@ -742,6 +742,18 @@ Enables Sunday School servants and administrators to synchronize church contact 
 *   **Ephemeral Token Storage Architecture (`SEC-03`):**
     *   Google People API OAuth Bearer tokens are stored strictly within `sessionStorage` and memory variables, automatically flushing upon tab close or sign-out and purging any legacy `localStorage` residue.
 
+---
+
+## 30. Mobile Overlay & Modal Backdrop Tap Dismissal Standard (إغلاق النوافذ عند النقر خارجها)
+
+*   **Universal Backdrop Tap Dismissal:**
+    *   All slide-over drawers (e.g. Mobile "More" Drawer), bottom sheets (e.g. Mobile Filter Sheet), and modal dialogs (Attendance Events, Student Onboarding, Bulk Reassignment, Home Visits, Class/Group/Church configs) support instant dismissal when tapping or clicking on the darkened backdrop area outside the content card.
+*   **Touch Event & Propagation Isolation:**
+    *   Inner modal cards enforce `onClick={(e) => e.stopPropagation()}`, guaranteeing that scrolling, tapping inputs, or selecting options within the dialog does not trigger inadvertent dismissals.
+    *   Header avatar and action popups attach both `touchstart` and `mousedown` listeners, providing instantaneous outside-tap closure on mobile touchscreens.
+*   **Transaction & In-Flight Protection:**
+    *   Backdrop tap dismissal is conditionally disabled while critical transactions (such as student spreadsheet imports, rollbacks, or batch deletions) are processing, preventing accidental disruption of active database writes.
+
 
 
 

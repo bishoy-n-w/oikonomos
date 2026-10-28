@@ -50,15 +50,19 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({ activeTab, onOpenMobileFil
   const dimGroup = activeTab === 'churches_config' || activeTab === 'service_groups';
   const dimClass = activeTab === 'churches_config' || activeTab === 'service_groups' || activeTab === 'classes';
 
-  // Close menu on click outside
+  // Close menu on click or touch outside
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
+    function handleClickOutside(event: MouseEvent | TouchEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setMenuOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
 
   return (

@@ -748,8 +748,14 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-      <div className="w-full max-w-xl bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[90dvh] pb-[max(1.5rem,env(safe-area-inset-bottom))] overflow-y-auto">
+    <div 
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in cursor-pointer"
+    >
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-xl bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[90dvh] pb-[max(1.5rem,env(safe-area-inset-bottom))] overflow-y-auto cursor-default"
+      >
         <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800 mb-4">
           <h3 className="font-bold text-base text-zinc-900 dark:text-zinc-100">
             {existingClass ? `${translate('edit')} ${translate('class_label')}` : translate('add_class')}
@@ -959,8 +965,14 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
 
       {/* Mister Picker Modal (Part of selected group above) */}
       {misterPickerOpen && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[85dvh] pb-[max(1.5rem,env(safe-area-inset-bottom))] flex flex-col">
+        <div 
+          onClick={() => setMisterPickerOpen(false)}
+          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in cursor-pointer"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[85dvh] pb-[max(1.5rem,env(safe-area-inset-bottom))] flex flex-col cursor-default"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
               <div>
                 <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
@@ -1059,8 +1071,14 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
 
       {/* Kid Picker Modal */}
       {kidPickerOpen && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[85dvh] pb-[max(1.5rem,env(safe-area-inset-bottom))] flex flex-col">
+        <div 
+          onClick={() => setKidPickerOpen(false)}
+          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in cursor-pointer"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[85dvh] pb-[max(1.5rem,env(safe-area-inset-bottom))] flex flex-col cursor-default"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
               <div>
                 <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">

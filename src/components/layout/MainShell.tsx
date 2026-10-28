@@ -174,8 +174,14 @@ export const MainShell: React.FC<MainShellProps> = ({ activeTab, onTabChange, ch
 
       {/* Mobile More Slide-over Drawer */}
       {mobileDrawerOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs animate-in fade-in">
-          <div className="w-72 bg-white dark:bg-zinc-900 h-full p-6 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <div 
+          onClick={() => setMobileDrawerOpen(false)}
+          className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs animate-in fade-in"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="w-72 bg-white dark:bg-zinc-900 h-full p-6 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200 pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+          >
             <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800">
               <h3 className="font-bold text-base text-zinc-900 dark:text-zinc-100">
                 {translate('more')}
