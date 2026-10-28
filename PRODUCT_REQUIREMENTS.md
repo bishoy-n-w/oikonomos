@@ -670,6 +670,28 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   **Semantic Accessibility:** Interactive chips and cards implement ARIA roles (`role="button"`), `tabIndex={0}`, and Enter/Space keyboard handlers.
     *   **Lazy High-Density Roster Rendering:** High-density roster tables and cards render in progressive 60-student chunks with a "Show More" trigger, guaranteeing 60fps scrolling and low memory consumption on mobile devices.
 
+---
+
+## 27. Code Health, Lifecycle Memory Safety & Data Integrity Standards (صحة الكود وإدارة الذاكرة والنزاهة)
+
+*   **Firestore Subscription Lifecycle & Leak Prevention:**
+    *   Dynamic subcollection listeners (e.g., nested `academicYears` and `serviceGroups` across multi-church lists in `ChurchesScreen`) must track active unsubscriptions in a dedicated collection (`unsubNested`).
+    *   Prior listeners must be flushed and disposed of prior to attaching new observers and on component unmount to eliminate memory leaks and excess Firestore read bills.
+*   **Asynchronous Concurrency & Atomic Iteration:**
+    *   Document synchronizations executing within loops (such as bulk class roster scrubbing during mass deletions in `KidsDirectoryScreen`) must be awaited via `await Promise.all(Array.from(...).map(async ...))` rather than floating `forEach(async ...)` promises.
+    *   UI loading indicators and dismissals must remain active until all dependent Firestore writes and merges have committed.
+*   **Unmount Protection & Debounce Hygiene:**
+    *   All debounced timers (such as the 900ms auto-save engine in `AttendanceTrackerScreen`) must clear pending timeouts during unmount cleanup.
+    *   Asynchronous state setters must be guarded with `isMountedRef.current` to prevent memory leaks and React warnings on unmounted views.
+*   **Class Roster Foreign-Key Reconciliation:**
+    *   **Bulk Reassignment:** Reassigning students to a new target class atomically prunes their IDs from any other class documents in the church, guaranteeing unique enrollment counts.
+    *   **Import Reversion:** Reverting a batch import via `revertImportBatch` scrubs deleted student IDs from all class document rosters in the church, preventing phantom document references.
+*   **Defensive Null-Safety & Active Flag Normalization:**
+    *   All user profile attributes (`fullName`, `gender`, `dob`, `deacon`, `schoolType`) must use optional chaining (`(kid.info?.fullName || '')`) during searches, sorts, and filters to withstand partial records.
+    *   Student activity checks must consistently evaluate `active !== false` across all screens (including `HomeVisitsScreen`), preventing inadvertent exclusion of students lacking explicit boolean properties.
+*   **Multi-Tenant State Isolation:**
+    *   All directory and configuration views must immediately clear local state arrays (`setKids([])`, `setServants([])`, `setClasses([])`, `setGroups([])`, counters) when `!selectedChurchId` occurs.
+
 
 
 

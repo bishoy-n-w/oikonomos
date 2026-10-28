@@ -52,7 +52,10 @@ export const ClassesScreen: React.FC = () => {
 
   // 1. Listen to Church (for grades taxonomy)
   useEffect(() => {
-    if (!selectedChurchId) return;
+    if (!selectedChurchId) {
+      setCurrentChurch(null);
+      return;
+    }
     const unsub = onSnapshot(doc(db, 'churches', selectedChurchId), (snap) => {
       if (snap.exists()) {
         setCurrentChurch({ id: snap.id, ...snap.data() } as Church);
@@ -63,7 +66,10 @@ export const ClassesScreen: React.FC = () => {
 
   // 2. Listen to Misters
   useEffect(() => {
-    if (!selectedChurchId) return;
+    if (!selectedChurchId) {
+      setAllMisters([]);
+      return;
+    }
     const unsub = onSnapshot(collection(db, 'churches', selectedChurchId, 'misters'), (snap) => {
       setAllMisters(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Mister)));
     });
@@ -72,7 +78,10 @@ export const ClassesScreen: React.FC = () => {
 
   // 3. Listen to Kids in Church
   useEffect(() => {
-    if (!selectedChurchId) return;
+    if (!selectedChurchId) {
+      setAllKids([]);
+      return;
+    }
     const unsub = onSnapshot(collection(db, 'churches', selectedChurchId, 'kids'), (snap) => {
       setAllKids(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Kid)));
     });
@@ -81,7 +90,10 @@ export const ClassesScreen: React.FC = () => {
 
   // 4. Listen to Classes
   useEffect(() => {
-    if (!selectedChurchId) return;
+    if (!selectedChurchId) {
+      setClasses([]);
+      return;
+    }
     const unsub = onSnapshot(collection(db, 'churches', selectedChurchId, 'classes'), (snap) => {
       const items: ClassDoc[] = snap.docs.map((d) => ({
         id: d.id,

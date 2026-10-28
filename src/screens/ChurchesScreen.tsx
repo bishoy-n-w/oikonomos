@@ -52,7 +52,13 @@ export const ChurchesScreen: React.FC = () => {
 
   // 1. Listen to all churches the user belongs to
   useEffect(() => {
+    let unsubNested: (() => void)[] = [];
+
     const unsub = onSnapshot(collection(db, 'churches'), (snapshot) => {
+      // Clean up previous nested listeners before attaching new ones
+      unsubNested.forEach((cleanup) => cleanup());
+      unsubNested = [];
+
       const items: Church[] = snapshot.docs
         .filter((d) => userChurches.some((uc) => uc.id === d.id))
         .map((d) => ({
@@ -69,7 +75,7 @@ export const ChurchesScreen: React.FC = () => {
 
       // Listen to academic years and service groups for each church
       items.forEach((c) => {
-        onSnapshot(collection(db, 'churches', c.id, 'academicYears'), (ySnap) => {
+        const unsubYears = onSnapshot(collection(db, 'churches', c.id, 'academicYears'), (ySnap) => {
           const years: AcademicYear[] = ySnap.docs.map((yd) => ({
             id: yd.id,
             displayName: yd.data().displayName || yd.id,
@@ -78,18 +84,23 @@ export const ChurchesScreen: React.FC = () => {
           }));
           setAcademicYearsMap((prev) => ({ ...prev, [c.id]: years }));
         });
+        unsubNested.push(unsubYears);
 
-        onSnapshot(collection(db, 'churches', c.id, 'serviceGroups'), (gSnap) => {
+        const unsubGroups = onSnapshot(collection(db, 'churches', c.id, 'serviceGroups'), (gSnap) => {
           const groups = gSnap.docs.map((gd) => ({
             id: gd.id,
             displayName: gd.data().displayName || gd.id,
           }));
           setServiceGroupsMap((prev) => ({ ...prev, [c.id]: groups }));
         });
+        unsubNested.push(unsubGroups);
       });
     });
 
-    return () => unsub();
+    return () => {
+      unsub();
+      unsubNested.forEach((cleanup) => cleanup());
+    };
   }, [userChurches]);
 
   // When editChurch is selected, load its academic years, event types, and classes

@@ -54,7 +54,10 @@ export const ServiceGroupsScreen: React.FC = () => {
 
   // 1. Listen to current church doc (for grade assignments)
   useEffect(() => {
-    if (!selectedChurchId) return;
+    if (!selectedChurchId) {
+      setCurrentChurch(null);
+      return;
+    }
     const unsub = onSnapshot(doc(db, 'churches', selectedChurchId), (snap) => {
       if (snap.exists()) {
         setCurrentChurch({ id: snap.id, ...snap.data() } as Church);
@@ -65,7 +68,10 @@ export const ServiceGroupsScreen: React.FC = () => {
 
   // 2. Listen to misters in church
   useEffect(() => {
-    if (!selectedChurchId) return;
+    if (!selectedChurchId) {
+      setAllMisters([]);
+      return;
+    }
     const unsub = onSnapshot(collection(db, 'churches', selectedChurchId, 'misters'), (snap) => {
       const items: Mister[] = snap.docs.map((d) => ({
         id: d.id,
@@ -82,7 +88,10 @@ export const ServiceGroupsScreen: React.FC = () => {
 
   // 3. Listen to service groups in selected church
   useEffect(() => {
-    if (!selectedChurchId) return;
+    if (!selectedChurchId) {
+      setGroups([]);
+      return;
+    }
 
     const unsub = onSnapshot(collection(db, 'churches', selectedChurchId, 'serviceGroups'), (snap) => {
       const items: ServiceGroup[] = snap.docs.map((d) => {

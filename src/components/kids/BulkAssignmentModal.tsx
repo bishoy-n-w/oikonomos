@@ -107,6 +107,42 @@ export const BulkAssignmentModal: React.FC<BulkAssignmentModalProps> = ({
         console.warn('Could not update target class document during bulk assignment:', classSyncErr);
       }
 
+      // Remove reassigned kids from their previous classes for this year
+      try {
+        const otherClasses = classes.filter((c) => c.id !== targetClassId);
+        await Promise.all(
+          otherClasses.map(async (cls) => {
+            const classRef = doc(db, 'churches', churchId, 'classes', cls.id);
+            const classSnap = await getDoc(classRef);
+            if (classSnap.exists()) {
+              const classData = classSnap.data();
+              const yearsMap = { ...(classData.academicYears || {}) };
+              let changed = false;
+
+              Object.keys(yearsMap).forEach((yId) => {
+                const yData = yearsMap[yId] || {};
+                const curIds: string[] = yData.KidIds || yData.kids || [];
+                const filtered = curIds.filter((id) => !selectedKidIds.includes(id));
+                if (filtered.length !== curIds.length) {
+                  yearsMap[yId] = { ...yData, KidIds: filtered, kids: filtered };
+                  changed = true;
+                }
+              });
+
+              if (changed) {
+                await setDoc(classRef, {
+                  academicYears: yearsMap,
+                  lastEditAt: new Date().toISOString(),
+                  lastEditBy: user?.email || 'admin',
+                }, { merge: true });
+              }
+            }
+          })
+        );
+      } catch (otherClassesErr) {
+        console.warn('Could not clean up prior classes during bulk reassignment:', otherClassesErr);
+      }
+
       onSuccess(selectedKidIds.length);
     } catch (err) {
       console.error('Bulk reassignment failed:', err);

@@ -50,7 +50,10 @@ export const ServantsDirectoryScreen: React.FC = () => {
 
   // 1. Listen to misters
   useEffect(() => {
-    if (!selectedChurchId) return;
+    if (!selectedChurchId) {
+      setServants([]);
+      return;
+    }
     const unsub = onSnapshot(collection(db, 'churches', selectedChurchId, 'misters'), (snap) => {
       const items: Mister[] = snap.docs.map((d) => ({
         id: d.id,
@@ -74,7 +77,10 @@ export const ServantsDirectoryScreen: React.FC = () => {
 
   // 2. Listen to service groups (to resolve adminInGroups & servantInGroups across all groups)
   useEffect(() => {
-    if (!selectedChurchId) return;
+    if (!selectedChurchId) {
+      setGroups([]);
+      return;
+    }
     const unsub = onSnapshot(collection(db, 'churches', selectedChurchId, 'serviceGroups'), (snap) => {
       setGroups(snap.docs.map((d) => ({ id: d.id, ...d.data() } as ServiceGroup)));
     });
@@ -83,7 +89,10 @@ export const ServantsDirectoryScreen: React.FC = () => {
 
   // 3. Listen to classes (to resolve servantInClasses based on top selected academic year)
   useEffect(() => {
-    if (!selectedChurchId) return;
+    if (!selectedChurchId) {
+      setClasses([]);
+      return;
+    }
     const unsub = onSnapshot(collection(db, 'churches', selectedChurchId, 'classes'), (snap) => {
       setClasses(snap.docs.map((d) => ({ id: d.id, ...d.data() } as ClassDoc)));
     });

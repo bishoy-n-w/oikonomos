@@ -111,6 +111,18 @@ export const AttendanceTrackerScreen: React.FC = () => {
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialSyncRef = useRef<boolean>(true);
+  const isMountedRef = useRef<boolean>(true);
+
+  // Unmount cleanup to prevent memory leaks and state updates on unmounted component
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, []);
 
   // Pastoral Care Alert state
   const [pastoralAlertsDismissed, setPastoralAlertsDismissed] = useState(false);
@@ -162,7 +174,10 @@ export const AttendanceTrackerScreen: React.FC = () => {
 
   // 1. Listen to Kids for the selected class
   useEffect(() => {
-    if (!selectedChurchId) return;
+    if (!selectedChurchId) {
+      setKids([]);
+      return;
+    }
 
     const kidsRef = collection(db, 'churches', selectedChurchId, 'kids');
     const unsubKids = onSnapshot(kidsRef, (snap) => {
@@ -174,7 +189,7 @@ export const AttendanceTrackerScreen: React.FC = () => {
           const cId = asgn.classId || k.classId;
           return !selectedClassId || cId === selectedClassId;
         })
-        .sort((a, b) => (a.info.fullName || '').localeCompare(b.info.fullName || ''));
+        .sort((a, b) => (a.info?.fullName || '').localeCompare(b.info?.fullName || ''));
       setKids(items);
     });
 
@@ -601,7 +616,7 @@ export const AttendanceTrackerScreen: React.FC = () => {
     if (!rosterSearch.trim()) return true;
     const q = rosterSearch.toLowerCase();
     return (
-      k.info.fullName.toLowerCase().includes(q) ||
+      (k.info?.fullName || '').toLowerCase().includes(q) ||
       (k.contacts?.fatherName && k.contacts.fatherName.toLowerCase().includes(q))
     );
   });

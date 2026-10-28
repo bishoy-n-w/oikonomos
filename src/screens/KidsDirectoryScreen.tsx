@@ -300,10 +300,11 @@ export const KidsDirectoryScreen: React.FC = () => {
 
     // Header Filter Matrix
     if (filters.active !== undefined && filters.active !== '') {
-      if (String(kid.active) !== filters.active) return false;
+      const isKidActive = kid.active !== false;
+      if (String(isKidActive) !== filters.active) return false;
     }
     if (filters.fullName) {
-      if (!kid.info.fullName.toLowerCase().includes(filters.fullName.toLowerCase())) return false;
+      if (!(kid.info?.fullName || '').toLowerCase().includes(filters.fullName.toLowerCase())) return false;
     }
     if (filters.year) {
       if (!resolveYearName(asgn.academicYearId).toLowerCase().includes(filters.year.toLowerCase())) return false;
@@ -315,28 +316,28 @@ export const KidsDirectoryScreen: React.FC = () => {
       if (!resolveClassName(asgn.classId).toLowerCase().includes(filters.class.toLowerCase())) return false;
     }
     if (filters.gender) {
-      if (kid.info.gender !== filters.gender) return false;
+      if (kid.info?.gender !== filters.gender) return false;
     }
     if (filters.dob) {
-      if (!kid.info.dob?.includes(filters.dob)) return false;
+      if (!kid.info?.dob?.includes(filters.dob)) return false;
     }
     if (filters.school) {
-      if (!kid.info.school?.toLowerCase().includes(filters.school.toLowerCase())) return false;
+      if (!kid.info?.school?.toLowerCase().includes(filters.school.toLowerCase())) return false;
     }
     if (filters.schoolType) {
       if (filters.schoolType === 'other') {
-        const st = (kid.info.schoolType || '').toLowerCase();
+        const st = (kid.info?.schoolType || '').toLowerCase();
         if (st === 'national' || st === 'international' || !st) return false;
       } else {
-        if ((kid.info.schoolType || '').toLowerCase() !== filters.schoolType.toLowerCase()) return false;
+        if ((kid.info?.schoolType || '').toLowerCase() !== filters.schoolType.toLowerCase()) return false;
       }
     }
     if (filters.deacon !== undefined && filters.deacon !== '') {
       const isDeacon = filters.deacon === 'true' || filters.deacon === 'yes';
-      if (Boolean(kid.info.deacon) !== isDeacon) return false;
+      if (Boolean(kid.info?.deacon) !== isDeacon) return false;
     }
     if (filters.fatherOfConfession) {
-      if (!kid.info.fatherOfConfession?.toLowerCase().includes(filters.fatherOfConfession.toLowerCase())) return false;
+      if (!kid.info?.fatherOfConfession?.toLowerCase().includes(filters.fatherOfConfession.toLowerCase())) return false;
     }
     if (filters.street) {
       if (!kid.address?.street?.toLowerCase().includes(filters.street.toLowerCase())) return false;
@@ -574,31 +575,33 @@ export const KidsDirectoryScreen: React.FC = () => {
         if (k.activeAssignment?.classId) impactedClasses.add(k.activeAssignment.classId);
       });
 
-      impactedClasses.forEach(async (cId) => {
-        try {
-          const classRef = doc(db, 'churches', selectedChurchId, 'classes', cId);
-          const snap = await getDoc(classRef);
-          if (snap.exists()) {
-            const data = snap.data();
-            const yearsMap = { ...(data.academicYears || {}) };
-            let changed = false;
-            Object.keys(yearsMap).forEach((yId) => {
-              const yData = yearsMap[yId] || {};
-              const curIds: string[] = yData.KidIds || yData.kids || [];
-              const filtered = curIds.filter((id) => !selectedKidIds.includes(id));
-              if (filtered.length !== curIds.length) {
-                yearsMap[yId] = { ...yData, KidIds: filtered, kids: filtered };
-                changed = true;
+      await Promise.all(
+        Array.from(impactedClasses).map(async (cId) => {
+          try {
+            const classRef = doc(db, 'churches', selectedChurchId, 'classes', cId);
+            const snap = await getDoc(classRef);
+            if (snap.exists()) {
+              const data = snap.data();
+              const yearsMap = { ...(data.academicYears || {}) };
+              let changed = false;
+              Object.keys(yearsMap).forEach((yId) => {
+                const yData = yearsMap[yId] || {};
+                const curIds: string[] = yData.KidIds || yData.kids || [];
+                const filtered = curIds.filter((id) => !selectedKidIds.includes(id));
+                if (filtered.length !== curIds.length) {
+                  yearsMap[yId] = { ...yData, KidIds: filtered, kids: filtered };
+                  changed = true;
+                }
+              });
+              if (changed) {
+                await setDoc(classRef, { academicYears: yearsMap }, { merge: true });
               }
-            });
-            if (changed) {
-              await setDoc(classRef, { academicYears: yearsMap }, { merge: true });
             }
+          } catch (err) {
+            console.warn('Could not update class during bulk delete:', err);
           }
-        } catch (err) {
-          console.warn('Could not update class during bulk delete:', err);
-        }
-      });
+        })
+      );
 
       setSelectedKidIds([]);
       setBulkDeleteConfirmOpen(false);

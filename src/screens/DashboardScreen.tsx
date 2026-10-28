@@ -34,7 +34,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
 
   // Listen to stats from Firestore
   useEffect(() => {
-    if (!selectedChurchId) return;
+    if (!selectedChurchId) {
+      setKidsCount(0);
+      setServantsCount(0);
+      setClassesCount(0);
+      setPendingRequests([]);
+      return;
+    }
 
     // Kids count
     const kidsRef = collection(db, 'churches', selectedChurchId, 'kids');

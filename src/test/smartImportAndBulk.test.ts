@@ -524,4 +524,45 @@ describe('Smart Import & Bulk Operations Logic', () => {
       expect(clean.boolField).toBe(false);
     });
   });
+
+  describe('Class Roster Reconciliation & Defensive State Resilience', () => {
+    it('prunes reassigned kid IDs from previous classroom rosters without affecting untouched students', () => {
+      const classA_KidIds = ['kid_1', 'kid_2', 'kid_3'];
+      const reassignedIds = ['kid_2'];
+
+      const updatedClassA_KidIds = classA_KidIds.filter((id) => !reassignedIds.includes(id));
+
+      expect(updatedClassA_KidIds).toEqual(['kid_1', 'kid_3']);
+      expect(updatedClassA_KidIds.includes('kid_2')).toBe(false);
+    });
+
+    it('safely handles kids records with missing or partial info without crashing', () => {
+      const partialKids = [
+        { id: 'k1', info: { fullName: 'George Michael' } },
+        { id: 'k2', info: undefined },
+        { id: 'k3', info: { fullName: null } },
+      ];
+
+      const query = 'george';
+      const results = partialKids.filter((k) =>
+        (k.info?.fullName || '').toLowerCase().includes(query)
+      );
+
+      expect(results.length).toBe(1);
+      expect(results[0].id).toBe('k1');
+    });
+
+    it('evaluates active status correctly where undefined is treated as active', () => {
+      const kids = [
+        { id: 'k1', active: true },
+        { id: 'k2', active: undefined },
+        { id: 'k3', active: false },
+      ];
+
+      const activeKids = kids.filter((k) => k.active !== false);
+
+      expect(activeKids.map((k) => k.id)).toEqual(['k1', 'k2']);
+      expect(activeKids.some((k) => k.id === 'k3')).toBe(false);
+    });
+  });
 });

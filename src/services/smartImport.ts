@@ -891,6 +891,7 @@ export async function revertImportBatch(churchId: string, batchId: string): Prom
 
   let deletedCount = 0;
   const docs = snap.docs;
+  const deletedIds = new Set(docs.map((d) => d.id));
   const batchSize = 400;
 
   for (let i = 0; i < docs.length; i += batchSize) {
@@ -901,6 +902,35 @@ export async function revertImportBatch(churchId: string, batchId: string): Prom
       deletedCount++;
     });
     await firestoreBatch.commit();
+  }
+
+  // Also purge deleted kid IDs from any classes
+  try {
+    const classesRef = collection(db, 'churches', churchId, 'classes');
+    const classesSnap = await getDocs(classesRef);
+    for (const cDoc of classesSnap.docs) {
+      const data = cDoc.data();
+      const yearsMap = data.academicYears || {};
+      let changed = false;
+      const updatedYears: Record<string, any> = {};
+
+      Object.entries(yearsMap).forEach(([yId, yData]: [string, any]) => {
+        const curKids: string[] = yData.KidIds || yData.kids || [];
+        const filtered = curKids.filter((id) => !deletedIds.has(id));
+        if (filtered.length !== curKids.length) {
+          changed = true;
+          updatedYears[yId] = { ...yData, KidIds: filtered, kids: filtered };
+        } else {
+          updatedYears[yId] = yData;
+        }
+      });
+
+      if (changed) {
+        await setDoc(cDoc.ref, { academicYears: updatedYears }, { merge: true });
+      }
+    }
+  } catch (err) {
+    console.warn('Could not clean up class rosters during import revert:', err);
   }
 
   return deletedCount;

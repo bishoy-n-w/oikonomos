@@ -182,7 +182,7 @@ export const HomeVisitsScreen: React.FC = () => {
     }
 
     return kids.filter((k) => {
-      if (!k.active) return false;
+      if (k.active === false) return false;
       const matchesAssignment = k.activeAssignment?.classId === selectedClassId;
       const matchesDirect = enrolledSet.has(k.id);
       return matchesAssignment || matchesDirect;
@@ -250,7 +250,7 @@ export const HomeVisitsScreen: React.FC = () => {
       // Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
-        const fullName = kid.info.fullName.toLowerCase();
+        const fullName = (kid.info?.fullName || '').toLowerCase();
         const landmark = (kid.address?.landmark || '').toLowerCase();
         const region = (kid.address?.region || '').toLowerCase();
         const fatherName = (kid.contacts?.fatherName || '').toLowerCase();
