@@ -62,10 +62,10 @@ export function safeRender(val: any, fallback: string = '-'): string {
  */
 export function sanitizeExcelCell(val: any): string {
   if (val === null || val === undefined) return '';
-  const str = String(val).trim();
-  if (!str) return '';
-  if (/^[=+\-@\t\r]/.test(str)) {
-    return `'${str}`;
+  const raw = String(val);
+  if (!raw.trim()) return '';
+  if (/^[=+\-@\t\r]/.test(raw) || /^[=+\-@]/.test(raw.trim())) {
+    return `'${raw.replace(/^ +/, '')}`;
   }
-  return str;
+  return raw.trim();
 }

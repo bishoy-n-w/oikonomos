@@ -586,5 +586,82 @@ describe('Event-Based Attendance & Recurring Schedule Tests', () => {
       expect(litStats?.sessionCount).toBe(1);
       expect(litStats?.averageRate).toBe(33);
     });
+
+    it('computes top and lowest attendees ranking sort order accurately', async () => {
+      const { computeAttendanceAnalytics } = await import('../utils/attendanceStats');
+      const stats = computeAttendanceAnalytics(testEvents, testKids);
+
+      // Top attendees should have k1 first (3 presences), k2 second (2 presences), k3 last (0)
+      expect(stats.topAttendees[0].kid.id).toBe('k1');
+      expect(stats.topAttendees[1].kid.id).toBe('k2');
+      expect(stats.topAttendees[2].kid.id).toBe('k3');
+
+      // Lowest attendees should have k3 first (0% rate), k2 second (67%), k1 last (100%)
+      expect(stats.lowestAttendees[0].kid.id).toBe('k3');
+      expect(stats.lowestAttendees[1].kid.id).toBe('k2');
+      expect(stats.lowestAttendees[2].kid.id).toBe('k1');
+    });
+
+    it('handles partial kids objects without info gracefully without throwing exceptions', async () => {
+      const { computeAttendanceAnalytics } = await import('../utils/attendanceStats');
+      const partialKids: any[] = [
+        { id: 'pk1', info: undefined },
+        { id: 'pk2', info: { fullName: null } },
+      ];
+
+      const stats = computeAttendanceAnalytics(testEvents, partialKids);
+      expect(stats.totalRoster).toBe(2);
+      expect(stats.faithfulKids).toHaveLength(0);
+    });
+  });
+
+  describe('Core-Event Horizon in Pastoral Care Alerts', () => {
+    it('ignores non-core events (isCore === false) when evaluating consecutive absences', () => {
+      const events: AttendanceEvent[] = [
+        {
+          id: 'ev1',
+          academicYearId: 'y1',
+          classId: 'c1',
+          title: 'Sunday School',
+          type: 'Sunday School',
+          eventDate: '2026-10-04',
+          statuses: { kid1: 'absent' },
+          notesByKid: {},
+          createdAt: '',
+          createdBy: '',
+        },
+        {
+          id: 'ev2',
+          academicYearId: 'y1',
+          classId: 'c1',
+          title: 'Church Picnic Trip',
+          type: 'Trip',
+          eventDate: '2026-10-11',
+          statuses: { kid1: 'absent' }, // Absent on voluntary trip
+          notesByKid: {},
+          createdAt: '',
+          createdBy: '',
+        },
+        {
+          id: 'ev3',
+          academicYearId: 'y1',
+          classId: 'c1',
+          title: 'Sunday School',
+          type: 'Sunday School',
+          eventDate: '2026-10-18',
+          statuses: { kid1: 'present' }, // Present in next core lesson
+          notesByKid: {},
+          createdAt: '',
+          createdBy: '',
+        },
+      ];
+
+      const groupTypes = ['Sunday School'];
+      const kidsList: any[] = [{ id: 'kid1', info: { fullName: 'Kid One' } }];
+
+      const alerts = computeConsecutiveAbsences(events, kidsList, groupTypes);
+      // Because kid1 was present on Oct 18, their latest consecutive absence count is 0 and they are not flagged
+      expect(alerts.find((a) => a.kid.id === 'kid1')).toBeUndefined();
+    });
   });
 });

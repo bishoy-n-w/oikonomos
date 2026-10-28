@@ -242,18 +242,24 @@ To preserve relational history and database integrity, no records are physically
 
 ## 8. Automated Testing Validation Guidelines
 
-The platform enforces a mandatory automated validation policy. Every core mechanism must possess a corresponding unit or widget test verified on the native VM runner before shipping:
+The platform enforces a mandatory automated validation policy. Every core mechanism must possess a corresponding unit test verified on the native VM runner before shipping:
 
-1.  **Translation lookups:** English and Arabic lookup verification.
+1.  **Translation lookups:** English and Arabic lookup verification and key-parity symmetry.
 2.  **RTL layout calculations:** State validations for text direction resolution.
 3.  **Dynamic theme triggers:** Caching state toggles.
 4.  **E.164 phone formats:** Tests for leading-zero stripping, missing dial code defaulting, and dial code prefixing.
 5.  **Simplified timelines:** Month-Year calendar term checks.
-6.  **Self-Service role transitions:** Onboarding payload state tests.
-7.  **Platform storage stubs:** VM safety checks.
+6.  **Self-Service role transitions:** Onboarding payload state tests and Firestore rules security locks.
+7.  **Platform storage stubs:** LocalStorage and deep link parameter resolution.
 8.  **Church Year Deletion Integrity Checks:** Blocks year deletion if referenced in classes.
 9.  **Kids Foldable Columns & Expansion Layouts:** Sizing recalculations based on toggled header states.
 10. **Classes Dynamic Grade Bindings:** Restricts grade dropdown configurations based on selected service group dynamically.
+11. **OWASP A03 Formula Injection Defense:** Neutralization of `=`, `+`, `-`, `@`, `\t`, `\r` trigger prefixes via `sanitizeExcelCell`.
+12. **Multi-Source Date & Timestamp Normalization:** Strict `YYYY-MM-DD` conversion across Firestore Timestamp objects, `.toDate()` methods, native Dates, and string inputs via `normalizeDateStr`.
+13. **Safe Rendering & Crash Prevention:** Fallback evaluation for null/undefined values and complex objects via `safeRender`.
+14. **LIFO Modal Escape Dismissal Stack:** Verifying that `useModalEscape` pops only the top-most nested modal and restores the parent modal upon child unmount.
+15. **Attendance Statistics & Ranking Sorts:** Accurate computation of attendance rates, best session identification, and ranking sort order (`topAttendees` and `lowestAttendees`).
+16. **Core Event Filtering for Pastoral Alerts:** Verification that voluntary/non-core sessions (`isCore: false`) are ignored during consecutive absence calculations.
 
 ---
 

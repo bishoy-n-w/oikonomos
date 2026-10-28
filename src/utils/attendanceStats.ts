@@ -276,7 +276,7 @@ export function exportAttendanceReportExcel(
     const rate = conductedEvents.length > 0 ? Math.round((p / conductedEvents.length) * 100) : 0;
 
     return [
-      sanitizeExcelCell(kid.info.fullName),
+      sanitizeExcelCell(kid.info?.fullName || ''),
       sanitizeExcelCell(kid.contacts?.fatherName || ''),
       sanitizeExcelCell(kid.contacts?.fatherMob || kid.contacts?.kidMob || ''),
       ...sessionValues,
