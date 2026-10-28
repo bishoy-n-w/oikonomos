@@ -45,3 +45,7 @@ This backlog outlines completed milestones and forward-looking engineering initi
 ### 🟩 Priority 3: Offline Sync & PWA Cache Hardening
 - [ ] **Persistent Firestore Offline Cache:** Enable IndexedDB offline persistence for attendance logging in church basements with weak cellular reception.
 - [ ] **Background Sync:** Queue offline attendance marks and automatically sync with Firestore upon network reconnection.
+
+### 🟦 Priority 4: Biometrics & Automated Fast Attendance
+- [ ] **QR Code Badge Attendance Scanning:** Generate individual student QR identity cards and support fast multi-student camera scanning in Attendance Tracker.
+- [ ] **On-Device Facial Recognition Roll-Call:** Evaluate client-side WebAssembly face detection (`face-api.js` / MediaPipe) for automated classroom check-in.

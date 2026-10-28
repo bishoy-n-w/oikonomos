@@ -44,11 +44,11 @@ export const MainShell: React.FC<MainShellProps> = ({ activeTab, onTabChange, ch
   const navItems: Array<{ id: ActiveTab; labelKey: string; icon: React.FC<{ className?: string }>; adminOnly?: boolean }> = [
     { id: 'dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
     { id: 'kids', labelKey: 'kids', icon: Users },
-    { id: 'servants', labelKey: 'servants', icon: UserCheck },
     { id: 'attendance', labelKey: 'attendance', icon: CalendarCheck },
+    { id: 'home_visits', labelKey: 'home_visits', icon: Home },
     { id: 'classes', labelKey: 'classes', icon: GraduationCap },
     { id: 'service_groups', labelKey: 'service_groups', icon: FolderGit2 },
-    { id: 'home_visits', labelKey: 'home_visits', icon: Home },
+    { id: 'servants', labelKey: 'servants', icon: UserCheck },
     { id: 'churches_config', labelKey: 'churches_config', icon: Building2, adminOnly: true },
   ];
 
@@ -159,7 +159,7 @@ export const MainShell: React.FC<MainShellProps> = ({ activeTab, onTabChange, ch
         <button
           onClick={() => setMobileDrawerOpen(true)}
           className={`min-h-[48px] min-w-[48px] flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition touch-manipulation ${
-            ['classes', 'service_groups', 'home_visits', 'churches_config'].includes(activeTab)
+            ['classes', 'service_groups', 'servants', 'churches_config'].includes(activeTab)
               ? 'text-teal-600 dark:text-teal-400'
               : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
           }`}
@@ -190,65 +190,33 @@ export const MainShell: React.FC<MainShellProps> = ({ activeTab, onTabChange, ch
             </div>
 
             <div className="py-4 space-y-4 flex-1 overflow-y-auto">
-              {/* Pastoral Care Section */}
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400 px-3.5">
-                  {translate('pastoral_care')}
-                </span>
-                {navItems
-                  .filter((item) => item.id === 'home_visits')
-                  .map((item) => {
-                    const Icon = item.icon;
-                    const isActive = activeTab === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => {
-                          onTabChange(item.id);
-                          setMobileDrawerOpen(false);
-                        }}
-                        className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-semibold transition touch-manipulation min-h-[44px] ${
-                          isActive
-                            ? 'bg-teal-600 text-white shadow-md shadow-teal-600/20'
-                            : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-                        }`}
-                      >
-                        <Icon className="w-5 h-5 shrink-0" />
-                        <span>{translate(item.labelKey)}</span>
-                      </button>
-                    );
-                  })}
-              </div>
-
               {/* Administration Section */}
               <div className="space-y-1.5">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 px-3.5">
                   {translate('administration')}
                 </span>
-                {navItems
-                  .filter((item) => ['classes', 'service_groups', 'churches_config'].includes(item.id))
-                  .map((item) => {
-                    if (item.adminOnly && userRole === 'viewer') return null;
-                    const Icon = item.icon;
-                    const isActive = activeTab === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => {
-                          onTabChange(item.id);
-                          setMobileDrawerOpen(false);
-                        }}
-                        className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-semibold transition touch-manipulation min-h-[44px] ${
-                          isActive
-                            ? 'bg-teal-600 text-white shadow-md shadow-teal-600/20'
-                            : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-                        }`}
-                      >
-                        <Icon className="w-5 h-5 shrink-0" />
-                        <span>{translate(item.labelKey)}</span>
-                      </button>
-                    );
-                  })}
+                {navItems.slice(4).map((item) => {
+                  if (item.adminOnly && userRole === 'viewer') return null;
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        onTabChange(item.id);
+                        setMobileDrawerOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-semibold transition touch-manipulation min-h-[44px] ${
+                        isActive
+                          ? 'bg-teal-600 text-white shadow-md shadow-teal-600/20'
+                          : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                      }`}
+                    >
+                      <Icon className="w-5 h-5 shrink-0" />
+                      <span>{translate(item.labelKey)}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>

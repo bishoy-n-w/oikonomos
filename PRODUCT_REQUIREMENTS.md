@@ -33,16 +33,16 @@ This document serves as the absolute architectural blueprint and behavioral spec
 *   **Flat Architecture:** All individual administrative and configuration directories are promoted directly to the primary sidebar `NavigationRail` as top-level options, creating a spacious and direct administrative workflow:
     1.  **Dashboard** (Quick tasks, metric counters, and admin notifications)
     2.  **Kids Directory** (Tabular CRM student roster)
-    3.  **Servants Directory** (Tabular servant management console)
-    4.  **Attendance Tracker** (Lesson logs)
+    3.  **Attendance Tracker** (Lesson logs)
+    4.  **Home Visits** (Pastoral visitation logs)
     5.  **Classes** (Classroom DataTable list & Dialog config)
     6.  **Service Groups** (Pastoral departments)
-    7.  **Home Visits** (Pastoral visitation logs)
+    7.  **Servants Directory** (Tabular servant management console)
     8.  **Church Admin** (Church timeline and core admin configs)
 
 ### 📋 F. Global Text Selection & Copying
 *   **Behavior:** All text fields, data rows, metrics, and profiles on the website are fully selectable and copyable by administrators.
-*   **Implementation:** The entire authenticated homepage tree is wrapped inside a Flutter **`SelectionArea`** widget, allowing coordinators to highlight and copy student names, parent emails, addresses, or dashboard metrics with native system convenience.
+*   **Implementation:** Standard web DOM text selection (`user-select: text` / native browser text selection) is enabled throughout the application tree, allowing coordinators to highlight and copy student names, parent emails, addresses, or dashboard metrics with native system convenience.
 
 ### 🎛️ G. Global Cascading Navigation Filters
 *   **Behavior:** The top-right of the app layout features a persistent set of 4 selection dropdowns that dictate the active context for all views.
