@@ -90,7 +90,7 @@ export async function signInWithGoogle(options?: {
 export async function requestContactsPermission(): Promise<string | null> {
   const provider = new GoogleAuthProvider();
   provider.addScope(CONTACTS_SCOPE);
-  provider.setCustomParameters({ prompt: 'consent' });
+  provider.setCustomParameters({ prompt: 'select_account' });
 
   try {
     const credential = await signInWithPopup(auth, provider);
@@ -99,9 +99,20 @@ export async function requestContactsPermission(): Promise<string | null> {
       setGoogleAccessToken(oauthCredential.accessToken);
       return oauthCredential.accessToken;
     }
-  } catch (err) {
-    console.error('Failed to request Google Contacts permission', err);
-    throw err;
+  } catch (err: any) {
+    console.error('Failed to request Google Contacts permission:', err);
+    if (err.code === 'auth/popup-closed-by-user') {
+      throw new Error('Google sign-in popup was closed before authorization completed.');
+    }
+    if (err.code === 'auth/popup-blocked') {
+      throw new Error('The authorization popup was blocked by your browser. Please allow popups for this site and try again.');
+    }
+    const detailed = 
+      err.customData?._tokenResponse?.error?.message ||
+      err.customData?.error_description ||
+      err.message ||
+      'Unknown authorization failure';
+    throw new Error(`Google authorization error (${err.code}): ${detailed}`);
   }
   return null;
 }

@@ -293,13 +293,32 @@ Enables Sunday School servants and administrators to synchronize church contact 
 
 ### 🔄 A. Synchronization Scope & Permissions
 *   **OAuth Scopes:** Requests incremental consent for `https://www.googleapis.com/auth/contacts` upon invoking the sync feature.
+*   **User Selection & Gesture:** Prompts user directly on click gesture with `prompt: 'select_account'` to prevent transient token drops and ensure the correct servant email is selected.
 *   **Target Grouping:** Creates/updates a dedicated Google Contact Group / Label formatted as: `[Oikonomos] <Church Name> - <Class Name> (<Year>)`.
 
-### 👥 B. Contact Schema Mapping
-*   **Display Name:** `[SS] <Kid Full Name>` (with parent names tagged in phonetic/nickname notes).
-*   **Phone Numbers:** Formatted strictly in E.164 standard. Father mobile labeled as `Father`, Mother mobile labeled as `Mother`, Kid mobile labeled as `Mobile`.
-*   **Job & Organization:** Set to Church Name and Sunday School Class title.
-*   **Idempotency & Deduplication:** Checks existing contacts within the designated Oikonomos label by matching normalized phone numbers or stored external IDs, updating records rather than generating duplicates.
+### 👥 B. Comprehensive Contact Schema Mapping
+*   **Clean Display Name:** `<Kid Full Name>` (stored as `givenName` without `[SS]` prefix, keeping phone address book clean).
+*   **Organization & Academic Year:** Company set to Church Name and Job Title set to `<Class Name> (<Year>)` (or `<Class Name>` if year is omitted), ensuring the class and term are visible immediately beneath the student's name on phone screens and incoming calls without clutter or truncation.
+*   **Phone Numbers:** Formatted strictly in E.164 standard:
+    *   Father Mobile labeled with name & profession (e.g., `Father (Rami - Engineer)`).
+    *   Mother Mobile labeled with name & profession (e.g., `Mother (Sara - Pharmacist)`).
+    *   Student Mobile labeled as `Mobile`.
+    *   Additional Family Mobile labeled as `Other`.
+*   **Native Birthdays (`birthdays`):** Mapped to Google's structured date `{ year, month, day }`, enabling automated native birthday alerts and Google Calendar synchronization on mobile devices.
+*   **Standalone Parent Birthday Calendar Events (`events`):** Father and Mother birth dates are mapped to standalone Google Calendar events labeled `Father Birthday / عيد ميلاد الأب` and `Mother Birthday / عيد ميلاد الأم`.
+*   **Native Relationships (`relations`):** Explicitly connects parents via native `father` and `mother` relationship records, including their profession labels.
+*   **Native Gender (`genders`):** Standardized to Google's gender schema (`male` or `female`).
+*   **Standalone 1-Tap Home Navigation Link (`urls`):** Home coordinates and map links are mapped to a standalone URL entry labeled `Home GPS / موقع المنزل`, providing a direct 1-tap turn-by-turn navigation shortcut on mobile cards.
+*   **Standalone First-Class Custom Fields (`userDefined`):**
+    *   `Father of Confession / أب الاعتراف`
+    *   `School / المدرسة`
+    *   `Church Rank / الرتبة الكنسية` (e.g. `Altar Deacon / شماس`)
+    *   `Father Profession / وظيفة الأب`
+    *   `Mother Profession / وظيفة الأم`
+    *   `Academic Term / السنة الدراسية`
+*   **Home Address & Floor:** Complete physical residence mapped to `addresses`: Street, Building, Floor (`Flr <num>`), Apartment (`Apt <num>`), Region, and Landmark.
+*   **Profile Picture Sync:** When a student possesses a `photoUrl`, the base64 image data is patched directly to `updateContactPhoto` on the created person resource.
+*   **Clean Pastoral Notes (`biographies`):** Contains strictly genuine pastoral remarks recorded in `kid.notes`, without duplicating metadata that already has first-class standalone representation. Omitted when no notes exist.
 
 ---
 
