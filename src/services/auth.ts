@@ -16,18 +16,22 @@ export const CONTACTS_SCOPE = 'https://www.googleapis.com/auth/contacts';
 let currentGoogleAccessToken: string | null = null;
 
 export function getGoogleAccessToken(): string | null {
-  if (!currentGoogleAccessToken) {
-    currentGoogleAccessToken = localStorage.getItem('oikonomos_google_access_token');
+  if (!currentGoogleAccessToken && typeof window !== 'undefined') {
+    currentGoogleAccessToken = sessionStorage.getItem('oikonomos_google_access_token');
   }
   return currentGoogleAccessToken;
 }
 
 export function setGoogleAccessToken(token: string | null): void {
   currentGoogleAccessToken = token;
-  if (token) {
-    localStorage.setItem('oikonomos_google_access_token', token);
-  } else {
-    localStorage.removeItem('oikonomos_google_access_token');
+  if (typeof window !== 'undefined') {
+    if (token) {
+      sessionStorage.setItem('oikonomos_google_access_token', token);
+      localStorage.removeItem('oikonomos_google_access_token'); // Purge legacy persistent residue
+    } else {
+      sessionStorage.removeItem('oikonomos_google_access_token');
+      localStorage.removeItem('oikonomos_google_access_token');
+    }
   }
 }
 

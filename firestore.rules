@@ -9,24 +9,34 @@ service cloud.firestore {
       allow read, write: if request.auth != null && exists(/databases/$(database)/documents/global_admins/$(request.auth.uid));
     }
 
-    // --- SELF-LOCKING BOOTSTRAP GATE ---
+    // --- PERMANENT IRREVERSIBLE LOCK ---
+    match /global_admins/_lock {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && !exists(/databases/$(database)/documents/global_admins/_lock);
+      allow update, delete: if false; // Once locked, CANNOT be unlocked or deleted via client SDK!
+    }
+
+    // --- GLOBAL ADMINS RBAC GATE ---
     match /global_admins/{adminId} {
-      // 1. Any logged-in user is allowed to read the static '_lock' document to check if the database is initialized.
-      // 2. Users can only read their own registration document, or existing global admins can read any document.
-      allow read: if request.auth != null && 
-                    (adminId == '_lock' || 
-                     adminId == request.auth.uid || 
-                     exists(/databases/$(database)/documents/global_admins/$(request.auth.uid)));
+      allow read: if request.auth != null && (
+        adminId == request.auth.uid || 
+        exists(/databases/$(database)/documents/global_admins/$(request.auth.uid))
+      );
       
-      // Write/Create is allowed IF:
-      // 1. The lock document '_lock' does NOT exist (meaning the database is brand new and in Setup Mode).
-      // 2. Or, if the caller is already a registered Global Owner, they can add/edit other global owners.
-      allow create, update: if request.auth != null && 
-                              (!exists(/databases/$(database)/documents/global_admins/_lock) || 
-                               exists(/databases/$(database)/documents/global_admins/$(request.auth.uid)));
+      // Create allowed only if:
+      // 1. Database is brand new (no lock) AND user is creating strictly their own UID
+      // 2. OR caller is already an established Global Admin
+      allow create: if request.auth != null && (
+        exists(/databases/$(database)/documents/global_admins/$(request.auth.uid)) ||
+        (!exists(/databases/$(database)/documents/global_admins/_lock) && adminId == request.auth.uid)
+      );
+
+      allow update: if request.auth != null && exists(/databases/$(database)/documents/global_admins/$(request.auth.uid));
                                
-      // Only existing Global Owners can delete administrative entries
-      allow delete: if request.auth != null && exists(/databases/$(database)/documents/global_admins/$(request.auth.uid));
+      // Only existing Global Owners can delete administrative entries; _lock is permanently protected
+      allow delete: if request.auth != null && 
+                    adminId != '_lock' && 
+                    exists(/databases/$(database)/documents/global_admins/$(request.auth.uid));
     }
 
     // Helper: Is the user authenticated?
@@ -64,9 +74,16 @@ service cloud.firestore {
         (
           exists(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)) &&
           (
-            get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.misters[request.auth.token.email] == 'admin' ||
-            (get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.admins != null &&
-             request.auth.token.email in get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.admins)
+            ('misters' in get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data &&
+             get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.misters != null &&
+             ((request.auth.token.email in get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.misters &&
+               get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.misters[request.auth.token.email] == 'admin') ||
+              (request.auth.token.email.lower() in get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.misters &&
+               get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.misters[request.auth.token.email.lower()] == 'admin'))) ||
+            ('admins' in get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data &&
+             get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.admins != null &&
+             (request.auth.token.email in get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.admins ||
+              request.auth.token.email.lower() in get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.admins))
           )
         )
       );
@@ -79,10 +96,16 @@ service cloud.firestore {
         (
           exists(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)) &&
           (
-            (get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.misters != null &&
-             request.auth.token.email in get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.misters) ||
-            (get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.servants != null &&
-             request.auth.token.email in get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.servants)
+            ('misters' in get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data &&
+             get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.misters != null &&
+             ((request.auth.token.email in get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.misters &&
+               get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.misters[request.auth.token.email] == 'servant') ||
+              (request.auth.token.email.lower() in get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.misters &&
+               get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.misters[request.auth.token.email.lower()] == 'servant'))) ||
+            ('servants' in get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data &&
+             get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.servants != null &&
+             (request.auth.token.email in get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.servants ||
+              request.auth.token.email.lower() in get(/databases/$(database)/documents/churches/$(churchId)/serviceGroups/$(serviceGroupId)).data.servants))
           )
         )
       );
@@ -184,7 +207,7 @@ service cloud.firestore {
         // Update:
         // - Church Admin can update any kid and reassign classes freely
         // - Group Admin can update and reassign kids within their group
-        // - Class Servant can update student details, but CANNOT transfer to a different class!
+        // - Class Servant can update student details, but CANNOT transfer to a different class/group/year!
         // Audit check: request.resource.data.lastEditBy must match caller email
         allow update: if (
                         isChurchAdmin(churchId) || 
@@ -192,6 +215,8 @@ service cloud.firestore {
                           isGroupAdmin(churchId, resource.data.activeAssignment.serviceGroupId) ||
                           (
                             isClassServant(churchId, resource.data.activeAssignment.classId, resource.data.activeAssignment.academicYearId) &&
+                            request.resource.data.activeAssignment.serviceGroupId == resource.data.activeAssignment.serviceGroupId &&
+                            request.resource.data.activeAssignment.academicYearId == resource.data.activeAssignment.academicYearId &&
                             (
                               request.resource.data.activeAssignment.classId == resource.data.activeAssignment.classId ||
                               request.resource.data.activeAssignment.classId == null ||
@@ -211,7 +236,16 @@ service cloud.firestore {
                         ));
         
         match /versions/{versionId} {
-          allow read, write: if isChurchServant(churchId);
+          allow read: if isChurchAdmin(churchId) || 
+                         (resource.data.activeAssignment != null && (
+                           isGroupServant(churchId, resource.data.activeAssignment.serviceGroupId) ||
+                           isClassServant(churchId, resource.data.activeAssignment.classId, resource.data.activeAssignment.academicYearId)
+                         ));
+          allow write: if isChurchAdmin(churchId) || 
+                          (resource.data.activeAssignment != null && (
+                            isGroupAdmin(churchId, resource.data.activeAssignment.serviceGroupId) ||
+                            isClassServant(churchId, resource.data.activeAssignment.classId, resource.data.activeAssignment.academicYearId)
+                          ));
         }
       }
       

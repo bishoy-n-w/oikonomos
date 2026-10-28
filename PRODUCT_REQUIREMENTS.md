@@ -720,6 +720,26 @@ Enables Sunday School servants and administrators to synchronize church contact 
 *   **Environment Configuration Governance:**
     *   `.env.example` provides an audited template for all required and optional runtime environment variables (`VITE_FIREBASE_*` and `BASE_PATH`).
 
+---
+
+## 29. Perimeter Defense, Threat Hardening & Zero-Trust Governance (الأمن السيبراني وحماية النطاق)
+
+*   **Permanent Immutability for Bootstrap Lock (`SEC-06`):**
+    *   The `/global_admins/_lock` document enforces permanent client-side immutability (`allow update, delete: if false;`), ensuring that once the initial system setup completes, the bootstrap gate can never be re-opened by an administrative account deletion.
+    *   Pre-lock setup enforces strict self-UID matching (`adminId == request.auth.uid`), preventing arbitrary document injection during Day-0 bootstrap.
+*   **Subcollection Access Inheritance (`SEC-01`):**
+    *   Audit trails and version subcollections (`/kids/{kidId}/versions/{versionId}`) inherit the identical strict Role-Based Access Control of their parent student document, blocking unauthorized church-wide servants from scraping historic student personal data.
+*   **Safe Map-Key Verification & Case-Insensitive Matching (`SEC-02`):**
+    *   Security rules evaluate key existence (`in data.misters` / `in data.admins`) prior to indexing map values, preventing Firestore runtime evaluation aborts.
+    *   Evaluates both raw and normalized lowercase email tokens, guaranteeing seamless role recognition regardless of Google OAuth email capitalization.
+*   **Tamper-Proof Service Group & Academic Year Fields (`SEC-05`):**
+    *   When Class Servants update a student's personal details, `request.resource.data.activeAssignment.serviceGroupId` and `academicYearId` are locked to their existing values, preventing unauthorized student transfers across church divisions.
+*   **Browser Perimeter Security Headers (`SEC-04`):**
+    *   `index.html` embeds strict Content Security Policy (CSP) restricting script evaluation, connect sources to authorized Google / Firebase APIs, and frame embeddings.
+    *   Enforces `X-Content-Type-Options: nosniff` and `Referrer-Policy: strict-origin-when-cross-origin` to defend against MIME sniffing and clickjacking.
+*   **Ephemeral Token Storage Architecture (`SEC-03`):**
+    *   Google People API OAuth Bearer tokens are stored strictly within `sessionStorage` and memory variables, automatically flushing upon tab close or sign-out and purging any legacy `localStorage` residue.
+
 
 
 
