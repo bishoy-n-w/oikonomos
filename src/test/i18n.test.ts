@@ -6,6 +6,9 @@ describe('i18n translation service', () => {
     expect(t('kids', 'en')).toBe('Kids Directory');
     expect(t('attendance', 'en')).toBe('Attendance Tracker');
     expect(t('sync_contacts', 'en')).toBe('Sync to Google Contacts');
+    expect(t('more', 'en')).toBe('More');
+    expect(t('pastoral_care', 'en')).toBe('Pastoral Care');
+    expect(t('administration', 'en')).toBe('Administration');
   });
 
   it('should return correct Arabic translations', () => {

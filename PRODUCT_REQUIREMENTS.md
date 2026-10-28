@@ -265,13 +265,17 @@ The web application adapts seamlessly between desktop and mobile devices via sta
 *   **Desktop Viewport (`>= 1024px`):** Persistent collapsible sidebar navigation, high-density multi-column data tables, floating modal dialogs, and a persistent horizontal cascading filter toolbar.
 *   **Tablet Viewport (`768px - 1023px`):** Collapsed icon-only sidebar or slide-over drawer, horizontally scrollable data tables with sticky freeze columns.
 *   **Mobile Viewport (`< 768px`):** 
-    *   **Navigation:** Floating bottom navigation bar for primary daily flows (Dashboard, Attendance, Kids, Visits) plus a slide-over drawer for administrative metadata configurations.
-    *   **Global Filters:** Replaced with a compact, sticky contextual "Filter" pill chip that opens an accessible modal Bottom Sheet.
-    *   **Data Layout:** Multi-column tables automatically transform into touch-friendly **Adaptive Card Lists**, highlighting child name, avatar, contact shortcuts, and status.
+    *   **Navigation:** Floating bottom navigation bar for primary daily flows (Dashboard, Attendance, Kids, Visits) plus a slide-over "More" drawer categorized into Pastoral Care and Administration. Navigation tabs enforce a minimum `48x48px` touch target with `touch-manipulation`.
+    *   **Global Filters & Context:** Replaced with a compact, sticky contextual "Filter" pill chip that dynamically displays the active Class or Service Group name and opens an accessible modal Bottom Sheet.
+    *   **Data Layout:** Multi-column tables automatically transform into touch-friendly **Adaptive Card Lists** (implemented across Kids Directory, Servants Directory, and Classes), highlighting names, avatars, contact shortcuts, and status badges.
+    *   **Dynamic Viewports & Notch Avoidance:** Viewport configured with `viewport-fit=cover`. App shell and all modal dialogs employ dynamic viewport units (`dvh`) and safe-area environment variables (`env(safe-area-inset-bottom)`), eliminating address bar clipping and iOS home indicator overlapping.
+    *   **Touch Controller Targets (Apple HIG & WCAG 2.5.5 / 2.5.8):** All mobile primary actions (Attendance 3-state Present/Absent/Excused roll-call controller, Phone, WhatsApp, GPS Directions, and Log Visit) enforce a minimum `44x44px` hit box, while collapsing into compact, high-density desktop pills (`sm:min-h-0`) for mouse precision.
+    *   **Accessibility & Input Scaling (WCAG 2.1 SC 1.4.4):** Viewport meta allows user pinch-to-zoom (`user-scalable` enabled). Form inputs utilize responsive sizing (`text-base sm:text-xs` / `text-base sm:text-sm`) to prevent automatic iOS Safari viewport zooming on input focus.
 
 ### 🌐 B. RTL & Localization Architecture
 *   Arabic language toggling applies HTML `dir="rtl"` dynamically.
 *   All layouts use CSS logical properties (`margin-inline-start`, `padding-inline-end`, `border-inline-start`), eliminating manual coordinate recalculations and ensuring 100% natural mirror animations.
+*   Phone numbers, grade IDs (`#gradeId`), and counts are isolated with `<bdi dir="ltr">` to prevent bidirectional punctuation inversion in Arabic RTL mode.
 
 ---
 

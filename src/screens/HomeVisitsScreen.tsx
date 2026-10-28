@@ -741,10 +741,10 @@ export const HomeVisitsScreen: React.FC = () => {
                           href={`https://wa.me/${kid.contacts.fatherMob.replace(/\+/g, '')}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold transition"
+                          className="min-h-[44px] sm:min-h-0 flex-1 flex items-center justify-center gap-1.5 py-2 sm:py-1.5 px-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 text-xs sm:text-[11px] font-bold transition touch-manipulation"
                           title="WhatsApp Father"
                         >
-                          <MessageSquare className="w-3 h-3" />
+                          <MessageSquare className="w-3.5 h-3.5 shrink-0" />
                           <span>{translate('call_father')}</span>
                         </a>
                       )}
@@ -753,10 +753,10 @@ export const HomeVisitsScreen: React.FC = () => {
                           href={`https://wa.me/${kid.contacts.motherMob.replace(/\+/g, '')}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold transition"
+                          className="min-h-[44px] sm:min-h-0 flex-1 flex items-center justify-center gap-1.5 py-2 sm:py-1.5 px-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 text-xs sm:text-[11px] font-bold transition touch-manipulation"
                           title="WhatsApp Mother"
                         >
-                          <MessageSquare className="w-3 h-3" />
+                          <MessageSquare className="w-3.5 h-3.5 shrink-0" />
                           <span>{translate('call_mother')}</span>
                         </a>
                       )}
@@ -765,10 +765,10 @@ export const HomeVisitsScreen: React.FC = () => {
                           href={mapsUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="p-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 text-blue-700 dark:text-blue-300 transition"
+                          className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center p-2 sm:p-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 text-blue-700 dark:text-blue-300 transition touch-manipulation"
                           title={translate('directions_map')}
                         >
-                          <ExternalLink className="w-3.5 h-3.5" />
+                          <ExternalLink className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                         </a>
                       )}
                     </div>
@@ -780,20 +780,20 @@ export const HomeVisitsScreen: React.FC = () => {
                           href={getUniversalNavigationUrl(kid.address.geoLocation, fullAddress)}
                           target="_blank"
                           rel="noreferrer"
-                          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-xl bg-teal-50 dark:bg-teal-950/60 hover:bg-teal-100 text-teal-800 dark:text-teal-200 text-[11px] font-bold border border-teal-200 dark:border-teal-800 transition"
+                          className="min-h-[44px] sm:min-h-0 flex-1 flex items-center justify-center gap-1.5 py-2 sm:py-1.5 px-2.5 rounded-xl bg-teal-50 dark:bg-teal-950/60 hover:bg-teal-100 text-teal-800 dark:text-teal-200 text-xs sm:text-[11px] font-bold border border-teal-200 dark:border-teal-800 transition touch-manipulation"
                           title={translate('navigate')}
                         >
-                          <Navigation className="w-3.5 h-3.5 text-teal-600" />
+                          <Navigation className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-teal-600 shrink-0" />
                           <span>{translate('navigate')}</span>
                         </a>
                         <a
                           href={`https://wa.me/?text=${encodeURIComponent(`سلام ونعمة، ده لوكيشن بيت الطالب (${kid.info.fullName}): ${getUniversalNavigationUrl(kid.address.geoLocation, fullAddress)}`)}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="p-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 transition"
+                          className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center p-2 sm:p-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 transition touch-manipulation"
                           title={translate('share_location')}
                         >
-                          <MessageSquare className="w-3.5 h-3.5" />
+                          <MessageSquare className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                         </a>
                       </div>
                     ) : (
@@ -803,10 +803,10 @@ export const HomeVisitsScreen: React.FC = () => {
                             type="button"
                             onClick={() => handlePinLocation(kid.id)}
                             disabled={pinningKidId === kid.id}
-                            className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-xl border border-dashed border-teal-300 dark:border-teal-700 bg-teal-50/50 dark:bg-teal-950/30 hover:bg-teal-50 text-teal-700 dark:text-teal-300 text-[11px] font-bold transition cursor-pointer disabled:opacity-50"
+                            className="min-h-[44px] sm:min-h-0 w-full flex items-center justify-center gap-1.5 py-2 sm:py-1.5 px-2.5 rounded-xl border border-dashed border-teal-300 dark:border-teal-700 bg-teal-50/50 dark:bg-teal-950/30 hover:bg-teal-50 text-teal-700 dark:text-teal-300 text-xs sm:text-[11px] font-bold transition cursor-pointer disabled:opacity-50 touch-manipulation"
                             title="Capture current phone GPS and save as student home location"
                           >
-                            <Navigation className="w-3 h-3 text-teal-600" />
+                            <Navigation className="w-4 h-4 sm:w-3 sm:h-3 text-teal-600 shrink-0" />
                             <span>{pinningKidId === kid.id ? translate('saving') : translate('pin_home_location')}</span>
                           </button>
                         </div>
@@ -819,7 +819,7 @@ export const HomeVisitsScreen: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setExpandedKidHistories({ ...expandedKidHistories, [kid.id]: !isHistoryOpen })}
-                      className="text-[11px] font-bold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition cursor-pointer"
+                      className="min-h-[44px] sm:min-h-0 flex items-center text-xs sm:text-[11px] font-bold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition cursor-pointer touch-manipulation"
                     >
                       {kidVisits.length} {kidVisits.length === 1 ? 'visit' : 'visits'} {isHistoryOpen ? '▲' : '▼'}
                     </button>
@@ -832,9 +832,9 @@ export const HomeVisitsScreen: React.FC = () => {
                           setEditingVisit(null);
                           setLogModalOpen(true);
                         }}
-                        className="flex items-center gap-1 px-3 py-1 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-[11px] transition cursor-pointer"
+                        className="min-h-[44px] sm:min-h-0 flex items-center gap-1.5 px-3 py-2 sm:py-1 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs sm:text-[11px] transition cursor-pointer touch-manipulation"
                       >
-                        <Plus className="w-3 h-3" />
+                        <Plus className="w-3.5 h-3.5" />
                         <span>{translate('log_visit')}</span>
                       </button>
                     )}

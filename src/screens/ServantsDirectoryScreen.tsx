@@ -15,7 +15,10 @@ import {
   Trash2, 
   X, 
   Lock,
-  RefreshCw 
+  RefreshCw,
+  Phone,
+  MessageSquare,
+  Mail 
 } from 'lucide-react';
 
 export const ServantsDirectoryScreen: React.FC = () => {
@@ -284,8 +287,147 @@ export const ServantsDirectoryScreen: React.FC = () => {
         )}
       </div>
 
-      {/* Details List View (DataTable) with Header Filter Matrix */}
-      <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-xs overflow-hidden">
+      {/* 1. Mobile Adaptive Touch Cards (< md) */}
+      <div className="md:hidden space-y-3">
+        {filteredServants.map((mister) => {
+          const adminGroups = getAdminGroups(mister.email);
+          const servantClasses = getServantClasses(mister.email);
+          const isSelf = mister.email.toLowerCase() === currentUserEmail;
+          const phone = mister.personalInfo?.phone;
+
+          return (
+            <div
+              key={mister.id}
+              className="p-4 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-3"
+            >
+              {/* Top row: Avatar, Name, Role & Status */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  {mister.personalInfo?.photoUrl ? (
+                    <img
+                      src={mister.personalInfo.photoUrl}
+                      alt={mister.displayName}
+                      className="w-11 h-11 rounded-2xl object-cover shrink-0 shadow-xs border border-zinc-200 dark:border-zinc-700"
+                    />
+                  ) : (
+                    <div className="w-11 h-11 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 font-bold text-base flex items-center justify-center shrink-0">
+                      {mister.displayName.slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 truncate">
+                        {mister.displayName}
+                      </span>
+                      {isSelf && (
+                        <span className="text-[10px] font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/80 px-1.5 py-0.2 rounded-full border border-teal-200 dark:border-teal-800">
+                          You
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-zinc-400 font-mono truncate">{mister.email}</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    mister.active
+                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                      : 'bg-zinc-100 text-zinc-500'
+                  }`}>
+                    {mister.active ? translate('active_badge') : translate('inactive_badge')}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                    mister.churchRole === 'admin'
+                      ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                      : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'
+                  }`}>
+                    {mister.churchRole}
+                  </span>
+                </div>
+              </div>
+
+              {/* Assignments Tags */}
+              <div className="space-y-1.5 pt-1 border-t border-zinc-100 dark:border-zinc-800/80 text-xs">
+                {adminGroups.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400">{translate('admin_in_groups')}:</span>
+                    {adminGroups.map((g) => (
+                      <span key={g} className="px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 text-[10px] font-semibold">
+                        {g}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {servantClasses.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400">{translate('servant_in_classes')}:</span>
+                    {servantClasses.map((cls) => (
+                      <span key={cls} className="px-2 py-0.5 rounded-md bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 text-[10px] font-semibold">
+                        {cls}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Quick Contact & Action Buttons */}
+              <div className="flex items-center gap-2 pt-1 border-t border-zinc-100 dark:border-zinc-800/80">
+                {phone ? (
+                  <>
+                    <a
+                      href={`tel:${phone}`}
+                      className="min-h-[44px] flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 transition active:scale-95 touch-manipulation"
+                    >
+                      <Phone className="w-3.5 h-3.5 shrink-0" />
+                      <span>{translate('phone')}</span>
+                    </a>
+                    <a
+                      href={`https://wa.me/${phone.replace(/\+/g, '')}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="min-h-[44px] flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 transition active:scale-95 touch-manipulation"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+                      <span>WhatsApp</span>
+                    </a>
+                  </>
+                ) : (
+                  <a
+                    href={`mailto:${mister.email}`}
+                    className="min-h-[44px] flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 transition active:scale-95 touch-manipulation"
+                  >
+                    <Mail className="w-3.5 h-3.5 shrink-0" />
+                    <span>Email</span>
+                  </a>
+                )}
+
+                {(isAdmin || isSelf) && (
+                  <button
+                    onClick={() => setEditMister(mister)}
+                    className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-xl text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 transition touch-manipulation"
+                    title="Edit Servant"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+                )}
+                {isAdmin && !isSelf && (
+                  <button
+                    onClick={() => handleDeleteMister(mister.email, mister.displayName)}
+                    className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-xl text-rose-500 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 transition touch-manipulation"
+                    title="Delete Servant"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 2. Desktop High-Density 12-Column Table (>= md) */}
+      <div className="hidden md:block bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-start text-xs text-zinc-700 dark:text-zinc-300">
             <thead className="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider text-[11px] border-b border-zinc-200 dark:border-zinc-800">
@@ -560,7 +702,7 @@ const MisterFormModal: React.FC<MisterFormModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-      <div className="w-full max-w-lg bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[90vh] overflow-y-auto">
+      <div className="w-full max-w-lg bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[90dvh] pb-[max(1.5rem,env(safe-area-inset-bottom))] overflow-y-auto">
         <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800 mb-4">
           <h3 className="font-bold text-base text-zinc-900 dark:text-zinc-100">
             {existingMister ? `${translate('edit')} ${translate('servant')}: ${existingMister.displayName}` : translate('add_servant')}

@@ -853,25 +853,25 @@ export const KidsDirectoryScreen: React.FC = () => {
                 {fatherPhone ? (
                   <a
                     href={`tel:${fatherPhone}`}
-                    className="flex items-center justify-center gap-1 py-2 px-2.5 rounded-xl text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 transition active:scale-95"
+                    className="min-h-[44px] flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 transition active:scale-95 touch-manipulation"
                   >
-                    <Phone className="w-3.5 h-3.5" />
+                    <Phone className="w-3.5 h-3.5 shrink-0" />
                     <span>Father</span>
                   </a>
                 ) : (
-                  <div className="py-2 text-[11px] text-center text-zinc-400 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl">No Father</div>
+                  <div className="min-h-[44px] flex items-center justify-center py-2 text-[11px] text-center text-zinc-400 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl">No Father</div>
                 )}
 
                 {motherPhone ? (
                   <a
                     href={`tel:${motherPhone}`}
-                    className="flex items-center justify-center gap-1 py-2 px-2.5 rounded-xl text-xs font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 transition active:scale-95"
+                    className="min-h-[44px] flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 transition active:scale-95 touch-manipulation"
                   >
-                    <Phone className="w-3.5 h-3.5" />
+                    <Phone className="w-3.5 h-3.5 shrink-0" />
                     <span>Mother</span>
                   </a>
                 ) : (
-                  <div className="py-2 text-[11px] text-center text-zinc-400 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl">No Mother</div>
+                  <div className="min-h-[44px] flex items-center justify-center py-2 text-[11px] text-center text-zinc-400 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl">No Mother</div>
                 )}
 
                 {primaryPhone ? (
@@ -879,13 +879,13 @@ export const KidsDirectoryScreen: React.FC = () => {
                     href={`https://wa.me/${String(primaryPhone).replace(/\+/g, '')}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center justify-center gap-1 py-2 px-2.5 rounded-xl text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 transition active:scale-95"
+                    className="min-h-[44px] flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 transition active:scale-95 touch-manipulation"
                   >
-                    <MessageSquare className="w-3.5 h-3.5" />
+                    <MessageSquare className="w-3.5 h-3.5 shrink-0" />
                     <span>WhatsApp</span>
                   </a>
                 ) : (
-                  <div className="py-2 text-[11px] text-center text-zinc-400 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl">No WA</div>
+                  <div className="min-h-[44px] flex items-center justify-center py-2 text-[11px] text-center text-zinc-400 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl">No WA</div>
                 )}
               </div>
             </div>

@@ -313,8 +313,101 @@ export const ClassesScreen: React.FC = () => {
         )}
       </div>
 
-      {/* Details List View (DataTable) with Header Filter Matrix */}
-      <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-xs overflow-hidden">
+      {/* 1. Mobile Adaptive Touch Cards (< md) */}
+      <div className="md:hidden space-y-3">
+        {filteredClasses.map((cls) => {
+          const yearData = getYearData(cls);
+          if (!yearData) return null;
+
+          const group = serviceGroups.find((g) => g.id === yearData.serviceGroupId);
+          const gradeItem = currentChurch?.grades?.[yearData.gradeId || ''];
+          const kidsCount = yearData.KidIds?.length || yearData.kids?.length || 0;
+          const servantsCount = yearData.MistersIds?.length || yearData.servants?.length || 0;
+
+          return (
+            <div
+              key={cls.id}
+              className="p-4 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-3"
+            >
+              {/* Header: Class Name, Status & Group */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-extrabold text-base text-zinc-900 dark:text-zinc-100">
+                      {yearData.displayName || cls.id}
+                    </h3>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      cls.active !== false
+                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                        : 'bg-zinc-100 text-zinc-500'
+                    }`}>
+                      {cls.active !== false ? translate('active_badge') : translate('inactive_badge')}
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                    {group?.displayName || yearData.serviceGroupId}
+                  </p>
+                </div>
+
+                {gradeItem && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-800 dark:text-teal-200 border border-teal-200 dark:border-teal-800 text-[11px] font-semibold shrink-0">
+                    <span className="font-mono text-teal-700 dark:text-teal-300 font-bold px-1.5 py-0.2 rounded bg-teal-100 dark:bg-teal-900/60 text-[10px]" dir="ltr">
+                      #{yearData.gradeId}
+                    </span>
+                    <bdi>{gradeItem.name}</bdi>
+                  </span>
+                )}
+              </div>
+
+              {/* Counts & Badges */}
+              <div className="flex items-center gap-2 pt-1 border-t border-zinc-100 dark:border-zinc-800/80">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 font-bold text-xs text-zinc-800 dark:text-zinc-200">
+                  <Baby className="w-3.5 h-3.5 text-teal-600" />
+                  <span>{kidsCount} {translate('kids')}</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 font-bold text-xs text-zinc-800 dark:text-zinc-200">
+                  <Users className="w-3.5 h-3.5 text-blue-600" />
+                  <span>{servantsCount} {translate('servants')}</span>
+                </span>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/80">
+                {canEditClass(cls.id) ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setEditClass(cls)}
+                      className="min-h-[44px] flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 hover:bg-teal-100 transition active:scale-95 touch-manipulation"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>{translate('edit')}</span>
+                    </button>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteClass(cls.id)}
+                        className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-xl text-rose-500 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 transition touch-manipulation"
+                        title="Delete Class"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-500 text-xs font-bold">
+                    <Eye className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>{translate('view_only_mode')}</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 2. Desktop High-Density Table (>= md) */}
+      <div className="hidden md:block bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-start text-xs text-zinc-700 dark:text-zinc-300">
             <thead className="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider text-[11px] border-b border-zinc-200 dark:border-zinc-800">
@@ -618,7 +711,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-      <div className="w-full max-w-xl bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[90vh] overflow-y-auto">
+      <div className="w-full max-w-xl bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[90dvh] pb-[max(1.5rem,env(safe-area-inset-bottom))] overflow-y-auto">
         <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800 mb-4">
           <h3 className="font-bold text-base text-zinc-900 dark:text-zinc-100">
             {existingClass ? `${translate('edit')} ${translate('class_label')}` : translate('add_class')}
@@ -829,7 +922,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
       {/* Mister Picker Modal (Part of selected group above) */}
       {misterPickerOpen && (
         <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[85vh] flex flex-col">
+          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[85dvh] pb-[max(1.5rem,env(safe-area-inset-bottom))] flex flex-col">
             <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
               <div>
                 <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
@@ -929,7 +1022,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
       {/* Kid Picker Modal */}
       {kidPickerOpen && (
         <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[85vh] flex flex-col">
+          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[85dvh] pb-[max(1.5rem,env(safe-area-inset-bottom))] flex flex-col">
             <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
               <div>
                 <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">

@@ -161,20 +161,31 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({ activeTab, onOpenMobileFil
 
       {/* Right Controls: Mobile Filter Button + Profile Menu */}
       <div className="flex items-center gap-2">
-        {/* Mobile Filter Trigger Button */}
-        <button
-          onClick={onOpenMobileFilters}
-          className="lg:hidden flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 rounded-full border border-teal-200 dark:border-teal-800 transition active:scale-95"
-        >
-          <FilterIcon className="w-3.5 h-3.5" />
-          <span>{translate('filter')}</span>
-        </button>
+        {/* Mobile Filter Trigger Button with Active Context */}
+        {(() => {
+          const activeClassObj = classes.find((c) => c.id === selectedClassId);
+          const activeGroupObj = serviceGroups.find((g) => g.id === selectedServiceGroupId);
+          const activeContextLabel = activeClassObj?.displayName || activeGroupObj?.displayName;
+
+          return (
+            <button
+              onClick={onOpenMobileFilters}
+              className="lg:hidden min-h-[44px] flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 rounded-full border border-teal-200 dark:border-teal-800 transition active:scale-95 touch-manipulation max-w-[160px]"
+              aria-label={translate('filter')}
+            >
+              <FilterIcon className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">
+                {activeContextLabel ? activeContextLabel : translate('filter')}
+              </span>
+            </button>
+          );
+        })()}
 
         {/* Profile Avatar & Dropdown */}
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setMenuOpen(!menuOpen)}
-            className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-teal-600/30 overflow-hidden hover:ring-2 hover:ring-teal-500 transition"
+            className="flex items-center justify-center w-11 h-11 min-h-[44px] min-w-[44px] rounded-full border-2 border-teal-600/30 overflow-hidden hover:ring-2 hover:ring-teal-500 transition touch-manipulation"
             aria-label="User profile menu"
           >
             {user?.photoURL ? (

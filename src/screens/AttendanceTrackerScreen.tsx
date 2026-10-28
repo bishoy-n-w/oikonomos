@@ -1375,7 +1375,7 @@ export const AttendanceTrackerScreen: React.FC = () => {
                               disabled={!canEdit}
                               onClick={() => handleSetKidStatus(kid.id, 'present')}
                               title={isPresent ? translate('reset_session') : translate('present')}
-                              className={`flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-xl text-xs font-bold transition ${
+                              className={`min-h-[44px] sm:min-h-0 flex items-center justify-center gap-1 py-2 sm:py-1.5 px-2.5 rounded-xl text-xs font-bold transition touch-manipulation ${
                                 canEdit ? 'active:scale-95 cursor-pointer' : 'cursor-default'
                               } ${
                                 isPresent
@@ -1383,7 +1383,7 @@ export const AttendanceTrackerScreen: React.FC = () => {
                                   : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
                               }`}
                             >
-                              <Check className="w-3.5 h-3.5" />
+                              <Check className="w-3.5 h-3.5 shrink-0" />
                               <span>{translate('present')}</span>
                             </button>
 
@@ -1393,7 +1393,7 @@ export const AttendanceTrackerScreen: React.FC = () => {
                               disabled={!canEdit}
                               onClick={() => handleSetKidStatus(kid.id, 'absent')}
                               title={isAbsent ? translate('reset_session') : translate('absent')}
-                              className={`flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-xl text-xs font-bold transition ${
+                              className={`min-h-[44px] sm:min-h-0 flex items-center justify-center gap-1 py-2 sm:py-1.5 px-2.5 rounded-xl text-xs font-bold transition touch-manipulation ${
                                 canEdit ? 'active:scale-95 cursor-pointer' : 'cursor-default'
                               } ${
                                 isAbsent
@@ -1401,7 +1401,7 @@ export const AttendanceTrackerScreen: React.FC = () => {
                                   : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-rose-50 dark:hover:bg-rose-950/30'
                               }`}
                             >
-                              <X className="w-3.5 h-3.5" />
+                              <X className="w-3.5 h-3.5 shrink-0" />
                               <span>{translate('absent')}</span>
                             </button>
 
@@ -1411,7 +1411,7 @@ export const AttendanceTrackerScreen: React.FC = () => {
                               disabled={!canEdit}
                               onClick={() => handleSetKidStatus(kid.id, 'excused')}
                               title={isExcused ? translate('reset_session') : translate('excused')}
-                              className={`flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-xl text-xs font-bold transition ${
+                              className={`min-h-[44px] sm:min-h-0 flex items-center justify-center gap-1 py-2 sm:py-1.5 px-2.5 rounded-xl text-xs font-bold transition touch-manipulation ${
                                 canEdit ? 'active:scale-95 cursor-pointer' : 'cursor-default'
                               } ${
                                 isExcused
@@ -1419,7 +1419,7 @@ export const AttendanceTrackerScreen: React.FC = () => {
                                   : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-amber-50 dark:hover:bg-amber-950/30'
                               }`}
                             >
-                              <Clock className="w-3.5 h-3.5" />
+                              <Clock className="w-3.5 h-3.5 shrink-0" />
                               <span>{translate('excused')}</span>
                             </button>
                           </div>
@@ -1430,7 +1430,7 @@ export const AttendanceTrackerScreen: React.FC = () => {
                               href={waUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition active:scale-95 shadow-sm"
+                              className="min-h-[44px] sm:min-h-0 flex items-center justify-center gap-1 px-3 py-2 sm:py-1.5 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition active:scale-95 shadow-sm touch-manipulation"
                               title="Send WhatsApp pastoral checkup to parent"
                             >
                               <span>WhatsApp</span>
@@ -1441,7 +1441,7 @@ export const AttendanceTrackerScreen: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => toggleKidNote(kid.id)}
-                            className={`p-2 rounded-xl transition cursor-pointer relative ${
+                            className={`min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-xl transition cursor-pointer relative touch-manipulation ${
                               hasNote
                                 ? 'bg-teal-100 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300'
                                 : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:text-zinc-600'
@@ -1467,7 +1467,7 @@ export const AttendanceTrackerScreen: React.FC = () => {
                             readOnly={!canEdit}
                             onChange={(e) => handleSetKidNote(kid.id, e.target.value)}
                             placeholder={canEdit ? translate('kid_note_placeholder') : 'No pastoral note'}
-                            className="flex-1 p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/60 text-xs disabled:opacity-75"
+                            className="flex-1 p-2.5 sm:p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/60 text-base sm:text-xs disabled:opacity-75"
                           />
                           {canEdit && hasNote && (
                             <button

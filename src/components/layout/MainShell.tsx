@@ -91,7 +91,7 @@ export const MainShell: React.FC<MainShellProps> = ({ activeTab, onTabChange, ch
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
+    <div className="min-h-[100dvh] flex flex-col bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
       {/* Top App Bar */}
       <TopAppBar activeTab={activeTab} onOpenMobileFilters={() => setMobileFiltersOpen(true)} />
 
@@ -127,7 +127,7 @@ export const MainShell: React.FC<MainShellProps> = ({ activeTab, onTabChange, ch
         </aside>
 
         {/* Main Content Viewport */}
-        <main className="flex-1 overflow-y-auto pb-20 lg:pb-6">
+        <main className="flex-1 overflow-y-auto pb-28 lg:pb-6">
           <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
             {children}
           </div>
@@ -135,7 +135,7 @@ export const MainShell: React.FC<MainShellProps> = ({ activeTab, onTabChange, ch
       </div>
 
       {/* Mobile Floating Bottom Navigation (< lg) */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800 px-2 py-1.5 flex items-center justify-around shadow-lg">
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800 px-3 pt-1.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center justify-around shadow-lg">
         {navItems.slice(0, 4).map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -143,12 +143,12 @@ export const MainShell: React.FC<MainShellProps> = ({ activeTab, onTabChange, ch
             <button
               key={item.id}
               onClick={() => onTabChange(item.id)}
-              className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition ${
+              className={`min-h-[48px] min-w-[48px] flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition touch-manipulation ${
                 isActive ? 'text-teal-600 dark:text-teal-400' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
               }`}
             >
-              <Icon className="w-5 h-5" />
-              <span className="text-[10px] font-medium mt-0.5 truncate max-w-[64px]">
+              <Icon className="w-5 h-5 shrink-0" />
+              <span className="text-[10px] font-semibold mt-0.5 truncate max-w-[64px]">
                 {translate(item.labelKey)}
               </span>
             </button>
@@ -158,58 +158,98 @@ export const MainShell: React.FC<MainShellProps> = ({ activeTab, onTabChange, ch
         {/* More Drawer Button */}
         <button
           onClick={() => setMobileDrawerOpen(true)}
-          className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition ${
+          className={`min-h-[48px] min-w-[48px] flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition touch-manipulation ${
             ['classes', 'service_groups', 'home_visits', 'churches_config'].includes(activeTab)
               ? 'text-teal-600 dark:text-teal-400'
-              : 'text-zinc-500'
+              : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
           }`}
+          aria-label={translate('more')}
         >
-          <Menu className="w-5 h-5" />
-          <span className="text-[10px] font-medium mt-0.5">
-            {translate('settings')}
+          <Menu className="w-5 h-5 shrink-0" />
+          <span className="text-[10px] font-semibold mt-0.5">
+            {translate('more')}
           </span>
         </button>
       </nav>
 
-      {/* Mobile Settings Slide-over Drawer */}
+      {/* Mobile More Slide-over Drawer */}
       {mobileDrawerOpen && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs animate-in fade-in">
-          <div className="w-72 bg-white dark:bg-zinc-900 h-full p-6 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+          <div className="w-72 bg-white dark:bg-zinc-900 h-full p-6 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
             <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800">
               <h3 className="font-bold text-base text-zinc-900 dark:text-zinc-100">
-                {translate('settings')}
+                {translate('more')}
               </h3>
               <button
                 onClick={() => setMobileDrawerOpen(false)}
-                className="p-1 rounded-full text-zinc-400 hover:text-zinc-600"
+                className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                aria-label="Close menu"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="py-4 space-y-2 flex-1">
-              {navItems.slice(4).map((item) => {
-                if (item.adminOnly && userRole === 'viewer') return null;
-                const Icon = item.icon;
-                const isActive = activeTab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      onTabChange(item.id);
-                      setMobileDrawerOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-semibold transition ${
-                      isActive
-                        ? 'bg-teal-600 text-white'
-                        : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    <span>{translate(item.labelKey)}</span>
-                  </button>
-                );
-              })}
+            <div className="py-4 space-y-4 flex-1 overflow-y-auto">
+              {/* Pastoral Care Section */}
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400 px-3.5">
+                  {translate('pastoral_care')}
+                </span>
+                {navItems
+                  .filter((item) => item.id === 'home_visits')
+                  .map((item) => {
+                    const Icon = item.icon;
+                    const isActive = activeTab === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          onTabChange(item.id);
+                          setMobileDrawerOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-semibold transition touch-manipulation min-h-[44px] ${
+                          isActive
+                            ? 'bg-teal-600 text-white shadow-md shadow-teal-600/20'
+                            : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                        }`}
+                      >
+                        <Icon className="w-5 h-5 shrink-0" />
+                        <span>{translate(item.labelKey)}</span>
+                      </button>
+                    );
+                  })}
+              </div>
+
+              {/* Administration Section */}
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 px-3.5">
+                  {translate('administration')}
+                </span>
+                {navItems
+                  .filter((item) => ['classes', 'service_groups', 'churches_config'].includes(item.id))
+                  .map((item) => {
+                    if (item.adminOnly && userRole === 'viewer') return null;
+                    const Icon = item.icon;
+                    const isActive = activeTab === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          onTabChange(item.id);
+                          setMobileDrawerOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-semibold transition touch-manipulation min-h-[44px] ${
+                          isActive
+                            ? 'bg-teal-600 text-white shadow-md shadow-teal-600/20'
+                            : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                        }`}
+                      >
+                        <Icon className="w-5 h-5 shrink-0" />
+                        <span>{translate(item.labelKey)}</span>
+                      </button>
+                    );
+                  })}
+              </div>
             </div>
           </div>
         </div>
