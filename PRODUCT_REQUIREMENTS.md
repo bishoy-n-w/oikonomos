@@ -763,15 +763,19 @@ Enables Sunday School servants and administrators to synchronize church contact 
 
 ---
 
-## 30. Mobile Overlay & Modal Backdrop Tap Dismissal Standard (إغلاق النوافذ عند النقر خارجها)
+## 31. Zero-Cost Independent Fork & Deployment Architecture (استنساخ المشروع والنشر المجاني بالكامل)
 
-*   **Universal Backdrop Tap Dismissal:**
-    *   All slide-over drawers (e.g. Mobile "More" Drawer), bottom sheets (e.g. Mobile Filter Sheet), and modal dialogs (Attendance Events, Student Onboarding, Bulk Reassignment, Home Visits, Class/Group/Church configs) support instant dismissal when tapping or clicking on the darkened backdrop area outside the content card.
-*   **Touch Event & Propagation Isolation:**
-    *   Inner modal cards enforce `onClick={(e) => e.stopPropagation()}`, guaranteeing that scrolling, tapping inputs, or selecting options within the dialog does not trigger inadvertent dismissals.
-    *   Header avatar and action popups attach both `touchstart` and `mousedown` listeners, providing instantaneous outside-tap closure on mobile touchscreens.
-*   **Transaction & In-Flight Protection:**
-    *   Backdrop tap dismissal is conditionally disabled while critical transactions (such as student spreadsheet imports, rollbacks, or batch deletions) are processing, preventing accidental disruption of active database writes.
+*   **Universal Fork Support:**
+    *   The architecture is optimized for 100% free operation on the Firebase Spark Plan (Cloud Firestore, Authentication) and GitHub Actions/Pages. Any user can "fork" the repository and deploy their own independent instance without needing credit cards, servers, or external services.
+*   **Dual-Mode Configuration Extraction:**
+    *   The deployment pipeline (`scripts/extract-firebase-config.cjs`) automatically extracts and injects Firebase credentials from three supported GitHub Secret formats:
+        1.  `FIREBASE_CONFIG_JSON`: A direct copy-paste of the JSON credentials object provided by the Firebase Console.
+        2.  `VITE_FIREBASE_*`: Standard individual environment variable secrets.
+        3.  `FIREBASE_OPTIONS_DART`: Backward compatibility for existing Flutter-generated options files.
+*   **Dynamic SPA Base Path Resolution:**
+    *   The deployment workflow mathematically determines the correct routing `BASE_PATH` for GitHub Pages by analyzing the `${{ github.repository }}` string. It handles user root `.github.io` endpoints (`/`) and sub-directory repository endpoints (`/<repo-name>/`) dynamically without hardcoded modifications to `vite.config.ts`.
+*   **Day-0 Super Admin Bootstrapping:**
+    *   A fresh Firebase Firestore instance starts without a `/global_admins/_lock` document. The security rules strictly permit a logged-in user to create their own matching UID document under `/global_admins/{uid}`, automatically granting themselves full `owner` bypass privileges across the entire database to setup the first church tenant.
 
 
 
