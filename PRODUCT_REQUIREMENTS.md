@@ -777,6 +777,25 @@ Enables Sunday School servants and administrators to synchronize church contact 
 *   **Day-0 Super Admin Bootstrapping:**
     *   A fresh Firebase Firestore instance starts without a `/global_admins/_lock` document. The security rules strictly permit a logged-in user to create their own matching UID document under `/global_admins/{uid}`, automatically granting themselves full `owner` bypass privileges across the entire database to setup the first church tenant.
 
+---
+
+## 32. Dual-Format Student Directory Export (تصدير كشف الطلاب بصيغتي إكسيل وجهات اتصال vCard)
+
+*   **Grouped Split Button Export UX:**
+    *   The Kids Directory features a segmented, grouped control presenting two immediate export workflows without hidden nested sub-menus:
+        1.  **Excel (`.xlsx`):** Formatted tabular spreadsheet containing all student attributes, sanitized against CSV/Excel formula injection.
+        2.  **vCard (`.vcf`):** Universal RFC-2426 vCard 3.0 contact exchange package for 1-tap importing directly into native iPhone (iOS Apple Contacts) and Android (Google / Samsung Contacts).
+*   **Physical In-File Binary Photo Embedding:**
+    *   Profile pictures stored in Firestore as compressed WebP/JPEG data URLs are extracted, stripped of transport prefixes, and embedded physically into the `.vcf` file using the `PHOTO;ENCODING=b;TYPE=WEBP/JPEG:...` tag. This guarantees 100% offline persistence and instant caller ID display on mobile phones with zero reliance on web servers or cloud URLs.
+*   **Strict Google Contacts Schema Alignment:**
+    *   The vCard generator mirrors the exact custom schema used by the Google Contacts Sync engine:
+        *   **Standard & Labeled Phones:** Father and Mother phones are tagged with names and professions via `itemX.TEL` and `itemX.X-ABLabel` (e.g. `Father (Rami - Engineer)`).
+        *   **Structured Address:** Extended street, building, floor, apartment, and region details mapped cleanly to `ADR;TYPE=HOME`.
+        *   **Standardized Birthdays & Events:** Student DOB mapped to `BDAY:YYYY-MM-DD`, with parent birthdays tagged via `X-ABDATE` and localized labels.
+        *   **Relations & Genders:** Family relationships mapped using `X-ABRELATEDNAMES` and `X-GENDER`.
+        *   **Custom Pastoral Metadata:** Standalone tags for `X-FATHER-OF-CONFESSION`, `X-SCHOOL`, `X-CHURCH-RANK` (Deacon), and `itemX.URL` for turn-by-turn Home GPS Navigation.
+        *   **Sanitized Notes:** Multiline pastoral notes safely preserved with `\n` escaping.
+
 
 
 

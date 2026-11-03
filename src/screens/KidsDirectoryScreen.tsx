@@ -12,6 +12,7 @@ import { SmartImportModal } from '../components/kids/SmartImportModal';
 import { normalizePhoneNumber } from '../services/googleContacts';
 import { normalizeDateStr, safeRender, sanitizeExcelCell } from '../utils/formatters';
 import { useModalEscape } from '../utils/useModalEscape';
+import { exportKidsToVCard } from '../utils/vcardExport';
 import { 
   parseGeoCoordinates, 
   captureDeviceGpsLocation, 
@@ -33,7 +34,8 @@ import {
   RefreshCw,
   Users,
   Navigation,
-  UserMinus 
+  UserMinus,
+  Contact 
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -657,6 +659,10 @@ export const KidsDirectoryScreen: React.FC = () => {
   const activeClassName = classes.find((c) => c.id === selectedClassId)?.displayName || 'All Classes';
   const activeYearName = academicYears.find((y) => y.id === selectedAcademicYearId)?.displayName || 'Term';
 
+  const handleExportVCard = () => {
+    exportKidsToVCard(filteredKids, activeChurchName, activeClassName, activeYearName);
+  };
+
   return (
     <div className="space-y-4 animate-in fade-in duration-200">
       {/* Header Row */}
@@ -695,14 +701,27 @@ export const KidsDirectoryScreen: React.FC = () => {
             <span>{translate('sync_contacts')}</span>
           </button>
 
-          {/* Export Excel */}
-          <button
-            onClick={handleExportExcel}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 transition cursor-pointer"
-          >
-            <Download className="w-4 h-4" />
-            <span>{translate('export_excel')}</span>
-          </button>
+          {/* Grouped Export Split Button (Excel & vCard) */}
+          <div className="inline-flex items-center rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 shadow-xs overflow-hidden divide-x divide-zinc-200 dark:divide-zinc-700 rtl:divide-x-reverse">
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              title={translate('export_excel')}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 transition cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5 text-zinc-500" />
+              <span>{translate('export_excel_short')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleExportVCard}
+              title={translate('export_vcard')}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/40 transition cursor-pointer"
+            >
+              <Contact className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+              <span>{translate('export_vcard_short')}</span>
+            </button>
+          </div>
 
           {/* Add Kid */}
           {canAddStudent && (
