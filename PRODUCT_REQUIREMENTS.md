@@ -796,6 +796,31 @@ Enables Sunday School servants and administrators to synchronize church contact 
         *   **Custom Pastoral Metadata:** Standalone tags for `X-FATHER-OF-CONFESSION`, `X-SCHOOL`, `X-CHURCH-RANK` (Deacon), and `itemX.URL` for turn-by-turn Home GPS Navigation.
         *   **Sanitized Notes:** Multiline pastoral notes safely preserved with `\n` escaping.
 
+---
+
+## 33. Church Branding, Student QR ID Badges & High-Speed Attendance Scanner (الهوية البصرية للكنيسة، بطاقات تعريف الطلاب بالباركود، وقارئ الحضور الفوري)
+
+*   **Zero-Cost Church Branding & Visual Identity:**
+    *   **Church Logo:** High-resolution square logos are cropped and compressed client-side into lightweight WebP Data URLs (~4KB - 8KB) and stored directly in `churches/{churchId}.logoUrl`. Displayed in the Top AppBar, church directory table, and printed ID card headers without incurring external storage costs.
+    *   **Academic Year Color Badging:** Coordinators can assign an accent color (e.g. Teal, Blue, Purple, Emerald, Rose, Amber) to each academic year in `churches/{churchId}/academicYears/{yearId}.badgeColor` to visually differentiate active school years and distinguish printed student badges across consecutive terms.
+*   **Privacy-First Student ID Card Specification (بطاقة تعريف الطالب):**
+    *   **Form Factor:** Standard landscape CR80 credit card layout ($85.6 \times 53.98\text{ mm}$) optimized for standard plastic badge holders and lanyards.
+    *   **Privacy Guardrails:** The card intentionally excludes sensitive private contact data (no parent mobile numbers, no home addresses, and no deacon ordination status) to protect family privacy if a badge is lost.
+    *   **Card Composition:** Features the Church Logo, Church Name, Colored Year Badge Pill, Student Photo (WebP base64 or monogram initials), Student Full Name, Classroom & Service Group tags, Shortened ID, and a high-contrast QR code.
+    *   **Full Bilingual RTL Support:** When printing badges in Arabic (`lang === 'ar'`), the badge layout automatically mirrors 180°: Church logo and name align to the right, Year pill aligns to the left, student avatar aligns to the right, and Arabic typography is right-aligned.
+*   **Zero-Cost Client-Side Batch Print Engine (محرك الطباعة المجمعة):**
+    *   Integrated into the Kids Directory via **`[ 🪪 Print ID Badges ]`** (for all filtered students or selected checkboxes) and individual student row actions.
+    *   Employs native CSS `@media print` Paged Media rules (`@page { size: A4 portrait; margin: 8mm; }`) to automatically impose **8 ID cards per A4 sheet** in a $2 \times 4$ grid with precision dotted scissor cutting guides (`border: 1px dashed #cbd5e1`).
+    *   Forces page-break avoidance so cards never split across physical sheets, hiding all browser interface elements, sidebars, and dialog overlays during printing.
+*   **High-Speed Optical QR Payload:**
+    *   Encodes an obfuscated, lightweight custom URI scheme: `oik://k/{churchId}/{kidId}`.
+    *   Because the payload is under 35 ASCII characters, it renders a low-density QR code (Version 2, Level M) that scans in under $100\text{ms}$ in dim lighting, with camera motion blur, or through plastic lanyard reflections.
+*   **Attendance Tracker Optical Scanner UX (قارئ الحضور بالكاميرا):**
+    *   **Handheld & Kiosk Modes:** Accessible in `AttendanceTrackerScreen` via the floating **`[ 📷 Scan QR ]`** button. Supports handheld teacher scanning (mobile back camera) and full-screen Kiosk mode (front-facing camera for self-check-in table setups with celebratory welcome overlays).
+    *   **Synthetic Web Audio API Feedback:** Emits clean, pleasant synthesized bell chimes (880Hz -> 1318Hz ascending two-tone) for successful check-ins, a soft neutral click for cooldown, and a gentle warning tone for unrecognized codes with 0 external sound files.
+    *   **Instant Real-Time Persistence:** Scanning immediately toggles the student to `present` and commits to Firestore in real time.
+    *   **Cooldown Debouncer & Wrong-Class Guardrails:** Prevents duplicate writes within 10 seconds with friendly alerts (*"Already marked Present"*), and detects students enrolled in a different classroom with an instant 1-tap transfer confirmation prompt.
+
 
 
 

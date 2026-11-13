@@ -9,6 +9,7 @@ import { ProfilePhotoUploader } from '../components/common/ProfilePhotoUploader'
 import { GoogleContactsSyncModal } from '../components/kids/GoogleContactsSyncModal';
 import { BulkAssignmentModal } from '../components/kids/BulkAssignmentModal';
 import { SmartImportModal } from '../components/kids/SmartImportModal';
+import { PrintIdCardsModal } from '../components/kids/PrintIdCardsModal';
 import { normalizePhoneNumber } from '../services/googleContacts';
 import { normalizeDateStr, safeRender, sanitizeExcelCell } from '../utils/formatters';
 import { useModalEscape } from '../utils/useModalEscape';
@@ -35,7 +36,8 @@ import {
   Users,
   Navigation,
   UserMinus,
-  Contact 
+  Contact,
+  IdCard
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -81,6 +83,8 @@ export const KidsDirectoryScreen: React.FC = () => {
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
   const [isDeletingBulk, setIsDeletingBulk] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [printModalOpen, setPrintModalOpen] = useState(false);
+  const [kidsToPrint, setKidsToPrint] = useState<Kid[]>([]);
   const [activeKid, setActiveKid] = useState<Kid | null>(null);
 
   const isAdmin = userRole === 'Admin' || userRole === 'owner';
@@ -723,6 +727,23 @@ export const KidsDirectoryScreen: React.FC = () => {
             </button>
           </div>
 
+          {/* Print ID Badges Button */}
+          <button
+            type="button"
+            onClick={() => {
+              const targets = selectedKidIds.length > 0
+                ? filteredKids.filter((k) => selectedKidIds.includes(k.id))
+                : filteredKids;
+              setKidsToPrint(targets);
+              setPrintModalOpen(true);
+            }}
+            title={translate('print_id_cards')}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 transition cursor-pointer shadow-xs"
+          >
+            <IdCard className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+            <span className="hidden sm:inline">{translate('print_id_cards')}</span>
+          </button>
+
           {/* Add Kid */}
           {canAddStudent && (
             <button
@@ -840,6 +861,17 @@ export const KidsDirectoryScreen: React.FC = () => {
 
                 {canManageKid(kid) && (
                   <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setKidsToPrint([kid]);
+                        setPrintModalOpen(true);
+                      }}
+                      className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-zinc-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition cursor-pointer"
+                      title={translate('print_id_badge')}
+                    >
+                      <IdCard className="w-4 h-4" />
+                    </button>
                     <button
                       onClick={() => {
                         setActiveKid(kid);
@@ -1186,6 +1218,17 @@ export const KidsDirectoryScreen: React.FC = () => {
                         {canManageKid(kid) && (
                           <>
                             <button
+                              type="button"
+                              onClick={() => {
+                                setKidsToPrint([kid]);
+                                setPrintModalOpen(true);
+                              }}
+                              className="p-1.5 rounded-lg text-zinc-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
+                              title={translate('print_id_badge')}
+                            >
+                              <IdCard className="w-4 h-4" />
+                            </button>
+                            <button
                               onClick={() => {
                                 setActiveKid(kid);
                                 setEditModalOpen(true);
@@ -1361,6 +1404,21 @@ export const KidsDirectoryScreen: React.FC = () => {
           onSuccess={() => {
             // refresh happens automatically via snapshot
           }}
+        />
+      )}
+
+      {/* Batch Print ID Badges Modal */}
+      {printModalOpen && selectedChurchId && (
+        <PrintIdCardsModal
+          kids={kidsToPrint}
+          churchId={selectedChurchId}
+          churchName={activeChurchName}
+          churchLogoUrl={churches.find((c) => c.id === selectedChurchId)?.logoUrl}
+          classes={classes}
+          serviceGroups={serviceGroups}
+          yearName={activeYearName}
+          yearBadgeColor={academicYears.find((y) => y.id === selectedAcademicYearId)?.badgeColor}
+          onClose={() => setPrintModalOpen(false)}
         />
       )}
 

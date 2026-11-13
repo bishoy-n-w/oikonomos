@@ -16,6 +16,17 @@ import {
   GraduationCap,
   RefreshCw
 } from 'lucide-react';
+import { ProfilePhotoUploader } from '../components/common/ProfilePhotoUploader';
+
+const BADGE_COLORS = [
+  '#0d9488', // Teal
+  '#2563eb', // Blue
+  '#7c3aed', // Purple
+  '#059669', // Emerald
+  '#e11d48', // Rose
+  '#d97706', // Amber
+  '#4f46e5', // Indigo
+];
 
 export const ChurchesScreen: React.FC = () => {
   const { user, userRole } = useAuth();
@@ -33,6 +44,11 @@ export const ChurchesScreen: React.FC = () => {
   const [addChurchOpen, setAddChurchOpen] = useState(false);
   const [editChurch, setEditChurch] = useState<Church | null>(null);
   const [gradesModalChurch, setGradesModalChurch] = useState<Church | null>(null);
+
+  // Logo & Badge Color State
+  const [newLogoUrl, setNewLogoUrl] = useState<string | undefined>(undefined);
+  const [newBadgeColor, setNewBadgeColor] = useState<string>('#0d9488');
+  const [editLogoUrl, setEditLogoUrl] = useState<string | undefined>(undefined);
 
   // In-place academic years during church edit
   const [editYears, setEditYears] = useState<AcademicYear[]>([]);
@@ -66,6 +82,7 @@ export const ChurchesScreen: React.FC = () => {
           displayName: d.data().displayName || d.id,
           active: d.data().active !== false,
           activeAcademicYearId: d.data().activeAcademicYearId,
+          logoUrl: d.data().logoUrl,
           grades: d.data().grades || {},
           defaultEventTypes: d.data().defaultEventTypes,
           createdAt: d.data().createdAt,
@@ -81,6 +98,7 @@ export const ChurchesScreen: React.FC = () => {
             displayName: yd.data().displayName || yd.id,
             active: yd.data().active !== false,
             startDate: normalizeDateStr(yd.data().startDate),
+            badgeColor: yd.data().badgeColor || '#0d9488',
           }));
           setAcademicYearsMap((prev) => ({ ...prev, [c.id]: years }));
         });
@@ -186,6 +204,7 @@ export const ChurchesScreen: React.FC = () => {
         displayName,
         active,
         activeAcademicYearId,
+        logoUrl: editLogoUrl || '',
         defaultEventTypes: editDefaultEventTypes,
         lastEditAt: new Date().toISOString(),
         lastEditBy: user?.email,
@@ -198,6 +217,7 @@ export const ChurchesScreen: React.FC = () => {
           displayName: y.displayName,
           active: y.id === activeAcademicYearId ? true : y.active,
           startDate: y.startDate || '',
+          badgeColor: y.badgeColor || '#0d9488',
         }, { merge: true });
       }
 
@@ -248,6 +268,7 @@ export const ChurchesScreen: React.FC = () => {
       displayName: `Academic Year ${nextNum}`,
       active: false,
       startDate: new Date().toISOString().substring(0, 7), // YYYY-MM
+      badgeColor: '#0d9488',
     };
     setEditYears([...editYears, newYear]);
   };
@@ -267,6 +288,7 @@ export const ChurchesScreen: React.FC = () => {
         displayName,
         active: true,
         activeAcademicYearId: yearId,
+        logoUrl: newLogoUrl || '',
         grades: {},
         defaultEventTypes: [...DEFAULT_EVENT_TYPES],
         createdAt: new Date().toISOString(),
@@ -277,6 +299,7 @@ export const ChurchesScreen: React.FC = () => {
         displayName: yearName,
         active: true,
         startDate, // YYYY-MM
+        badgeColor: newBadgeColor || '#0d9488',
         createdAt: new Date().toISOString(),
         createdBy: user?.email,
       });
@@ -317,7 +340,11 @@ export const ChurchesScreen: React.FC = () => {
 
         {isOwner && (
           <button
-            onClick={() => setAddChurchOpen(true)}
+            onClick={() => {
+              setNewLogoUrl(undefined);
+              setNewBadgeColor('#0d9488');
+              setAddChurchOpen(true);
+            }}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30 w-fit cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -348,10 +375,10 @@ export const ChurchesScreen: React.FC = () => {
               />
 
               {filteredChurches.map((church) => {
-                const activeYearName = (academicYearsMap[church.id] || []).find(
+                const activeYearObj = (academicYearsMap[church.id] || []).find(
                   (y) => y.id === church.activeAcademicYearId
-                )?.displayName || church.activeAcademicYearId || '-';
-
+                );
+                const activeYearName = activeYearObj?.displayName || church.activeAcademicYearId || '-';
                 const gradesCount = Object.keys(church.grades || {}).length;
 
                 return (
@@ -371,17 +398,37 @@ export const ChurchesScreen: React.FC = () => {
                       </span>
                     </td>
 
-                    {/* 2. DisplayName */}
+                    {/* 2. DisplayName with Logo */}
                     <td className="px-6 py-4 font-bold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
-                      {church.displayName}
+                      <div className="flex items-center gap-2.5">
+                        {church.logoUrl ? (
+                          <img
+                            src={church.logoUrl}
+                            alt={church.displayName}
+                            className="w-8 h-8 rounded-xl object-cover border border-zinc-200 dark:border-zinc-700 shrink-0 shadow-2xs"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold text-xs shrink-0">
+                            {church.displayName.slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <span>{church.displayName}</span>
+                      </div>
                     </td>
 
                     {/* 3. ActiveAcademicYear DisplayName */}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="font-semibold text-teal-600 dark:text-teal-400 flex items-center gap-1">
-                        <span>⭐</span>
-                        <span>{activeYearName}</span>
-                      </span>
+                      {activeYearObj ? (
+                        <span
+                          className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold text-white shadow-2xs"
+                          style={{ backgroundColor: activeYearObj.badgeColor || '#0d9488' }}
+                        >
+                          <span>⭐</span>
+                          <span>{activeYearName}</span>
+                        </span>
+                      ) : (
+                        <span className="text-zinc-400">-</span>
+                      )}
                     </td>
 
                     {/* 4. Grades (only sum number of grades; clicking opens popup) */}
@@ -401,7 +448,10 @@ export const ChurchesScreen: React.FC = () => {
                     <td className="px-6 py-4 text-end whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
-                          onClick={() => setEditChurch(church)}
+                          onClick={() => {
+                            setEditChurch(church);
+                            setEditLogoUrl(church.logoUrl);
+                          }}
                           className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
                           title="Edit Church"
                         >
@@ -458,6 +508,23 @@ export const ChurchesScreen: React.FC = () => {
               className="space-y-5 text-xs"
             >
               <fieldset disabled={isSavingEdit} className="space-y-5">
+                {/* Church Logo Uploader */}
+                <div className="flex items-center gap-4 p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700">
+                  <ProfilePhotoUploader
+                    photoUrl={editLogoUrl}
+                    name={editChurch.displayName}
+                    onPhotoChange={(url) => setEditLogoUrl(url)}
+                    size="md"
+                    disabled={isSavingEdit}
+                  />
+                  <div>
+                    <h4 className="font-bold text-xs text-zinc-900 dark:text-zinc-100">{translate('church_logo')}</h4>
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      {translate('upload_church_logo')}
+                    </p>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">{translate('church_name')} *</label>
@@ -553,6 +620,26 @@ export const ChurchesScreen: React.FC = () => {
                           className="w-32 p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold"
                           title="Start Date (Year & Month)"
                         />
+                        {/* Year Badge Color */}
+                        <div className="flex items-center gap-1 shrink-0" title={translate('term_badge_color')}>
+                          {BADGE_COLORS.map((color) => (
+                            <button
+                              key={color}
+                              type="button"
+                              onClick={() => {
+                                const updated = [...editYears];
+                                updated[idx].badgeColor = color;
+                                setEditYears(updated);
+                              }}
+                              className={`w-4 h-4 rounded-full transition cursor-pointer border ${
+                                (y.badgeColor || '#0d9488') === color
+                                  ? 'ring-2 ring-offset-1 ring-zinc-700 dark:ring-zinc-300 scale-110'
+                                  : 'opacity-40 hover:opacity-100'
+                              }`}
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
+                        </div>
                         <button
                           type="button"
                           onClick={() => handleDeleteYearInEdit(y.id)}
@@ -685,6 +772,23 @@ export const ChurchesScreen: React.FC = () => {
               className="space-y-4 text-xs"
             >
               <fieldset disabled={isCreatingChurch} className="space-y-4">
+                {/* Church Logo Uploader */}
+                <div className="flex items-center gap-4 p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700">
+                  <ProfilePhotoUploader
+                    photoUrl={newLogoUrl}
+                    name="Church"
+                    onPhotoChange={(url) => setNewLogoUrl(url)}
+                    size="md"
+                    disabled={isCreatingChurch}
+                  />
+                  <div>
+                    <h4 className="font-bold text-xs text-zinc-900 dark:text-zinc-100">{translate('church_logo')}</h4>
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      {translate('upload_church_logo')}
+                    </p>
+                  </div>
+                </div>
+
                 <div>
                   <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">{translate('church_name')} *</label>
                   <input
@@ -714,6 +818,23 @@ export const ChurchesScreen: React.FC = () => {
                     required
                     className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm"
                   />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-zinc-700 dark:text-zinc-300 mb-1">{translate('term_badge_color')}</label>
+                  <div className="flex items-center gap-2 p-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
+                    {BADGE_COLORS.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => setNewBadgeColor(color)}
+                        className={`w-6 h-6 rounded-full transition cursor-pointer border ${
+                          newBadgeColor === color ? 'ring-2 ring-offset-2 ring-teal-500 scale-110' : 'opacity-50 hover:opacity-100'
+                        }`}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
                 </div>
 
                 <div className="flex justify-end gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-800">

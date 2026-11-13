@@ -84,6 +84,7 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return {
           id: docSnap.id,
           displayName: data.displayName || 'Unknown Church',
+          logoUrl: data.logoUrl,
           data: data.activeAcademicYearId,
         };
       });
@@ -177,6 +178,7 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           id: docSnap.id,
           displayName: docSnap.data().displayName || docSnap.id,
           isActiveYear: isCurrentActive,
+          badgeColor: docSnap.data().badgeColor,
         };
       });
 

@@ -27,6 +27,7 @@ export interface Church {
   displayName: string;
   active: boolean;
   activeAcademicYearId?: string;
+  logoUrl?: string; // Client-compressed WebP base64 Data URL (~4KB - 8KB)
   grades?: Record<string, GradeItem>; // e.g. { "1": { name: "Grade 1", serviceGroupId: "..." } }
   defaultEventTypes?: string[]; // Configurable church-wide initial template for newly created groups
   createdAt?: string;
@@ -38,6 +39,7 @@ export interface AcademicYear {
   displayName: string;
   active: boolean;
   startDate?: string; // YYYY-MM
+  badgeColor?: string; // Hex color for the term badge on ID cards (e.g., "#0d9488", "#7c3aed")
   createdAt?: string;
   createdBy?: string;
 }
@@ -227,4 +229,6 @@ export interface DropdownItem {
   displayName: string;
   data?: any;
   isActiveYear?: boolean;
+  logoUrl?: string;
+  badgeColor?: string;
 }

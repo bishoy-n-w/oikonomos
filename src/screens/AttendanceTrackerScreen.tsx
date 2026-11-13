@@ -13,6 +13,7 @@ import { useApp } from '../context/AppContext';
 import { useFilter } from '../context/FilterContext';
 import { NewEventModal } from '../components/attendance/NewEventModal';
 import { RecurringEventModal } from '../components/attendance/RecurringEventModal';
+import { QrAttendanceScannerModal } from '../components/attendance/QrAttendanceScannerModal';
 import { useModalEscape } from '../utils/useModalEscape';
 import { computeConsecutiveAbsences, buildPastoralWhatsAppUrl } from '../utils/pastoralCare';
 import { 
@@ -61,7 +62,8 @@ import {
   BarChart3,
   FileSpreadsheet,
   Award,
-  TrendingUp
+  TrendingUp,
+  Camera
 } from 'lucide-react';
 
 export const AttendanceTrackerScreen: React.FC = () => {
@@ -96,6 +98,7 @@ export const AttendanceTrackerScreen: React.FC = () => {
 
   // Kids Roster
   const [kids, setKids] = useState<Kid[]>([]);
+  const [allChurchKids, setAllChurchKids] = useState<Kid[]>([]);
   
   // Events state
   const [events, setEvents] = useState<AttendanceEvent[]>([]);
@@ -130,6 +133,7 @@ export const AttendanceTrackerScreen: React.FC = () => {
   // Modals
   const [newEventOpen, setNewEventOpen] = useState(false);
   const [recurringModalOpen, setRecurringModalOpen] = useState(false);
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
   const [deleteEventId, setDeleteEventId] = useState<string | null>(null);
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
 
@@ -142,6 +146,7 @@ export const AttendanceTrackerScreen: React.FC = () => {
 
   useModalEscape(() => setDeleteEventId(null), !!deleteEventId);
   useModalEscape(() => setResetModalOpen(false), resetModalOpen);
+  useModalEscape(() => setQrScannerOpen(false), qrScannerOpen);
 
   const todayDateStr = new Date().toISOString().split('T')[0];
 
@@ -181,8 +186,10 @@ export const AttendanceTrackerScreen: React.FC = () => {
 
     const kidsRef = collection(db, 'churches', selectedChurchId, 'kids');
     const unsubKids = onSnapshot(kidsRef, (snap) => {
-      const items: Kid[] = snap.docs
-        .map((d) => ({ id: d.id, ...d.data() } as any))
+      const all: Kid[] = snap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
+      setAllChurchKids(all);
+
+      const items: Kid[] = all
         .filter((k) => {
           if (k.active === false) return false;
           const asgn = k.activeAssignment || {};
@@ -767,6 +774,18 @@ export const AttendanceTrackerScreen: React.FC = () => {
             {/* Event Modals (only if canEdit) */}
             {canEdit && (
               <>
+                {/* High-Speed QR Attendance Scanner Button */}
+                {selectedEventId && (
+                  <button
+                    type="button"
+                    onClick={() => setQrScannerOpen(true)}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 active:scale-95 transition shadow-sm shadow-teal-600/30 cursor-pointer"
+                    title={translate('scan_attendance_qr')}
+                  >
+                    <Camera className="w-4 h-4" />
+                    <span>{translate('scan_attendance_qr')}</span>
+                  </button>
+                )}
                 <button
                   onClick={() => setNewEventOpen(true)}
                   className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 active:scale-95 transition shadow-sm shadow-teal-600/30 cursor-pointer"
@@ -2056,6 +2075,25 @@ export const AttendanceTrackerScreen: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* High-Speed QR Attendance Scanner Modal */}
+      {qrScannerOpen && selectedEventId && (
+        <QrAttendanceScannerModal
+          isOpen={qrScannerOpen}
+          onClose={() => setQrScannerOpen(false)}
+          activeClassKids={filteredKids}
+          allChurchKids={allChurchKids}
+          classes={classes}
+          currentRecords={Object.fromEntries(
+            Object.entries(statuses).map(([kId, s]) => [kId, { status: s }])
+          )}
+          onRecordAttendance={(kidId, status) => {
+            const updated = { ...statuses, [kidId]: status };
+            setStatuses(updated);
+            persistAttendance(selectedEventId, updated, notesByKid);
+          }}
+        />
       )}
     </div>
   );
