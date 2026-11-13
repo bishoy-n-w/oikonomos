@@ -28,6 +28,13 @@ This backlog outlines completed milestones and forward-looking engineering initi
 - [x] **Attendance Statistics & Ranking Engine:** Validated `topAttendees`, `lowestAttendees`, and core-only consecutive absence evaluations.
 - [x] **Multi-Format Date Normalization:** Validated `normalizeDateStr` across native Dates, Firestore Timestamps, and string formats.
 
+### 🪪 Phase 4: QR Badges, Dual Export & Mobile Feature Parity
+- [x] **Zero-Cost Fork & Deployment Guide:** 7-step comprehensive README guide, universal JSON secret extraction (`scripts/extract-firebase-config.cjs`), dynamic SPA base-path resolution, and Day-0 bootstrap lock.
+- [x] **Dual Directory Export (Excel & vCard):** Segmented split button providing Excel (`.xlsx`) and vCard 3.0 (`.vcf`) with physical base64 photo embedding and Google Contacts schema alignment.
+- [x] **Church Branding & Student QR ID Badges:** Church logo and academic year badge color customization, 8-card A4 printable batch layout with scissor cutting guides, and bilingual (English/Arabic) RTL mirroring.
+- [x] **High-Speed QR Attendance Scanner:** Integrated optical camera scanner in Attendance Tracker with Web Audio API chimes, handheld/kiosk modes, and duplicate scan prevention.
+- [x] **100% Mobile Feature Parity:** Instant quick-search on all mobile directory views, multi-selection checkboxes and floating bulk action bar on mobile cards, authentic WebP profile pictures, expandable student profile details drawer (school, confession father, address, GPS navigation, parent jobs, notes), and mobile adaptive touch cards replacing wide tables in Churches and Service Groups.
+
 ---
 
 ## 🚀 Forward Roadmap & Feature Backlog
@@ -47,5 +54,5 @@ This backlog outlines completed milestones and forward-looking engineering initi
 - [ ] **Background Sync:** Queue offline attendance marks and automatically sync with Firestore upon network reconnection.
 
 ### 🟦 Priority 4: Biometrics & Automated Fast Attendance
-- [ ] **QR Code Badge Attendance Scanning:** Generate individual student QR identity cards and support fast multi-student camera scanning in Attendance Tracker.
+- [x] **QR Code Badge Attendance Scanning:** Generate individual student QR identity cards and support fast multi-student camera scanning in Attendance Tracker.
 - [ ] **On-Device Facial Recognition Roll-Call:** Evaluate client-side WebAssembly face detection (`face-api.js` / MediaPipe) for automated classroom check-in.

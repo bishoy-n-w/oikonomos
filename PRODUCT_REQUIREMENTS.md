@@ -821,6 +821,32 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   **Instant Real-Time Persistence:** Scanning immediately toggles the student to `present` and commits to Firestore in real time.
     *   **Cooldown Debouncer & Wrong-Class Guardrails:** Prevents duplicate writes within 10 seconds with friendly alerts (*"Already marked Present"*), and detects students enrolled in a different classroom with an instant 1-tap transfer confirmation prompt.
 
+---
+
+## 34. 100% Mobile Feature Parity Architecture (تكافؤ الميزات الكامل بين شاشات الكمبيوتر والموبايل)
+
+*   **Universal Mobile Quick Search & Filter Engine:**
+    *   **Kids Directory:** Features a sticky search bar filtering in real time across Student Name, Father Name, Mother Name, Phone numbers, School, Confession Father, and Region. Supplemented by quick filter chips for Gender (`All`, `Boys`, `Girls`) and Deacon status (`✠ Deacons`).
+    *   **Servants Directory:** Includes a top mobile search bar filtering across servant name, email, phone, profession, and residence.
+    *   **Classes & Service Groups:** Embedded search bars to immediately filter by class name, service group, or grade level on phone screens.
+    *   **Churches Screen:** Mobile search bar to quickly find churches and active terms.
+*   **Mobile Multi-Selection & Floating Bulk Operations:**
+    *   Every mobile student card includes an interactive touch checkbox.
+    *   A sticky selection toolbar displays selected count with a master **"Select All" / "Deselect All"** toggle.
+    *   When one or more students are checked, the bottom floating Bulk Action Bar automatically mounts, granting mobile users full access to **Bulk Classroom Reassignment** and **Bulk Deletion** with the same transactional safety as the desktop experience.
+*   **Visual Fidelity & Profile Photos:**
+    *   Mobile cards render authentic, client-compressed WebP profile pictures (`photoUrl`) within a $44 \times 44\text{px}$ rounded frame, with smooth fallback to gender-themed monogram initials.
+*   **Expandable Pastoral Details Drawer (تفاصيل بطاقة الطالب):**
+    *   Each mobile student card features an accordion toggle (`[ ▾ View Profile Details ]`) that smoothly expands to reveal:
+        *   **Education & Spiritual:** School name, School type (National/International), Father of Confession, and Deacon badge.
+        *   **Birthdays & Family:** Student DOB, Father profession, Mother profession.
+        *   **Address & Universal GPS:** Complete address (Building, Floor, Apt, Street, Region, Landmark) with an instant **`[ 🚗 GPS ]`** button launching Apple Maps or Google Maps directions.
+        *   **Pastoral Notes:** Highlighted multiline notes snippet for on-the-go visitation context.
+*   **Mobile Adaptive Touch Cards for Admin Modules:**
+    *   **Churches & Service Groups:** The legacy desktop-only wide tables are encapsulated in `hidden md:block`, replaced on mobile screens (`< md`) by touch-friendly cards featuring logo avatars, active term badges with custom colors, grade counters, coordinator chips, and full touch-target edit/delete actions, completely eliminating awkward horizontal table scrolling on smartphones.
+    *   **Servants Directory:** Mobile cards surface the servant's profession, date of birth, and home address.
+    *   **Classes Screen Interactive Roster Preview:** Tapping the enrolled kids or assigned servants count badges on mobile cards (or desktop table rows) opens an interactive quick-preview modal displaying enrolled student avatars, full names, father phone shortcuts, and assigned servant emails with an embedded search filter.
+
 
 
 

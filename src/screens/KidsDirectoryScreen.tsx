@@ -37,7 +37,13 @@ import {
   Navigation,
   UserMinus,
   Contact,
-  IdCard
+  IdCard,
+  Search,
+  ChevronDown,
+  ChevronUp,
+  MapPin,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -75,6 +81,12 @@ export const KidsDirectoryScreen: React.FC = () => {
   // Header Filtering Matrix state
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [displayLimit, setDisplayLimit] = useState(60);
+
+  // Mobile Search & Filter state
+  const [mobileSearchQuery, setMobileSearchQuery] = useState('');
+  const [mobileGenderFilter, setMobileGenderFilter] = useState<'all' | 'male' | 'female'>('all');
+  const [mobileDeaconFilter, setMobileDeaconFilter] = useState<'all' | 'deacon'>('all');
+  const [expandedKidDetails, setExpandedKidDetails] = useState<Record<string, boolean>>({});
 
   // Modals
   const [syncModalOpen, setSyncModalOpen] = useState(false);
@@ -302,6 +314,31 @@ export const KidsDirectoryScreen: React.FC = () => {
     // Top Filter: Class
     if (selectedClassId && asgn.classId && asgn.classId !== selectedClassId) {
       return false;
+    }
+
+    // Mobile-Specific Filters (Instant Quick Search & Quick Filter Chips)
+    if (mobileSearchQuery.trim()) {
+      const q = mobileSearchQuery.toLowerCase().trim();
+      const matchName = (kid.info?.fullName || '').toLowerCase().includes(q);
+      const matchFather = (kid.contacts?.fatherName || '').toLowerCase().includes(q);
+      const matchMother = (kid.contacts?.motherName || '').toLowerCase().includes(q);
+      const matchFatherPhone = (kid.contacts?.fatherMob || '').includes(q);
+      const matchMotherPhone = (kid.contacts?.motherMob || '').includes(q);
+      const matchKidPhone = (kid.contacts?.kidMob || '').includes(q);
+      const matchSchool = (kid.info?.school || '').toLowerCase().includes(q);
+      const matchRegion = (kid.address?.region || '').toLowerCase().includes(q);
+      const matchConfession = (kid.info?.fatherOfConfession || '').toLowerCase().includes(q);
+      if (!matchName && !matchFather && !matchMother && !matchFatherPhone && !matchMotherPhone && !matchKidPhone && !matchSchool && !matchRegion && !matchConfession) {
+        return false;
+      }
+    }
+
+    if (mobileGenderFilter !== 'all') {
+      if (kid.info?.gender !== mobileGenderFilter) return false;
+    }
+
+    if (mobileDeaconFilter === 'deacon') {
+      if (!kid.info?.deacon) return false;
     }
 
     // Header Filter Matrix
@@ -821,27 +858,139 @@ export const KidsDirectoryScreen: React.FC = () => {
 
       {/* 1. MOBILE ADAPTIVE TOUCH CARDS (< md) */}
       <div className="md:hidden space-y-3">
+        {/* Mobile Quick Search Bar */}
+        <div className="relative">
+          <Search className="w-4 h-4 text-zinc-400 absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            type="text"
+            value={mobileSearchQuery}
+            onChange={(e) => setMobileSearchQuery(e.target.value)}
+            placeholder={`${translate('search')} ${translate('student_full_name')}, ${translate('father_name')}, ${translate('phone')}...`}
+            className="w-full ps-10 pe-9 py-2.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm shadow-2xs focus:outline-none focus:ring-2 focus:ring-teal-500"
+          />
+          {mobileSearchQuery && (
+            <button
+              type="button"
+              onClick={() => setMobileSearchQuery('')}
+              className="absolute end-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Mobile Filter Chips & Selection Bar */}
+        <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1 text-xs">
+          <div className="flex items-center gap-1.5 shrink-0">
+            {[
+              { id: 'all', label: translate('all') || 'All' },
+              { id: 'male', label: `👦 ${translate('male')}` },
+              { id: 'female', label: `👧 ${translate('female')}` },
+            ].map((chip) => (
+              <button
+                key={chip.id}
+                type="button"
+                onClick={() => setMobileGenderFilter(chip.id as any)}
+                className={`px-2.5 py-1 rounded-xl font-bold transition cursor-pointer ${
+                  mobileGenderFilter === chip.id
+                    ? 'bg-teal-600 text-white shadow-2xs'
+                    : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700'
+                }`}
+              >
+                {chip.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setMobileDeaconFilter(mobileDeaconFilter === 'deacon' ? 'all' : 'deacon')}
+              className={`px-2.5 py-1 rounded-xl font-bold transition cursor-pointer border ${
+                mobileDeaconFilter === 'deacon'
+                  ? 'bg-amber-600 text-white border-amber-600 shadow-2xs'
+                  : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700'
+              }`}
+            >
+              ✠ {translate('deacon')}
+            </button>
+          </div>
+
+          {/* Master Select All Button on Mobile */}
+          <button
+            type="button"
+            onClick={toggleSelectAll}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold border transition cursor-pointer shrink-0 ${
+              allFilteredSelected
+                ? 'bg-purple-600 text-white border-purple-600 shadow-2xs'
+                : selectedKidIds.length > 0
+                ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 border-purple-200 dark:border-purple-800'
+                : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700'
+            }`}
+          >
+            {allFilteredSelected ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
+            <span>{selectedKidIds.length > 0 ? `${selectedKidIds.length}` : 'Select'}</span>
+          </button>
+        </div>
+
         {displayedKids.map((kid) => {
           const fatherPhone = kid.contacts?.fatherMob;
           const motherPhone = kid.contacts?.motherMob;
           const kidPhone = kid.contacts?.kidMob;
           const primaryPhone = fatherPhone || motherPhone || kidPhone;
+          const isSelected = selectedKidIds.includes(kid.id);
+          const isExpanded = !!expandedKidDetails[kid.id];
+
+          const fullAddress = [
+            kid.address?.building ? `Bldg ${kid.address.building}` : '',
+            kid.address?.floor ? `Flr ${kid.address.floor}` : '',
+            kid.address?.apartment ? `Apt ${kid.address.apartment}` : '',
+            kid.address?.street,
+            kid.address?.region,
+          ].filter(Boolean).join(', ');
 
           return (
             <div
               key={kid.id}
-              className="p-4 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-3"
+              className={`p-4 rounded-3xl bg-white dark:bg-zinc-900 border transition shadow-xs space-y-3 ${
+                isSelected 
+                  ? 'border-purple-500 ring-2 ring-purple-500/20 bg-purple-50/20 dark:bg-purple-950/20' 
+                  : 'border-zinc-200 dark:border-zinc-800'
+              }`}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-base shadow-xs ${
-                    kid.info.gender === 'female' 
-                      ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400' 
-                      : 'bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400'
-                  }`}>
-                    {kid.info.fullName.charAt(0)}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {/* Mobile Selection Checkbox */}
+                  <button
+                    type="button"
+                    onClick={() => toggleSelectKid(kid.id)}
+                    className="p-1 -ms-1 text-zinc-400 hover:text-purple-600 dark:hover:text-purple-400 cursor-pointer"
+                    title="Select student"
+                  >
+                    {isSelected ? (
+                      <CheckSquare className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                    ) : (
+                      <Square className="w-5 h-5 text-zinc-300 dark:text-zinc-600" />
+                    )}
+                  </button>
+
+                  {/* Real Profile Photo Avatar */}
+                  <div className="w-11 h-11 rounded-2xl overflow-hidden flex items-center justify-center shrink-0 border border-zinc-200 dark:border-zinc-700 shadow-2xs">
+                    {kid.info.photoUrl ? (
+                      <img
+                        src={kid.info.photoUrl}
+                        alt={kid.info.fullName}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className={`w-full h-full flex items-center justify-center font-bold text-base ${
+                        kid.info.gender === 'female' 
+                          ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400' 
+                          : 'bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400'
+                      }`}>
+                        {kid.info.fullName.charAt(0)}
+                      </div>
+                    )}
                   </div>
-                  <div>
+
+                  <div className="min-w-0">
                     {/* Click on Name opens Edit */}
                     <button
                       type="button"
@@ -849,25 +998,25 @@ export const KidsDirectoryScreen: React.FC = () => {
                         setActiveKid(kid);
                         setEditModalOpen(true);
                       }}
-                      className="font-bold text-sm text-zinc-900 dark:text-zinc-100 hover:text-teal-600 text-start"
+                      className="font-bold text-sm text-zinc-900 dark:text-zinc-100 hover:text-teal-600 text-start truncate block max-w-[170px] sm:max-w-xs"
                     >
                       {kid.info.fullName}
                     </button>
-                    <p className="text-xs text-zinc-400">
-                      {kid.contacts?.fatherName ? `Father: ${kid.contacts.fatherName}` : (kid.address?.region || 'Sunday School')}
+                    <p className="text-xs text-zinc-400 truncate">
+                      {kid.contacts?.fatherName ? `${translate('father_name')}: ${kid.contacts.fatherName}` : (kid.address?.region || 'Sunday School')}
                     </p>
                   </div>
                 </div>
 
                 {canManageKid(kid) && (
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-0.5 shrink-0">
                     <button
                       type="button"
                       onClick={() => {
                         setKidsToPrint([kid]);
                         setPrintModalOpen(true);
                       }}
-                      className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-zinc-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition cursor-pointer"
+                      className="p-1.5 rounded-xl text-zinc-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition cursor-pointer"
                       title={translate('print_id_badge')}
                     >
                       <IdCard className="w-4 h-4" />
@@ -877,7 +1026,7 @@ export const KidsDirectoryScreen: React.FC = () => {
                         setActiveKid(kid);
                         setEditModalOpen(true);
                       }}
-                      className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition"
+                      className="p-1.5 rounded-xl text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition cursor-pointer"
                       title={translate('edit')}
                     >
                       <Edit3 className="w-4 h-4" />
@@ -885,7 +1034,7 @@ export const KidsDirectoryScreen: React.FC = () => {
                     {kid.activeAssignment?.classId && (
                       <button
                         onClick={() => handleRemoveFromClass(kid)}
-                        className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition"
+                        className="p-1.5 rounded-xl text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition cursor-pointer"
                         title={translate('remove_from_class')}
                       >
                         <UserMinus className="w-4 h-4" />
@@ -893,7 +1042,7 @@ export const KidsDirectoryScreen: React.FC = () => {
                     )}
                     <button
                       onClick={() => handleDeleteKid(kid.id, kid.info.fullName)}
-                      className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                      className="p-1.5 rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
                       title={translate('delete')}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -907,25 +1056,25 @@ export const KidsDirectoryScreen: React.FC = () => {
                 {fatherPhone ? (
                   <a
                     href={`tel:${fatherPhone}`}
-                    className="min-h-[44px] flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 transition active:scale-95 touch-manipulation"
+                    className="min-h-[40px] flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 transition active:scale-95 touch-manipulation"
                   >
                     <Phone className="w-3.5 h-3.5 shrink-0" />
                     <span>Father</span>
                   </a>
                 ) : (
-                  <div className="min-h-[44px] flex items-center justify-center py-2 text-[11px] text-center text-zinc-400 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl">No Father</div>
+                  <div className="min-h-[40px] flex items-center justify-center py-1.5 text-[11px] text-center text-zinc-400 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl">No Father</div>
                 )}
 
                 {motherPhone ? (
                   <a
                     href={`tel:${motherPhone}`}
-                    className="min-h-[44px] flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 transition active:scale-95 touch-manipulation"
+                    className="min-h-[40px] flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 transition active:scale-95 touch-manipulation"
                   >
                     <Phone className="w-3.5 h-3.5 shrink-0" />
                     <span>Mother</span>
                   </a>
                 ) : (
-                  <div className="min-h-[44px] flex items-center justify-center py-2 text-[11px] text-center text-zinc-400 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl">No Mother</div>
+                  <div className="min-h-[40px] flex items-center justify-center py-1.5 text-[11px] text-center text-zinc-400 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl">No Mother</div>
                 )}
 
                 {primaryPhone ? (
@@ -933,13 +1082,103 @@ export const KidsDirectoryScreen: React.FC = () => {
                     href={`https://wa.me/${String(primaryPhone).replace(/\+/g, '')}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="min-h-[44px] flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 transition active:scale-95 touch-manipulation"
+                    className="min-h-[40px] flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 transition active:scale-95 touch-manipulation"
                   >
                     <MessageSquare className="w-3.5 h-3.5 shrink-0" />
                     <span>WhatsApp</span>
                   </a>
                 ) : (
-                  <div className="min-h-[44px] flex items-center justify-center py-2 text-[11px] text-center text-zinc-400 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl">No WA</div>
+                  <div className="min-h-[40px] flex items-center justify-center py-1.5 text-[11px] text-center text-zinc-400 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl">No WA</div>
+                )}
+              </div>
+
+              {/* Expandable Details Accordion Button */}
+              <div className="pt-0.5">
+                <button
+                  type="button"
+                  onClick={() => setExpandedKidDetails((prev) => ({ ...prev, [kid.id]: !prev[kid.id] }))}
+                  className="w-full flex items-center justify-between text-[11px] font-bold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 py-1 transition cursor-pointer"
+                >
+                  <span className="flex items-center gap-1">
+                    <span>{isExpanded ? 'Hide Details' : 'View Profile Details'}</span>
+                    {kid.info.deacon && <span className="text-amber-500 font-bold">✠ Deacon</span>}
+                  </span>
+                  {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </button>
+
+                {/* Expanded Details Body */}
+                {isExpanded && (
+                  <div className="mt-2.5 p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/80 text-xs space-y-2.5 animate-in fade-in duration-150">
+                    {/* Education & Spiritual */}
+                    <div className="grid grid-cols-2 gap-2 pb-2 border-b border-zinc-200/60 dark:border-zinc-700/60">
+                      <div>
+                        <span className="text-[10px] text-zinc-400 block">{translate('school')}</span>
+                        <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                          {kid.info.school || '-'} {kid.info.schoolType ? `(${kid.info.schoolType})` : ''}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-zinc-400 block">{translate('father_of_confession')}</span>
+                        <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                          {kid.info.fatherOfConfession || '-'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* DOB & Parents Profession */}
+                    <div className="grid grid-cols-2 gap-2 pb-2 border-b border-zinc-200/60 dark:border-zinc-700/60">
+                      <div>
+                        <span className="text-[10px] text-zinc-400 block">{translate('dob')}</span>
+                        <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                          {safeRender(kid.info.dob)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-zinc-400 block">{translate('father_job')}</span>
+                        <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                          {kid.contacts?.fatherProfession || '-'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Address & GPS Navigation */}
+                    {fullAddress && (
+                      <div className="flex items-start justify-between gap-2 pb-2 border-b border-zinc-200/60 dark:border-zinc-700/60">
+                        <div className="min-w-0">
+                          <span className="text-[10px] text-zinc-400 flex items-center gap-1">
+                            <MapPin className="w-3 h-3 text-teal-600" />
+                            <span>{translate('address_group')}</span>
+                          </span>
+                          <p className="text-zinc-700 dark:text-zinc-300 font-medium text-[11px] mt-0.5 leading-snug">
+                            {fullAddress}
+                            {kid.address?.landmark && <span className="text-zinc-400 block text-[10px]">Near: {kid.address.landmark}</span>}
+                          </p>
+                        </div>
+                        {kid.address?.geoLocation && (
+                          <a
+                            href={getUniversalNavigationUrl(kid.address.geoLocation, fullAddress)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 text-[11px] font-bold shrink-0 shadow-2xs hover:bg-teal-100"
+                            title="Open in Maps / GPS"
+                          >
+                            <Navigation className="w-3 h-3" />
+                            <span>GPS</span>
+                          </a>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Pastoral Notes */}
+                    {kid.notes && (
+                      <div>
+                        <span className="text-[10px] text-zinc-400 block">{translate('pastoral_notes')}</span>
+                        <p className="text-zinc-600 dark:text-zinc-300 text-[11px] italic bg-white dark:bg-zinc-900 p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 mt-1">
+                          "{kid.notes}"
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

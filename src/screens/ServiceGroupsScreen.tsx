@@ -31,6 +31,7 @@ export const ServiceGroupsScreen: React.FC = () => {
 
   // Header Filtering Matrix state
   const [filters, setFilters] = useState<Record<string, string>>({});
+  const [mobileSearchQuery, setMobileSearchQuery] = useState('');
 
   // Modals
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -151,6 +152,13 @@ export const ServiceGroupsScreen: React.FC = () => {
 
   // Filtered groups
   const filteredGroups = groups.filter((g) => {
+    if (mobileSearchQuery.trim()) {
+      const q = mobileSearchQuery.toLowerCase().trim();
+      const matchName = g.displayName.toLowerCase().includes(q);
+      const matchAdmin = (g.admins || []).some((a) => a.toLowerCase().includes(q));
+      if (!matchName && !matchAdmin) return false;
+    }
+
     if (filters.active !== undefined && filters.active !== '') {
       if (String(g.active) !== filters.active) return false;
     }
@@ -295,8 +303,141 @@ export const ServiceGroupsScreen: React.FC = () => {
         )}
       </div>
 
-      {/* Details List View (DataTable) with Header Filter Matrix */}
-      <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-xs overflow-hidden">
+      {/* 1. Mobile Adaptive Touch Cards (< md) */}
+      <div className="md:hidden space-y-3">
+        {/* Mobile Search */}
+        <div className="relative">
+          <Search className="w-4 h-4 text-zinc-400 absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            type="text"
+            value={mobileSearchQuery}
+            onChange={(e) => setMobileSearchQuery(e.target.value)}
+            placeholder={`${translate('search')} ${translate('group_name')}...`}
+            className="w-full ps-10 pe-9 py-2.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm shadow-2xs focus:outline-none focus:ring-2 focus:ring-teal-500"
+          />
+          {mobileSearchQuery && (
+            <button
+              type="button"
+              onClick={() => setMobileSearchQuery('')}
+              className="absolute end-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {filteredGroups.map((group) => {
+          const groupGrades = getGradesForGroup(group.id);
+          const adminsList = group.admins || [];
+          const servantsCount = (group.servants || []).length;
+          const groupEventTypesCount = (group.eventTypes && group.eventTypes.length > 0 ? group.eventTypes : DEFAULT_EVENT_TYPES).length;
+
+          return (
+            <div
+              key={group.id}
+              className="p-4 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-3"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
+                    {group.displayName}
+                  </h3>
+                  <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    group.active
+                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                      : 'bg-zinc-100 text-zinc-500'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${group.active ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
+                    {group.active ? translate('active_badge') : translate('inactive_badge')}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  {canEditGroup(group) && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setEditGroup(group)}
+                        className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/40 transition cursor-pointer"
+                        title="Edit Group"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteGroup(group.id, group.displayName)}
+                          className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                          title="Delete Group"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Coordinators / Admins */}
+              <div>
+                <span className="text-[10px] text-zinc-400 block mb-1">{translate('admins_coordinators')}</span>
+                <div className="flex flex-wrap gap-1">
+                  {adminsList.length === 0 && <span className="text-zinc-400 text-xs">{translate('no_admins')}</span>}
+                  {adminsList.map((adminEmail) => {
+                    const m = allMisters.find((mis) => mis.email.toLowerCase() === adminEmail.toLowerCase());
+                    const name = m?.displayName || adminEmail;
+                    return (
+                      <span
+                        key={adminEmail}
+                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[11px] font-medium"
+                      >
+                        <ShieldCheck className="w-3 h-3 text-purple-600" />
+                        <span>{name}</span>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Servants, Event Types & Grades */}
+              <div className="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-zinc-800/80">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                  <Users className="w-3.5 h-3.5 text-blue-600" />
+                  <span>{servantsCount} {translate('servants')}</span>
+                </span>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setEventTypesModalGroup(group)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 transition cursor-pointer"
+                  >
+                    <Calendar className="w-3.5 h-3.5 text-teal-600" />
+                    <span>{groupEventTypesCount} {translate('event_types')}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Assigned Grades Chips */}
+              {groupGrades.length > 0 && (
+                <div className="flex flex-wrap gap-1 pt-1">
+                  {groupGrades.map((gr) => (
+                    <span
+                      key={gr.id}
+                      className="px-2 py-0.5 rounded-md bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-200 border border-teal-200/60 text-[10px] font-semibold"
+                    >
+                      #{gr.id} {gr.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 2. Desktop High-Density DataTable (>= md) */}
+      <div className="hidden md:block bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-start text-xs text-zinc-700 dark:text-zinc-300">
             <thead className="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider text-[11px] border-b border-zinc-200 dark:border-zinc-800">

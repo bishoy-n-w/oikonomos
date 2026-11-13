@@ -16,10 +16,11 @@ import {
   X, 
   Lock,
   RefreshCw,
-  Phone,
-  MessageSquare,
-  Mail 
-} from 'lucide-react';
+  Phone, 
+  MessageSquare, 
+  Mail,
+  Search
+  } from 'lucide-react';
 
 export const ServantsDirectoryScreen: React.FC = () => {
   const { user, userRole } = useAuth();
@@ -37,6 +38,7 @@ export const ServantsDirectoryScreen: React.FC = () => {
 
   // Header Filter Matrix state
   const [filters, setFilters] = useState<Record<string, string>>({});
+  const [mobileSearchQuery, setMobileSearchQuery] = useState('');
 
   // Modals
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -160,6 +162,17 @@ export const ServantsDirectoryScreen: React.FC = () => {
   // Filtered Servants list: filtered by top filters AND Header Filter Matrix
   const filteredServants = servants.filter((m) => {
     const emailKey = m.email.toLowerCase();
+
+    // Mobile Quick Search
+    if (mobileSearchQuery.trim()) {
+      const q = mobileSearchQuery.toLowerCase().trim();
+      const matchName = m.displayName.toLowerCase().includes(q);
+      const matchEmail = m.email.toLowerCase().includes(q);
+      const matchPhone = (m.personalInfo?.phone || '').includes(q);
+      const matchJob = (m.personalInfo?.job || '').toLowerCase().includes(q);
+      const matchAddress = (m.personalInfo?.address || '').toLowerCase().includes(q);
+      if (!matchName && !matchEmail && !matchPhone && !matchJob && !matchAddress) return false;
+    }
 
     // Top Filter: Service Group Filter
     if (selectedServiceGroupId) {
@@ -298,6 +311,27 @@ export const ServantsDirectoryScreen: React.FC = () => {
 
       {/* 1. Mobile Adaptive Touch Cards (< md) */}
       <div className="md:hidden space-y-3">
+        {/* Mobile Quick Search */}
+        <div className="relative">
+          <Search className="w-4 h-4 text-zinc-400 absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            type="text"
+            value={mobileSearchQuery}
+            onChange={(e) => setMobileSearchQuery(e.target.value)}
+            placeholder={`${translate('search')} ${translate('servants')}...`}
+            className="w-full ps-10 pe-9 py-2.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm shadow-2xs focus:outline-none focus:ring-2 focus:ring-teal-500"
+          />
+          {mobileSearchQuery && (
+            <button
+              type="button"
+              onClick={() => setMobileSearchQuery('')}
+              className="absolute end-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
         {filteredServants.map((mister) => {
           const adminGroups = getAdminGroups(mister.email);
           const servantClasses = getServantClasses(mister.email);
@@ -355,6 +389,30 @@ export const ServantsDirectoryScreen: React.FC = () => {
                   </span>
                 </div>
               </div>
+
+              {/* Personal Info: Job, DOB, Address */}
+              {(mister.personalInfo?.job || mister.personalInfo?.dob || mister.personalInfo?.address) && (
+                <div className="flex flex-wrap gap-2 pt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {mister.personalInfo?.job && (
+                    <span className="inline-flex items-center gap-1">
+                      <span>💼</span>
+                      <span>{mister.personalInfo.job}</span>
+                    </span>
+                  )}
+                  {mister.personalInfo?.dob && (
+                    <span className="inline-flex items-center gap-1">
+                      <span>📅</span>
+                      <span>{safeRender(mister.personalInfo.dob)}</span>
+                    </span>
+                  )}
+                  {mister.personalInfo?.address && (
+                    <span className="inline-flex items-center gap-1">
+                      <span>📍</span>
+                      <span className="truncate max-w-[200px]">{mister.personalInfo.address}</span>
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* Assignments Tags */}
               <div className="space-y-1.5 pt-1 border-t border-zinc-100 dark:border-zinc-800/80 text-xs">
