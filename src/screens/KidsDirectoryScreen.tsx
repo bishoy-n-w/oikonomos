@@ -43,7 +43,8 @@ import {
   ChevronUp,
   MapPin,
   CheckSquare,
-  Square
+  Square,
+  MoreHorizontal
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -96,6 +97,7 @@ export const KidsDirectoryScreen: React.FC = () => {
   const [isDeletingBulk, setIsDeletingBulk] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [printModalOpen, setPrintModalOpen] = useState(false);
+  const [mobileActionsSheetOpen, setMobileActionsSheetOpen] = useState(false);
   const [kidsToPrint, setKidsToPrint] = useState<Kid[]>([]);
   const [activeKid, setActiveKid] = useState<Kid | null>(null);
 
@@ -720,8 +722,8 @@ export const KidsDirectoryScreen: React.FC = () => {
           </p>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Desktop Action Buttons Toolbar (>= sm) */}
+        <div className="hidden sm:flex flex-wrap items-center gap-2">
           {/* Smart Excel / CSV Import (Option 3 Hybrid AI) */}
           {isAdmin && (
             <button
@@ -794,6 +796,18 @@ export const KidsDirectoryScreen: React.FC = () => {
               <span>{translate('add_student')}</span>
             </button>
           )}
+        </div>
+
+        {/* Mobile Actions Button (< sm) */}
+        <div className="flex sm:hidden items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setMobileActionsSheetOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 active:scale-95 transition cursor-pointer shadow-2xs"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+            <span>{translate('actions')}</span>
+          </button>
         </div>
       </div>
 
@@ -1051,46 +1065,40 @@ export const KidsDirectoryScreen: React.FC = () => {
                 )}
               </div>
 
-              {/* Quick Actions (Call / WhatsApp) */}
-              <div className="grid grid-cols-3 gap-2 pt-1 border-t border-zinc-100 dark:border-zinc-800/80">
-                {fatherPhone ? (
-                  <a
-                    href={`tel:${fatherPhone}`}
-                    className="min-h-[40px] flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 transition active:scale-95 touch-manipulation"
-                  >
-                    <Phone className="w-3.5 h-3.5 shrink-0" />
-                    <span>Father</span>
-                  </a>
-                ) : (
-                  <div className="min-h-[40px] flex items-center justify-center py-1.5 text-[11px] text-center text-zinc-400 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl">No Father</div>
-                )}
-
-                {motherPhone ? (
-                  <a
-                    href={`tel:${motherPhone}`}
-                    className="min-h-[40px] flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 transition active:scale-95 touch-manipulation"
-                  >
-                    <Phone className="w-3.5 h-3.5 shrink-0" />
-                    <span>Mother</span>
-                  </a>
-                ) : (
-                  <div className="min-h-[40px] flex items-center justify-center py-1.5 text-[11px] text-center text-zinc-400 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl">No Mother</div>
-                )}
-
-                {primaryPhone ? (
-                  <a
-                    href={`https://wa.me/${String(primaryPhone).replace(/\+/g, '')}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="min-h-[40px] flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 transition active:scale-95 touch-manipulation"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5 shrink-0" />
-                    <span>WhatsApp</span>
-                  </a>
-                ) : (
-                  <div className="min-h-[40px] flex items-center justify-center py-1.5 text-[11px] text-center text-zinc-400 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl">No WA</div>
-                )}
-              </div>
+              {/* Clean Inline Contact Strip (Only renders channels that actually exist!) */}
+              {(fatherPhone || motherPhone || primaryPhone) && (
+                <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-zinc-100 dark:border-zinc-800/80">
+                  {fatherPhone && (
+                    <a
+                      href={`tel:${fatherPhone}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 active:scale-95 transition"
+                    >
+                      <Phone className="w-3.5 h-3.5 shrink-0" />
+                      <span>{translate('father') || 'Father'}</span>
+                    </a>
+                  )}
+                  {motherPhone && (
+                    <a
+                      href={`tel:${motherPhone}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 active:scale-95 transition"
+                    >
+                      <Phone className="w-3.5 h-3.5 shrink-0" />
+                      <span>{translate('mother') || 'Mother'}</span>
+                    </a>
+                  )}
+                  {primaryPhone && (
+                    <a
+                      href={`https://wa.me/${String(primaryPhone).replace(/\+/g, '')}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 active:scale-95 transition"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+                      <span>WhatsApp</span>
+                    </a>
+                  )}
+                </div>
+              )}
 
               {/* Expandable Details Accordion Button */}
               <div className="pt-0.5">
@@ -1518,7 +1526,7 @@ export const KidsDirectoryScreen: React.FC = () => {
 
       {/* Floating Bulk Action Bar (Visible when >= 1 student selected) */}
       {selectedKidIds.length > 0 && (
-        <div className="fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] inset-x-4 max-w-xl mx-auto z-40 p-3 sm:p-4 rounded-3xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xl flex items-center justify-between border border-zinc-700 dark:border-zinc-300 animate-in slide-in-from-bottom duration-200">
+        <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] lg:bottom-[max(1.5rem,env(safe-area-inset-bottom))] inset-x-4 max-w-xl mx-auto z-40 p-3 sm:p-4 rounded-3xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xl flex items-center justify-between border border-zinc-700 dark:border-zinc-300 animate-in slide-in-from-bottom duration-200">
           <div className="flex items-center gap-2 sm:gap-2.5">
             <span className="w-7 h-7 rounded-full bg-purple-600 text-white flex items-center justify-center font-extrabold text-xs">
               {selectedKidIds.length}
@@ -1555,6 +1563,141 @@ export const KidsDirectoryScreen: React.FC = () => {
             >
               {translate('clear')}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Floating Action Button (FAB) for Adding Student */}
+      {canAddStudent && (
+        <button
+          type="button"
+          onClick={() => {
+            setActiveKid(null);
+            setEditModalOpen(true);
+          }}
+          className="sm:hidden fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] end-4 z-30 w-13 h-13 rounded-full bg-teal-600 text-white shadow-xl shadow-teal-600/40 flex items-center justify-center active:scale-90 transition-transform cursor-pointer"
+          aria-label={translate('add_student')}
+          title={translate('add_student')}
+        >
+          <Plus className="w-6 h-6 stroke-[2.5]" />
+        </button>
+      )}
+
+      {/* Mobile Action Bottom Sheet */}
+      {mobileActionsSheetOpen && (
+        <div
+          onClick={() => setMobileActionsSheetOpen(false)}
+          className="sm:hidden fixed inset-0 z-50 flex items-end bg-black/60 backdrop-blur-xs animate-in fade-in cursor-pointer"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full bg-white dark:bg-zinc-900 rounded-t-3xl p-5 shadow-2xl border-t border-zinc-200 dark:border-zinc-800 space-y-4 max-h-[85dvh] overflow-y-auto pb-[calc(1.5rem+env(safe-area-inset-bottom))] cursor-default animate-in slide-in-from-bottom duration-200"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
+              <h3 className="font-extrabold text-base text-zinc-900 dark:text-zinc-100">
+                {translate('actions')}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setMobileActionsSheetOpen(false)}
+                className="p-1 rounded-xl text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileActionsSheetOpen(false);
+                    setImportModalOpen(true);
+                  }}
+                  className="w-full flex items-center gap-3 p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 hover:bg-teal-50 dark:hover:bg-teal-950/40 text-start transition cursor-pointer"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-teal-100 dark:bg-teal-900/60 text-teal-700 dark:text-teal-300 flex items-center justify-center shrink-0">
+                    <Upload className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">{translate('import_excel')}</h4>
+                    <p className="text-[11px] text-zinc-400">Onboard students from Excel or CSV spreadsheet</p>
+                  </div>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileActionsSheetOpen(false);
+                  setSyncModalOpen(true);
+                }}
+                className="w-full flex items-center gap-3 p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 hover:bg-teal-50 dark:hover:bg-teal-950/40 text-start transition cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0">
+                  <BookUser className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">{translate('sync_contacts')}</h4>
+                  <p className="text-[11px] text-zinc-400">Sync students to phone contacts via Google Cloud</p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileActionsSheetOpen(false);
+                  handleExportExcel();
+                }}
+                className="w-full flex items-center gap-3 p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-start transition cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+                  <Download className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">{translate('export_excel')}</h4>
+                  <p className="text-[11px] text-zinc-400">Download formatted .xlsx spreadsheet</p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileActionsSheetOpen(false);
+                  handleExportVCard();
+                }}
+                className="w-full flex items-center gap-3 p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-start transition cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-xl bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300 flex items-center justify-center shrink-0">
+                  <Contact className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">{translate('export_vcard')}</h4>
+                  <p className="text-[11px] text-zinc-400">Download offline .vcf contact cards with photos</p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileActionsSheetOpen(false);
+                  const targets = selectedKidIds.length > 0
+                    ? filteredKids.filter((k) => selectedKidIds.includes(k.id))
+                    : filteredKids;
+                  setKidsToPrint(targets);
+                  setPrintModalOpen(true);
+                }}
+                className="w-full flex items-center gap-3 p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-start transition cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 flex items-center justify-center shrink-0">
+                  <IdCard className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">{translate('print_id_cards')}</h4>
+                  <p className="text-[11px] text-zinc-400">8 cards per A4 sheet with QR codes</p>
+                </div>
+              </button>
+            </div>
           </div>
         </div>
       )}

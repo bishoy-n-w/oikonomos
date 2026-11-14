@@ -847,6 +847,28 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   **Servants Directory:** Mobile cards surface the servant's profession, date of birth, and home address.
     *   **Classes Screen Interactive Roster Preview:** Tapping the enrolled kids or assigned servants count badges on mobile cards (or desktop table rows) opens an interactive quick-preview modal displaying enrolled student avatars, full names, father phone shortcuts, and assigned servant emails with an embedded search filter.
 
+---
+
+## 35. Mobile Ergonomics, FABs & Action Sheet Architecture (تصميم الهاتف المحمول: الأزرار العائمة والقوائم السفلية)
+
+*   **De-Cluttering the "Tool Wall" (إلغاء تكديس الأشرطة العلوية):**
+    *   On mobile viewports (`< sm`), complex multi-button desktop toolbars (such as Smart Import, Cloud Sync, Excel/vCard export, and Print Badges in Kids Directory; or New Event, Recurring Schedule, and Term Report in Attendance Tracker) are consolidated into a single, high-contrast **`[ ⋯ Actions / إجراءات ]`** button.
+    *   Tapping opens a smooth, backdrop-dismissible **Mobile Action Bottom Sheet** with large, finger-friendly touch targets, descriptive subtitles, and colorful icons, reclaiming over $60\%$ of initial screen height so student cards and attendance rosters appear immediately above the fold.
+*   **Thumb-Level Floating Action Buttons (FAB) (الأزرار العائمة لتسهيل الاستخدام بيد واحدة):**
+    *   Primary creation and capture workflows are elevated to circular Floating Action Buttons anchored at natural thumb level:
+        *   **Kids Directory:** Floating `[ + ]` teal button for instant student enrollment.
+        *   **Attendance Tracker:** Floating `[ 📷 ]` teal button for instant camera QR attendance scanning.
+    *   **Collision-Free Elevation:** Pinned strictly at `bottom-[calc(4.75rem+env(safe-area-inset-bottom))] end-4`, guaranteeing zero visual or interactive collision with the fixed bottom navigation bar (`h-16`) across all iPhone and Android notch models.
+*   **Floating Bulk Selection Bar Elevation:**
+    *   The floating batch action bar (Bulk Reassign, Bulk Delete) is elevated on mobile to `bottom-[calc(4.75rem+env(safe-area-inset-bottom))]`, preventing overlap with the bottom navigation bar.
+*   **Streamlined Mobile Card Anatomy & Placeholder Elimination:**
+    *   Replaced the rigid 3-column colored grid with an **Inline Flex Contact Strip** that renders `[ 📞 Father ]`, `[ 📞 Mother ]`, and `[ 💬 WhatsApp ]` pills **only when those channels actually exist**.
+    *   Permanently eliminated gray placeholder boxes (`No Father`, `No Mother`, `No WA`), reducing card height by ~40% and eliminating visual noise.
+*   **Collapsible Attendance Session Metrics:**
+    *   The 6-card desktop summary grid is replaced on mobile by an ultra-clean **1-line Summary Progress Pill** showing `Present / Total • %` with a visual color-coded progress bar and an interactive `[ ▾ Details ]` toggle to expand the 4-box breakdown (P, A, E, Pending), saving 160px of vertical height.
+*   **Top App Bar Viewport Breathing Room:**
+    *   Hides secondary CRM branding subtitles on mobile devices (`hidden sm:block`), giving church titles and contextual class badges adequate space to prevent unsightly text truncation.
+
 
 
 

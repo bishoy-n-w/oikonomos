@@ -70,19 +70,19 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({ activeTab, onOpenMobileFil
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 md:px-6 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 transition-colors">
       {/* Brand & Logo */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-teal-600 text-white font-bold shadow-md shadow-teal-600/20 overflow-hidden shrink-0">
+      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+        <div className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-teal-600 text-white font-bold shadow-md shadow-teal-600/20 overflow-hidden shrink-0">
           {activeChurch?.logoUrl ? (
             <img src={activeChurch.logoUrl} alt={activeChurch.displayName} className="w-full h-full object-cover" />
           ) : (
-            <ChurchIcon className="w-6 h-6" />
+            <ChurchIcon className="w-5 h-5 sm:w-6 sm:h-6" />
           )}
         </div>
-        <div>
-          <h1 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-100 leading-none">
+        <div className="min-w-0">
+          <h1 className="text-base sm:text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-100 leading-tight truncate">
             {activeChurch?.displayName || 'Oikonomos'}
           </h1>
-          <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+          <span className="hidden sm:block text-xs text-zinc-500 dark:text-zinc-400 font-medium">
             Sunday School CRM
           </span>
         </div>

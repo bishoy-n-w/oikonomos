@@ -63,7 +63,10 @@ import {
   FileSpreadsheet,
   Award,
   TrendingUp,
-  Camera
+  Camera,
+  MoreHorizontal,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 export const AttendanceTrackerScreen: React.FC = () => {
@@ -134,6 +137,8 @@ export const AttendanceTrackerScreen: React.FC = () => {
   const [newEventOpen, setNewEventOpen] = useState(false);
   const [recurringModalOpen, setRecurringModalOpen] = useState(false);
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
+  const [mobileAttendanceActionsOpen, setMobileAttendanceActionsOpen] = useState(false);
+  const [showMobileMetricsBreakdown, setShowMobileMetricsBreakdown] = useState(false);
   const [deleteEventId, setDeleteEventId] = useState<string | null>(null);
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
 
@@ -147,6 +152,7 @@ export const AttendanceTrackerScreen: React.FC = () => {
   useModalEscape(() => setDeleteEventId(null), !!deleteEventId);
   useModalEscape(() => setResetModalOpen(false), resetModalOpen);
   useModalEscape(() => setQrScannerOpen(false), qrScannerOpen);
+  useModalEscape(() => setMobileAttendanceActionsOpen(false), mobileAttendanceActionsOpen);
 
   const todayDateStr = new Date().toISOString().split('T')[0];
 
@@ -708,100 +714,160 @@ export const AttendanceTrackerScreen: React.FC = () => {
         {/* View Mode Toggle & Event Actions */}
         {selectedClassId && (
           <div className="flex items-center gap-2 flex-wrap">
-            {/* 🎯 Jump to Today Button */}
-            <button
-              type="button"
-              onClick={handleJumpToToday}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition cursor-pointer shadow-2xs"
-              title="Jump to today's active session"
-            >
-              <Navigation className="w-3.5 h-3.5" />
-              <span>{translate('jump_to_today')}</span>
-            </button>
+            {/* Desktop Full Action Bar (>= sm) */}
+            <div className="hidden sm:flex items-center gap-2 flex-wrap">
+              {/* 🎯 Jump to Today Button */}
+              <button
+                type="button"
+                onClick={handleJumpToToday}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition cursor-pointer shadow-2xs"
+                title="Jump to today's active session"
+              >
+                <Navigation className="w-3.5 h-3.5" />
+                <span>{translate('jump_to_today')}</span>
+              </button>
 
-            {/* View Switcher Pill (Checklist vs Matrix vs Stats) */}
-            <div className="flex items-center p-1 rounded-2xl bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 text-xs font-bold">
+              {/* View Switcher Pill (Checklist vs Matrix vs Stats) */}
+              <div className="flex items-center p-1 rounded-2xl bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('checklist')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition cursor-pointer ${
+                    viewMode === 'checklist'
+                      ? 'bg-white dark:bg-zinc-900 text-teal-700 dark:text-teal-300 shadow-xs'
+                      : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+                  }`}
+                >
+                  <LayoutList className="w-3.5 h-3.5" />
+                  <span>{translate('checklist_view')}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('matrix')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition cursor-pointer ${
+                    viewMode === 'matrix'
+                      ? 'bg-white dark:bg-zinc-900 text-teal-700 dark:text-teal-300 shadow-xs'
+                      : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+                  }`}
+                >
+                  <TableIcon className="w-3.5 h-3.5" />
+                  <span>{translate('matrix_view')}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('stats')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition cursor-pointer ${
+                    viewMode === 'stats'
+                      ? 'bg-white dark:bg-zinc-900 text-teal-700 dark:text-teal-300 shadow-xs'
+                      : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+                  }`}
+                >
+                  <BarChart3 className="w-3.5 h-3.5" />
+                  <span>{translate('stats_view')}</span>
+                </button>
+              </div>
+
+              {/* 1-Click Excel Export Button */}
               <button
                 type="button"
-                onClick={() => setViewMode('checklist')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition cursor-pointer ${
-                  viewMode === 'checklist'
-                    ? 'bg-white dark:bg-zinc-900 text-teal-700 dark:text-teal-300 shadow-xs'
-                    : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
-                }`}
+                onClick={handleExportExcel}
+                disabled={isExportingExcel}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition shadow-2xs cursor-pointer disabled:opacity-50"
+                title="Export full term attendance register and statistics as Excel (.xlsx)"
               >
-                <LayoutList className="w-3.5 h-3.5" />
-                <span>{translate('checklist_view')}</span>
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                <span>{isExportingExcel ? translate('exporting') : translate('export_attendance_report')}</span>
               </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('matrix')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition cursor-pointer ${
-                  viewMode === 'matrix'
-                    ? 'bg-white dark:bg-zinc-900 text-teal-700 dark:text-teal-300 shadow-xs'
-                    : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
-                }`}
-              >
-                <TableIcon className="w-3.5 h-3.5" />
-                <span>{translate('matrix_view')}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('stats')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition cursor-pointer ${
-                  viewMode === 'stats'
-                    ? 'bg-white dark:bg-zinc-900 text-teal-700 dark:text-teal-300 shadow-xs'
-                    : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
-                }`}
-              >
-                <BarChart3 className="w-3.5 h-3.5" />
-                <span>{translate('stats_view')}</span>
-              </button>
+
+              {/* Event Modals (only if canEdit) */}
+              {canEdit && (
+                <>
+                  {/* High-Speed QR Attendance Scanner Button */}
+                  {selectedEventId && (
+                    <button
+                      type="button"
+                      onClick={() => setQrScannerOpen(true)}
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 active:scale-95 transition shadow-sm shadow-teal-600/30 cursor-pointer"
+                      title={translate('scan_attendance_qr')}
+                    >
+                      <Camera className="w-4 h-4" />
+                      <span>{translate('scan_attendance_qr')}</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setNewEventOpen(true)}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 active:scale-95 transition shadow-sm shadow-teal-600/30 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>{translate('new_event')}</span>
+                  </button>
+                  <button
+                    onClick={() => setRecurringModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 active:scale-95 transition shadow-sm shadow-purple-600/30 cursor-pointer"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>{translate('recurring_schedule')}</span>
+                  </button>
+                </>
+              )}
             </div>
 
-            {/* 1-Click Excel Export Button */}
-            <button
-              type="button"
-              onClick={handleExportExcel}
-              disabled={isExportingExcel}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition shadow-2xs cursor-pointer disabled:opacity-50"
-              title="Export full term attendance register and statistics as Excel (.xlsx)"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-              <span>{isExportingExcel ? translate('exporting') : translate('export_attendance_report')}</span>
-            </button>
+            {/* Mobile Streamlined Controls (< sm) */}
+            <div className="flex sm:hidden items-center justify-between gap-2 w-full">
+              {/* Compact Mode Switcher */}
+              <div className="flex items-center p-0.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('checklist')}
+                  className={`px-2.5 py-1 rounded-lg transition ${
+                    viewMode === 'checklist' ? 'bg-white dark:bg-zinc-900 text-teal-700 dark:text-teal-300 shadow-2xs' : 'text-zinc-500'
+                  }`}
+                  title={translate('checklist_view')}
+                >
+                  <LayoutList className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('matrix')}
+                  className={`px-2.5 py-1 rounded-lg transition ${
+                    viewMode === 'matrix' ? 'bg-white dark:bg-zinc-900 text-teal-700 dark:text-teal-300 shadow-2xs' : 'text-zinc-500'
+                  }`}
+                  title={translate('matrix_view')}
+                >
+                  <TableIcon className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('stats')}
+                  className={`px-2.5 py-1 rounded-lg transition ${
+                    viewMode === 'stats' ? 'bg-white dark:bg-zinc-900 text-teal-700 dark:text-teal-300 shadow-2xs' : 'text-zinc-500'
+                  }`}
+                  title={translate('stats_view')}
+                >
+                  <BarChart3 className="w-3.5 h-3.5" />
+                </button>
+              </div>
 
-            {/* Event Modals (only if canEdit) */}
-            {canEdit && (
-              <>
-                {/* High-Speed QR Attendance Scanner Button */}
-                {selectedEventId && (
-                  <button
-                    type="button"
-                    onClick={() => setQrScannerOpen(true)}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 active:scale-95 transition shadow-sm shadow-teal-600/30 cursor-pointer"
-                    title={translate('scan_attendance_qr')}
-                  >
-                    <Camera className="w-4 h-4" />
-                    <span>{translate('scan_attendance_qr')}</span>
-                  </button>
-                )}
-                <button
-                  onClick={() => setNewEventOpen(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 active:scale-95 transition shadow-sm shadow-teal-600/30 cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>{translate('new_event')}</span>
-                </button>
-                <button
-                  onClick={() => setRecurringModalOpen(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 active:scale-95 transition shadow-sm shadow-purple-600/30 cursor-pointer"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  <span>{translate('recurring_schedule')}</span>
-                </button>
-              </>
-            )}
+              {/* 🎯 Jump to Today Button */}
+              <button
+                type="button"
+                onClick={handleJumpToToday}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 shadow-2xs"
+              >
+                <Navigation className="w-3 h-3" />
+                <span>Today</span>
+              </button>
+
+              {/* Mobile Actions Sheet Button */}
+              <button
+                type="button"
+                onClick={() => setMobileAttendanceActionsOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 shadow-2xs"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+                <span>{translate('actions')}</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -1224,8 +1290,59 @@ export const AttendanceTrackerScreen: React.FC = () => {
                 </div>
               </div>
 
-              {/* 6 Metrics Bar (Including Unrecorded count) */}
-              <div className="grid grid-cols-2 sm:grid-cols-6 gap-2.5 sm:gap-3 p-4 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs text-center">
+              {/* Mobile Compact Summary Pill (< sm) */}
+              <div className="sm:hidden p-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xs space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">
+                      {presentCount} / {totalRoster} {translate('present')}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300 font-bold text-[11px] border border-teal-200 dark:border-teal-800">
+                      {attendancePercent}%
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowMobileMetricsBreakdown(!showMobileMetricsBreakdown)}
+                    className="text-[11px] font-bold text-zinc-500 hover:text-teal-600 flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>{showMobileMetricsBreakdown ? 'Hide' : 'Details'}</span>
+                    {showMobileMetricsBreakdown ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+
+                {/* Progress mini bar */}
+                <div className="w-full bg-zinc-100 dark:bg-zinc-800 h-2 rounded-full overflow-hidden flex">
+                  <div className="bg-emerald-500 h-full transition-all duration-300" style={{ width: `${attendancePercent}%` }} />
+                  <div className="bg-rose-500 h-full transition-all duration-300" style={{ width: `${totalRoster > 0 ? (absentCount / totalRoster) * 100 : 0}%` }} />
+                  <div className="bg-amber-400 h-full transition-all duration-300" style={{ width: `${totalRoster > 0 ? (excusedCount / totalRoster) * 100 : 0}%` }} />
+                </div>
+
+                {/* Expanded 4-box breakdown on mobile when toggled */}
+                {showMobileMetricsBreakdown && (
+                  <div className="grid grid-cols-4 gap-1.5 pt-2 border-t border-zinc-100 dark:border-zinc-800 text-center animate-in fade-in duration-150">
+                    <div className="p-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40">
+                      <span className="text-[10px] text-emerald-600 block font-bold">P</span>
+                      <span className="font-black text-sm text-emerald-700 dark:text-emerald-300">{presentCount}</span>
+                    </div>
+                    <div className="p-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40">
+                      <span className="text-[10px] text-rose-600 block font-bold">A</span>
+                      <span className="font-black text-sm text-rose-700 dark:text-rose-300">{absentCount}</span>
+                    </div>
+                    <div className="p-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/40">
+                      <span className="text-[10px] text-amber-600 block font-bold">E</span>
+                      <span className="font-black text-sm text-amber-700 dark:text-amber-300">{excusedCount}</span>
+                    </div>
+                    <div className="p-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800">
+                      <span className="text-[10px] text-zinc-500 block font-bold">Pending</span>
+                      <span className="font-black text-sm text-zinc-700 dark:text-zinc-300">{unrecordedCount}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Desktop 6 Metrics Bar (>= sm) */}
+              <div className="hidden sm:grid grid-cols-6 gap-2.5 sm:gap-3 p-4 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs text-center">
                 <div className="p-2">
                   <p className="text-[10px] sm:text-[11px] font-bold text-zinc-400 uppercase">Roster</p>
                   <p className="text-xl sm:text-2xl font-black text-zinc-800 dark:text-zinc-200">{totalRoster}</p>
@@ -2094,6 +2211,122 @@ export const AttendanceTrackerScreen: React.FC = () => {
             persistAttendance(selectedEventId, updated, notesByKid);
           }}
         />
+      )}
+
+      {/* Mobile Floating Action Button (FAB) for QR Attendance Scanning */}
+      {selectedEventId && canEdit && (
+        <button
+          type="button"
+          onClick={() => setQrScannerOpen(true)}
+          className="sm:hidden fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] end-4 z-30 w-13 h-13 rounded-full bg-teal-600 text-white shadow-xl shadow-teal-600/40 flex items-center justify-center active:scale-90 transition-transform cursor-pointer"
+          aria-label={translate('scan_attendance_qr')}
+          title={translate('scan_attendance_qr')}
+        >
+          <Camera className="w-6 h-6 stroke-[2.5]" />
+        </button>
+      )}
+
+      {/* Mobile Attendance Action Bottom Sheet */}
+      {mobileAttendanceActionsOpen && (
+        <div
+          onClick={() => setMobileAttendanceActionsOpen(false)}
+          className="sm:hidden fixed inset-0 z-50 flex items-end bg-black/60 backdrop-blur-xs animate-in fade-in cursor-pointer"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full bg-white dark:bg-zinc-900 rounded-t-3xl p-5 shadow-2xl border-t border-zinc-200 dark:border-zinc-800 space-y-4 max-h-[85dvh] overflow-y-auto pb-[calc(1.5rem+env(safe-area-inset-bottom))] cursor-default animate-in slide-in-from-bottom duration-200"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
+              <h3 className="font-extrabold text-base text-zinc-900 dark:text-zinc-100">
+                {translate('actions')}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setMobileAttendanceActionsOpen(false)}
+                className="p-1 rounded-xl text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {canEdit && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileAttendanceActionsOpen(false);
+                      setNewEventOpen(true);
+                    }}
+                    className="w-full flex items-center gap-3 p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 hover:bg-teal-50 dark:hover:bg-teal-950/40 text-start transition cursor-pointer"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0">
+                      <Plus className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">{translate('new_event')}</h4>
+                      <p className="text-[11px] text-zinc-400">Schedule a new attendance event</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileAttendanceActionsOpen(false);
+                      setRecurringModalOpen(true);
+                    }}
+                    className="w-full flex items-center gap-3 p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 hover:bg-purple-50 dark:hover:bg-purple-950/40 text-start transition cursor-pointer"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center shrink-0">
+                      <Sparkles className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">{translate('recurring_schedule')}</h4>
+                      <p className="text-[11px] text-zinc-400">Batch-generate recurring weekly sessions</p>
+                    </div>
+                  </button>
+                </>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileAttendanceActionsOpen(false);
+                  handleExportExcel();
+                }}
+                disabled={isExportingExcel}
+                className="w-full flex items-center gap-3 p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-start transition cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                  <FileSpreadsheet className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">{translate('export_attendance_report')}</h4>
+                  <p className="text-[11px] text-zinc-400">Download Excel report with term register & stats</p>
+                </div>
+              </button>
+
+              {canEdit && recordedCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileAttendanceActionsOpen(false);
+                    setResetModalOpen(true);
+                  }}
+                  className="w-full flex items-center gap-3 p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-start transition cursor-pointer"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0">
+                    <RotateCcw className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-rose-600 dark:text-rose-400">{translate('reset_session')}</h4>
+                    <p className="text-[11px] text-zinc-400">Clear attendance records taken for this session</p>
+                  </div>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
