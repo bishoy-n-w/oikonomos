@@ -102,6 +102,13 @@ export const translations: Record<Language, Record<string, string>> = {
     handheld_mode: 'Handheld Mode',
     scan_welcome: 'Welcome',
     cards_per_page_hint: '8 ID cards per A4 page with dotted cutting lines.',
+    view_tiles: 'Tiles',
+    view_list: 'List',
+    filter_all: 'All',
+    filter_needs_care: 'Needs Follow-up',
+    filter_birthdays_month: 'Birthdays',
+    filter_unassigned: 'Unassigned',
+    filter_missing_phone: 'Missing Phone',
 
     // Event-based Attendance
     events: 'Events',
@@ -421,6 +428,13 @@ export const translations: Record<Language, Record<string, string>> = {
     handheld_mode: 'الوضع اليدوي',
     scan_welcome: 'مرحباً',
     cards_per_page_hint: '8 بطاقات لكل ورقة A4 مع خطوط قص متقطعة.',
+    view_tiles: 'بطاقات',
+    view_list: 'قائمة',
+    filter_all: 'الكل',
+    filter_needs_care: 'يحتاج افتقاد',
+    filter_birthdays_month: 'أعياد ميلاد الشهر',
+    filter_unassigned: 'غير مسكّن',
+    filter_missing_phone: 'بدون هاتف',
 
     // Event-based Attendance
     events: 'الفعاليات والأيام',

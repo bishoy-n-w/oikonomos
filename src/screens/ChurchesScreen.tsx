@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { useFilter } from '../context/FilterContext';
 import { HeaderFilterMatrix, type ColumnFilterConfig } from '../components/common/HeaderFilterMatrix';
+import { MobileViewToggle } from '../components/common/MobileViewToggle';
 import { normalizeDateStr } from '../utils/formatters';
 import { useModalEscape } from '../utils/useModalEscape';
 import { DEFAULT_EVENT_TYPES, type Church, type AcademicYear, type GradeItem } from '../types';
@@ -31,7 +32,7 @@ const BADGE_COLORS = [
 
 export const ChurchesScreen: React.FC = () => {
   const { user, userRole } = useAuth();
-  const { translate } = useApp();
+  const { translate, mobileViewMode } = useApp();
   const { churches: userChurches, setChurch } = useFilter();
 
   const [churchList, setChurchList] = useState<Church[]>([]);
@@ -367,28 +368,95 @@ export const ChurchesScreen: React.FC = () => {
 
       {/* 1. Mobile Adaptive Touch Cards (< md) */}
       <div className="md:hidden space-y-3">
-        {/* Mobile Search */}
-        <div className="relative">
-          <Search className="w-4 h-4 text-zinc-400 absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <input
-            type="text"
-            value={mobileSearchQuery}
-            onChange={(e) => setMobileSearchQuery(e.target.value)}
-            placeholder={`${translate('search')} ${translate('church_name')}...`}
-            className="w-full ps-10 pe-9 py-2.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm shadow-2xs focus:outline-none focus:ring-2 focus:ring-teal-500"
-          />
-          {mobileSearchQuery && (
-            <button
-              type="button"
-              onClick={() => setMobileSearchQuery('')}
-              className="absolute end-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
+        {/* Mobile Search & View Switcher */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-zinc-400 absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={mobileSearchQuery}
+              onChange={(e) => setMobileSearchQuery(e.target.value)}
+              placeholder={`${translate('search')} ${translate('church_name')}...`}
+              className="w-full ps-10 pe-9 py-2.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm shadow-2xs focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+            {mobileSearchQuery && (
+              <button
+                type="button"
+                onClick={() => setMobileSearchQuery('')}
+                className="absolute end-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          <MobileViewToggle />
         </div>
 
-        {filteredChurches.map((church) => {
+        {mobileViewMode === 'list' ? (
+          <div className="divide-y divide-zinc-100 dark:divide-zinc-800/80 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-xs">
+            {filteredChurches.map((church) => {
+              const activeYearObj = (academicYearsMap[church.id] || []).find(
+                (y) => y.id === church.activeAcademicYearId
+              );
+              const activeYearName = activeYearObj?.displayName || church.activeAcademicYearId || '-';
+              const gradesCount = Object.keys(church.grades || {}).length;
+
+              return (
+                <div
+                  key={church.id}
+                  className="flex items-center justify-between p-3 gap-2.5 transition hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    {church.logoUrl ? (
+                      <img
+                        src={church.logoUrl}
+                        alt=""
+                        className="w-9 h-9 rounded-xl object-cover border border-zinc-200 dark:border-zinc-700 shrink-0 shadow-2xs"
+                      />
+                    ) : (
+                      <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold text-xs shrink-0">
+                        {church.displayName.slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
+                          {church.displayName}
+                        </span>
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${church.active ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
+                      </div>
+                      <p className="text-[10px] text-zinc-400 truncate">
+                        {activeYearName} • {gradesCount} {translate('grades')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setGradesModalChurch(church)}
+                      className="px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-[11px] font-bold text-zinc-700 dark:text-zinc-300 hover:bg-teal-50 dark:hover:bg-teal-950 cursor-pointer"
+                    >
+                      {gradesCount} {translate('grades')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditChurch(church);
+                        setEditLogoUrl(church.logoUrl);
+                      }}
+                      className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition cursor-pointer"
+                      title="Edit Church"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+        filteredChurches.map((church) => {
           const activeYearObj = (academicYearsMap[church.id] || []).find(
             (y) => y.id === church.activeAcademicYearId
           );
@@ -478,7 +546,7 @@ export const ChurchesScreen: React.FC = () => {
               </div>
             </div>
           );
-        })}
+        }))}
       </div>
 
       {/* 2. Desktop Details List View (DataTable) with Header Filter Matrix (>= md) */}

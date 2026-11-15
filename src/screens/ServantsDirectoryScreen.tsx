@@ -6,6 +6,7 @@ import { useApp } from '../context/AppContext';
 import { useFilter } from '../context/FilterContext';
 import { HeaderFilterMatrix, type ColumnFilterConfig } from '../components/common/HeaderFilterMatrix';
 import { ProfilePhotoUploader } from '../components/common/ProfilePhotoUploader';
+import { MobileViewToggle } from '../components/common/MobileViewToggle';
 import { normalizeDateStr, safeRender } from '../utils/formatters';
 import { useModalEscape } from '../utils/useModalEscape';
 import type { Mister, ServiceGroup, ClassDoc } from '../types';
@@ -24,7 +25,7 @@ import {
 
 export const ServantsDirectoryScreen: React.FC = () => {
   const { user, userRole } = useAuth();
-  const { translate } = useApp();
+  const { translate, mobileViewMode } = useApp();
   const { 
     selectedChurchId, 
     selectedAcademicYearId, 
@@ -311,28 +312,114 @@ export const ServantsDirectoryScreen: React.FC = () => {
 
       {/* 1. Mobile Adaptive Touch Cards (< md) */}
       <div className="md:hidden space-y-3">
-        {/* Mobile Quick Search */}
-        <div className="relative">
-          <Search className="w-4 h-4 text-zinc-400 absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <input
-            type="text"
-            value={mobileSearchQuery}
-            onChange={(e) => setMobileSearchQuery(e.target.value)}
-            placeholder={`${translate('search')} ${translate('servants')}...`}
-            className="w-full ps-10 pe-9 py-2.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm shadow-2xs focus:outline-none focus:ring-2 focus:ring-teal-500"
-          />
-          {mobileSearchQuery && (
-            <button
-              type="button"
-              onClick={() => setMobileSearchQuery('')}
-              className="absolute end-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
+        {/* Mobile Quick Search & View Switcher */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-zinc-400 absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={mobileSearchQuery}
+              onChange={(e) => setMobileSearchQuery(e.target.value)}
+              placeholder={`${translate('search')} ${translate('servants')}...`}
+              className="w-full ps-10 pe-9 py-2.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm shadow-2xs focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+            {mobileSearchQuery && (
+              <button
+                type="button"
+                onClick={() => setMobileSearchQuery('')}
+                className="absolute end-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          <MobileViewToggle />
         </div>
 
-        {filteredServants.map((mister) => {
+        {mobileViewMode === 'list' ? (
+          <div className="divide-y divide-zinc-100 dark:divide-zinc-800/80 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-xs">
+            {filteredServants.map((mister) => {
+              const isSelf = mister.email.toLowerCase() === currentUserEmail;
+              const phone = mister.personalInfo?.phone;
+
+              return (
+                <div
+                  key={mister.id}
+                  className="flex items-center justify-between p-3 gap-2.5 transition hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 flex items-center justify-center border border-zinc-200 dark:border-zinc-700 shadow-2xs">
+                      {mister.personalInfo?.photoUrl ? (
+                        <img src={mister.personalInfo.photoUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="w-full h-full bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 font-bold text-xs flex items-center justify-center">
+                          {mister.displayName.slice(0, 2).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+
+                    <div
+                      className="min-w-0 flex-1 cursor-pointer"
+                      onClick={() => (isAdmin || isSelf) && setEditMister(mister)}
+                    >
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
+                          {mister.displayName}
+                        </span>
+                        <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold uppercase ${
+                          mister.churchRole === 'admin'
+                            ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 border border-purple-200'
+                            : 'bg-zinc-100 text-zinc-500'
+                        }`}>
+                          {mister.churchRole}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-zinc-400 truncate">
+                        {mister.personalInfo?.job ? `${mister.personalInfo.job} • ` : ''}
+                        {mister.email}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Actions Strip */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {phone && (
+                      <a
+                        href={`tel:${phone}`}
+                        className="p-2 rounded-xl text-blue-600 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 active:scale-95 transition"
+                        title={translate('phone')}
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                    {phone && (
+                      <a
+                        href={`https://wa.me/${phone.replace(/\+/g, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-2 rounded-xl text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 active:scale-95 transition"
+                        title="WhatsApp"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                    {(isAdmin || isSelf) && (
+                      <button
+                        type="button"
+                        onClick={() => setEditMister(mister)}
+                        className="p-2 rounded-xl text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition cursor-pointer"
+                        title="Edit Servant"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+        filteredServants.map((mister) => {
           const adminGroups = getAdminGroups(mister.email);
           const servantClasses = getServantClasses(mister.email);
           const isSelf = mister.email.toLowerCase() === currentUserEmail;
@@ -490,7 +577,7 @@ export const ServantsDirectoryScreen: React.FC = () => {
               </div>
             </div>
           );
-        })}
+        }))}
       </div>
 
       {/* 2. Desktop High-Density 12-Column Table (>= md) */}

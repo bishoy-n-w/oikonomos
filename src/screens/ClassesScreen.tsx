@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { useFilter } from '../context/FilterContext';
 import { HeaderFilterMatrix, type ColumnFilterConfig } from '../components/common/HeaderFilterMatrix';
+import { MobileViewToggle } from '../components/common/MobileViewToggle';
 import { useModalEscape } from '../utils/useModalEscape';
 import type { ClassDoc, Church, Mister, Kid, ClassYearData, DropdownItem } from '../types';
 import { 
@@ -22,7 +23,7 @@ import {
 
 export const ClassesScreen: React.FC = () => {
   const { user, userRole } = useAuth();
-  const { translate } = useApp();
+  const { translate, mobileViewMode } = useApp();
   const { 
     selectedChurchId, 
     selectedAcademicYearId, 
@@ -362,28 +363,109 @@ export const ClassesScreen: React.FC = () => {
 
       {/* 1. Mobile Adaptive Touch Cards (< md) */}
       <div className="md:hidden space-y-3">
-        {/* Mobile Quick Search */}
-        <div className="relative">
-          <Search className="w-4 h-4 text-zinc-400 absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <input
-            type="text"
-            value={mobileSearchQuery}
-            onChange={(e) => setMobileSearchQuery(e.target.value)}
-            placeholder={`${translate('search')} ${translate('classes')}...`}
-            className="w-full ps-10 pe-9 py-2.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm shadow-2xs focus:outline-none focus:ring-2 focus:ring-teal-500"
-          />
-          {mobileSearchQuery && (
-            <button
-              type="button"
-              onClick={() => setMobileSearchQuery('')}
-              className="absolute end-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
+        {/* Mobile Quick Search & View Switcher */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-zinc-400 absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={mobileSearchQuery}
+              onChange={(e) => setMobileSearchQuery(e.target.value)}
+              placeholder={`${translate('search')} ${translate('classes')}...`}
+              className="w-full ps-10 pe-9 py-2.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm shadow-2xs focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+            {mobileSearchQuery && (
+              <button
+                type="button"
+                onClick={() => setMobileSearchQuery('')}
+                className="absolute end-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          <MobileViewToggle />
         </div>
 
-        {filteredClasses.map((cls) => {
+        {mobileViewMode === 'list' ? (
+          <div className="divide-y divide-zinc-100 dark:divide-zinc-800/80 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-xs">
+            {filteredClasses.map((cls) => {
+              const yearData = getYearData(cls);
+              if (!yearData) return null;
+
+              const group = serviceGroups.find((g) => g.id === yearData.serviceGroupId);
+              const gradeItem = currentChurch?.grades?.[yearData.gradeId || ''];
+              const storedKidIds = yearData.KidIds || yearData.kids || [];
+              const assignedFromDirectory = allKids
+                .filter((k) => k.active !== false && k.activeAssignment?.classId === cls.id)
+                .map((k) => k.id);
+              const effectiveKidIds = Array.from(new Set([...storedKidIds, ...assignedFromDirectory]));
+              const kidsCount = effectiveKidIds.length;
+              const servantsCount = (yearData.MistersIds || yearData.servants || []).length;
+
+              return (
+                <div
+                  key={cls.id}
+                  className="flex items-center justify-between p-3 gap-2 transition hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40"
+                >
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${cls.active !== false ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
+                          {yearData.displayName || cls.id}
+                        </span>
+                        {gradeItem && (
+                          <span className="text-[9px] font-mono font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950 px-1 py-0.2 rounded border border-teal-200 dark:border-teal-800 shrink-0">
+                            #{yearData.gradeId}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-zinc-400 truncate">
+                        {group?.displayName || yearData.serviceGroupId}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setRosterPreview({
+                        className: yearData.displayName || cls.id,
+                        kidIds: effectiveKidIds,
+                        misterIds: yearData.MistersIds || yearData.servants || [],
+                      })}
+                      className="px-2 py-1 rounded-lg bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 text-[11px] font-bold border border-teal-200 dark:border-teal-800 cursor-pointer"
+                    >
+                      {kidsCount} {translate('kids')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRosterPreview({
+                        className: yearData.displayName || cls.id,
+                        kidIds: effectiveKidIds,
+                        misterIds: yearData.MistersIds || yearData.servants || [],
+                      })}
+                      className="px-2 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 text-[11px] font-bold border border-blue-200 dark:border-blue-800 cursor-pointer"
+                    >
+                      {servantsCount} {translate('servants')}
+                    </button>
+                    {canEditClass(cls.id) && (
+                      <button
+                        type="button"
+                        onClick={() => setEditClass(cls)}
+                        className="p-1.5 rounded-lg text-zinc-400 hover:text-teal-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+        filteredClasses.map((cls) => {
           const yearData = getYearData(cls);
           if (!yearData) return null;
 
@@ -494,7 +576,7 @@ export const ClassesScreen: React.FC = () => {
               </div>
             </div>
           );
-        })}
+        }))}
       </div>
 
       {/* 2. Desktop High-Density Table (>= md) */}

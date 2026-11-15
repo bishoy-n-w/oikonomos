@@ -8,6 +8,8 @@ interface AppContextType {
   theme: 'light' | 'dark';
   toggleTheme: () => void;
   translate: (key: string) => string;
+  mobileViewMode: 'tiles' | 'list';
+  setMobileViewMode: (mode: 'tiles' | 'list') => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -19,6 +21,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [theme, setThemeState] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('oikonomos_theme') as 'light' | 'dark') || 'light';
+  });
+
+  const [mobileViewMode, setMobileViewModeState] = useState<'tiles' | 'list'>(() => {
+    return (localStorage.getItem('oikonomos_mobile_view_mode') as 'tiles' | 'list') || 'tiles';
   });
 
   const isRtl = checkIsRtl(language);
@@ -38,12 +44,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('oikonomos_theme', theme);
   }, [theme]);
 
+  useEffect(() => {
+    localStorage.setItem('oikonomos_mobile_view_mode', mobileViewMode);
+  }, [mobileViewMode]);
+
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
   };
 
   const toggleTheme = () => {
     setThemeState((prev) => (prev === 'light' ? 'dark' : 'light'));
+  };
+
+  const setMobileViewMode = (mode: 'tiles' | 'list') => {
+    setMobileViewModeState(mode);
   };
 
   const translate = (key: string) => t(key, language);
@@ -57,6 +71,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         theme,
         toggleTheme,
         translate,
+        mobileViewMode,
+        setMobileViewMode,
       }}
     >
       {children}

@@ -869,6 +869,66 @@ Enables Sunday School servants and administrators to synchronize church contact 
 *   **Top App Bar Viewport Breathing Room:**
     *   Hides secondary CRM branding subtitles on mobile devices (`hidden sm:block`), giving church titles and contextual class badges adequate space to prevent unsightly text truncation.
 
+---
+
+## 36. Dual Mobile Layout Architecture: Tiles vs. Compact List View (العرض كبطاقات أو قائمة مضغوطة للهاتف)
+
+*   **Universal Mobile View Switcher (`MobileViewToggle.tsx`):**
+    *   Empowers mobile users to toggle seamlessly between **`[ 🪟 Tiles / بطاقات ]`** (rich visual cards with complete details and contact strips) and **`[ ☰ List / قائمة ]`** (high-density, single-line rows for fast scanning and rapid roll-calls).
+    *   **Context & Persistent Memory (`AppContext.tsx`):** The chosen view mode (`mobileViewMode: 'tiles' | 'list'`) is globally stored in `AppContext` and persisted across browser sessions via `localStorage` (`oikonomos_mobile_view_mode`), defaulting to `'tiles'`.
+    *   Integrated beside search bars or filter toolbars across all screens on mobile viewports.
+*   **Screen-by-Screen Compact List Row Anatomy:**
+    *   **1. Kids Directory (`KidsDirectoryScreen.tsx` — 54px Row):**
+        *   Multi-select touch checkbox + 36px circular photo avatar (or gender-themed monogram).
+        *   Two-line label: Student Full Name (bold) + Father Name / primary phone subtitle.
+        *   Instant 1-tap phone call button, WhatsApp launcher, ID badge print shortcut, and edit trigger.
+        *   Tapping row opens student edit modal. Increases vertical density by ~300% (fits 9–10 students on screen).
+    *   **2. Attendance Tracker (`AttendanceTrackerScreen.tsx` — 52px Row):**
+        *   32px photo avatar + Student Name + Father Name subtitle.
+        *   **Rapid 3-Pill Attendance Controller:** Three large, high-contrast touch pills: `[ P ]` (Emerald), `[ A ]` (Rose), `[ E ]` (Amber) with instant toggle back to unrecorded.
+        *   Allows servants to take roll call for 30 students in under 15 seconds without continuous vertical scrolling.
+    *   **3. Classes Screen (`ClassesScreen.tsx` — 50px Row):**
+        *   Status indicator dot + Class Display Name + Grade `#ID` badge + Parent Service Group subtitle.
+        *   Interactive touch chips: `[ X Kids ]` and `[ Y Servants ]` opening the embedded roster modal + quick edit.
+    *   **4. Service Groups (`ServiceGroupsScreen.tsx` — 50px Row):**
+        *   Status indicator dot + Group Display Name + Admin & Servant counts summary.
+        *   Event types configuration button + quick edit button.
+    *   **5. Servants Directory (`ServantsDirectoryScreen.tsx` — 52px Row):**
+        *   36px avatar + Servant Name + Role Pill (`Admin` / `Viewer`) + Profession / Email subtitle.
+        *   1-tap phone call, WhatsApp direct message, and edit buttons.
+    *   **6. Churches Screen (`ChurchesScreen.tsx` — 52px Row):**
+        *   Church circular logo + Church Display Name + Status dot.
+        *   Active academic year name + Grades counter button + edit button.
+    *   **7. Home Visits (`HomeVisitsScreen.tsx` — 54px Row):**
+        *   Student avatar + Full Name + Pastoral Health status dot (🟢 $\le 30\text{d}$, 🟡 $31-60\text{d}$, 🔴 $>60\text{d}$).
+        *   Days elapsed summary + 1-tap GPS directions shortcut + WhatsApp message shortcut + Log Visit button.
+        *   **Pinned Top-Row Switcher:** Positioned directly on the primary View Mode row (`[ 👥 Roster | ⏳ Timeline | ✨ Insights ]` $\longleftrightarrow$ `[ 🪟 Tiles | ☰ List ]`) with full horizontal breathing room, completely free of any scrolling chip containers.
+    *   **Attendance Tracker 2-Row Mobile Header Architecture:**
+        *   Solves viewport crowding by splitting controls into two distinct rows:
+            *   *Row 1:* View Mode Switcher (`[ 📋 Checklist | ▦ Matrix | 📊 Stats ]`) on the left $\longleftrightarrow$ `[ 🪟 Tiles | ☰ List ]` on the right with full edge-to-edge breathing room.
+            *   *Row 2:* Operational shortcuts: `[ 🎯 Today ]` + `[ ⋯ Actions ]` + `[ 📷 Scan QR ]`.
+
+---
+
+## 37. Sunday School Ministry Operational Quick Filters (فلاتر الافتقاد والخدمة السريعة)
+
+*   **Pastoral Reality Alignment:**
+    *   Replaced naive demographic chips (e.g. `Male`/`Female`/`Deacon`, which are often redundant within single-gender service groups like "أعدادي ولاد") with 4 high-value pastoral operational filters.
+*   **Ministry Quick Filter Presets:**
+    1.  **`[ ⚠️ Needs Follow-up / يحتاج افتقاد ]`:**
+        *   Instantly isolates students who have active pastoral follow-up notes or require care. Servants can tap this on meeting mornings to immediately see who needs a check-in or visit.
+    2.  **`[ 🎂 Birthdays / أعياد ميلاد الشهر ]`:**
+        *   Filters students celebrating their birthdays in the current calendar month (`dobMonth === currentMonth`). Allows servants to prepare birthday greetings, gifts, and celebrate them in class.
+    3.  **`[ ❓ Unassigned / غير مسكّن ]`:**
+        *   Filters students in the church/service group who are **not currently enrolled in any class** (`!activeAssignment.classId`). Essential for service supervisors and coordinators during roster organization at the start of the academic year.
+    4.  **`[ 📞 Missing Phone / بدون هاتف ]`:**
+        *   Flags student profiles that have no emergency or contact phone numbers registered (`no fatherMob, motherMob, kidMob, or otherMob`). Allows servants to collect phone numbers on the spot during attendance roll-call.
+    5.  **`[ All / الكل ]`:**
+        *   Resets the quick filter back to the complete classroom or group roster.
+*   **Bilingual Localization:**
+    *   Full English and Arabic translations registered in `i18n.ts` (`filter_all`, `filter_needs_care`, `filter_birthdays_month`, `filter_unassigned`, `filter_missing_phone`).
+
+
 
 
 

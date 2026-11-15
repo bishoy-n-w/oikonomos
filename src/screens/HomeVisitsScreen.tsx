@@ -37,11 +37,12 @@ import {
   ExternalLink,
   Navigation
 } from 'lucide-react';
+import { MobileViewToggle } from '../components/common/MobileViewToggle';
 import * as XLSX from 'xlsx';
 
 export const HomeVisitsScreen: React.FC = () => {
   const { user } = useAuth();
-  const { translate } = useApp();
+  const { translate, mobileViewMode } = useApp();
   const { 
     selectedChurchId, 
     selectedAcademicYearId, 
@@ -484,44 +485,50 @@ export const HomeVisitsScreen: React.FC = () => {
           </p>
         </div>
 
-        {/* View Mode Switcher Pills */}
-        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/80 self-start sm:self-auto">
-          <button
-            type="button"
-            onClick={() => setViewMode('roster')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-              viewMode === 'roster'
-                ? 'bg-white dark:bg-zinc-900 text-teal-600 dark:text-teal-400 shadow-xs'
-                : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>{translate('roster_view')}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('timeline')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-              viewMode === 'timeline'
-                ? 'bg-white dark:bg-zinc-900 text-teal-600 dark:text-teal-400 shadow-xs'
-                : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
-            }`}
-          >
-            <Clock className="w-3.5 h-3.5" />
-            <span>{translate('timeline_view')}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('insights')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-              viewMode === 'insights'
-                ? 'bg-white dark:bg-zinc-900 text-teal-600 dark:text-teal-400 shadow-xs'
-                : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>{translate('insights_view')}</span>
-          </button>
+        {/* View Mode Switcher Pills & Mobile View Toggle */}
+        <div className="flex items-center justify-between gap-2 w-full sm:w-auto">
+          <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/80">
+            <button
+              type="button"
+              onClick={() => setViewMode('roster')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                viewMode === 'roster'
+                  ? 'bg-white dark:bg-zinc-900 text-teal-600 dark:text-teal-400 shadow-xs'
+                  : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>{translate('roster_view')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('timeline')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                viewMode === 'timeline'
+                  ? 'bg-white dark:bg-zinc-900 text-teal-600 dark:text-teal-400 shadow-xs'
+                  : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>{translate('timeline_view')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('insights')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                viewMode === 'insights'
+                  ? 'bg-white dark:bg-zinc-900 text-teal-600 dark:text-teal-400 shadow-xs'
+                  : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>{translate('insights_view')}</span>
+            </button>
+          </div>
+
+          <div className="sm:hidden">
+            <MobileViewToggle />
+          </div>
         </div>
       </div>
 
@@ -571,70 +578,154 @@ export const HomeVisitsScreen: React.FC = () => {
       {/* MODE 1: STUDENT CARE ROSTER */}
       {viewMode === 'roster' && (
         <div className="space-y-4">
-          {/* Care Status Filter Chips */}
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setCareFilter('all')}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
-                careFilter === 'all'
-                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-2xs'
-                  : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50'
-              }`}
-            >
-              {translate('all')} ({enrolledKids.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setCareFilter('overdue')}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
-                careFilter === 'overdue'
-                  ? 'bg-rose-600 text-white shadow-2xs'
-                  : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60 hover:bg-rose-100'
-              }`}
-            >
-              <AlertTriangle className="w-3 h-3" />
-              <span>{translate('overdue_for_visit')}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setCareFilter('due')}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
-                careFilter === 'due'
-                  ? 'bg-amber-600 text-white shadow-2xs'
-                  : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 hover:bg-amber-100'
-              }`}
-            >
-              <Clock className="w-3 h-3" />
-              <span>{translate('due_for_visit')}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setCareFilter('recent')}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
-                careFilter === 'recent'
-                  ? 'bg-emerald-600 text-white shadow-2xs'
-                  : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100'
-              }`}
-            >
-              <CheckCircle2 className="w-3 h-3" />
-              <span>{translate('recently_visited')}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setCareFilter('never')}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
-                careFilter === 'never'
-                  ? 'bg-zinc-600 text-white shadow-2xs'
-                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200'
-              }`}
-            >
-              {translate('never_visited')}
-            </button>
+          {/* Care Status Filter Chips & View Mode Switcher */}
+          <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setCareFilter('all')}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
+                  careFilter === 'all'
+                    ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-2xs'
+                    : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50'
+                }`}
+              >
+                {translate('all')} ({enrolledKids.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setCareFilter('overdue')}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
+                  careFilter === 'overdue'
+                    ? 'bg-rose-600 text-white shadow-2xs'
+                    : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60 hover:bg-rose-100'
+                }`}
+              >
+                <AlertTriangle className="w-3 h-3" />
+                <span>{translate('overdue_for_visit')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCareFilter('due')}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
+                  careFilter === 'due'
+                    ? 'bg-amber-600 text-white shadow-2xs'
+                    : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 hover:bg-amber-100'
+                }`}
+              >
+                <Clock className="w-3 h-3" />
+                <span>{translate('due_for_visit')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCareFilter('recent')}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
+                  careFilter === 'recent'
+                    ? 'bg-emerald-600 text-white shadow-2xs'
+                    : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100'
+                }`}
+              >
+                <CheckCircle2 className="w-3 h-3" />
+                <span>{translate('recently_visited')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCareFilter('never')}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
+                  careFilter === 'never'
+                    ? 'bg-zinc-600 text-white shadow-2xs'
+                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200'
+                }`}
+              >
+                {translate('never_visited')}
+              </button>
+            </div>
           </div>
 
+          {mobileViewMode === 'list' ? (
+            <div className="sm:hidden divide-y divide-zinc-100 dark:divide-zinc-800/80 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-xs">
+              {filteredRoster.map(({ kid, status, daysAgo }) => {
+                const targetPhone = kid.contacts?.fatherMob || kid.contacts?.motherMob || kid.contacts?.kidMob;
+                const statusDot = status === 'overdue_for_visit' ? 'bg-rose-500' : status === 'due_for_visit' ? 'bg-amber-500' : status === 'recently_visited' ? 'bg-emerald-500' : 'bg-zinc-400';
+
+                return (
+                  <div
+                    key={kid.id}
+                    className="flex items-center justify-between p-3 gap-2.5 transition hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 flex items-center justify-center border border-zinc-200 dark:border-zinc-700 shadow-2xs">
+                        {kid.info.photoUrl ? (
+                          <img src={kid.info.photoUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className={`w-full h-full flex items-center justify-center font-bold text-xs ${
+                            kid.info.gender === 'female' ? 'bg-rose-50 text-rose-600' : 'bg-teal-50 text-teal-600'
+                          }`}>
+                            {kid.info.fullName.charAt(0)}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
+                            {kid.info.fullName}
+                          </span>
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${statusDot}`} />
+                        </div>
+                        <p className="text-[10px] text-zinc-400 truncate">
+                          {daysAgo === Infinity ? translate('never_visited') : `${daysAgo}d ago`}
+                          {kid.address?.region && ` • ${kid.address.region}`}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      {kid.address?.geoLocation && (
+                        <a
+                          href={getUniversalNavigationUrl(kid.address.geoLocation, `${kid.address.building || ''} ${kid.address.street || ''} ${kid.address.region || ''}`)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-2 rounded-xl text-teal-600 bg-teal-50 dark:bg-teal-950/60 hover:bg-teal-100 active:scale-95 transition"
+                          title="GPS Navigation"
+                        >
+                          <Navigation className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                      {targetPhone && (
+                        <a
+                          href={`https://wa.me/${targetPhone.replace(/\+/g, '')}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-2 rounded-xl text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 active:scale-95 transition"
+                          title="WhatsApp"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                      {canEdit && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPreselectedKidId(kid.id);
+                            setEditingVisit(null);
+                            setLogModalOpen(true);
+                          }}
+                          className="p-2 rounded-xl text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
+                          title="Log Visit"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+
           {/* Roster Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          <div className={`${mobileViewMode === 'list' ? 'hidden sm:grid' : 'grid'} grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5`}>
             {filteredRoster.map(({ kid, visits: kidVisits, daysAgo, status }) => {
               const addressParts = [
                 kid.address?.building ? `Bldg ${kid.address.building}` : '',

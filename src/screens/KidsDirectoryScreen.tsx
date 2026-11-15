@@ -10,6 +10,7 @@ import { GoogleContactsSyncModal } from '../components/kids/GoogleContactsSyncMo
 import { BulkAssignmentModal } from '../components/kids/BulkAssignmentModal';
 import { SmartImportModal } from '../components/kids/SmartImportModal';
 import { PrintIdCardsModal } from '../components/kids/PrintIdCardsModal';
+import { MobileViewToggle } from '../components/common/MobileViewToggle';
 import { normalizePhoneNumber } from '../services/googleContacts';
 import { normalizeDateStr, safeRender, sanitizeExcelCell } from '../utils/formatters';
 import { useModalEscape } from '../utils/useModalEscape';
@@ -50,7 +51,7 @@ import * as XLSX from 'xlsx';
 
 export const KidsDirectoryScreen: React.FC = () => {
   const { user, userRole } = useAuth();
-  const { translate } = useApp();
+  const { translate, mobileViewMode } = useApp();
   const { 
     selectedChurchId, 
     selectedAcademicYearId, 
@@ -83,10 +84,9 @@ export const KidsDirectoryScreen: React.FC = () => {
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [displayLimit, setDisplayLimit] = useState(60);
 
-  // Mobile Search & Filter state
+  // Mobile Search & Ministry Quick Filter state
   const [mobileSearchQuery, setMobileSearchQuery] = useState('');
-  const [mobileGenderFilter, setMobileGenderFilter] = useState<'all' | 'male' | 'female'>('all');
-  const [mobileDeaconFilter, setMobileDeaconFilter] = useState<'all' | 'deacon'>('all');
+  const [mobileQuickFilter, setMobileQuickFilter] = useState<'all' | 'needs_care' | 'birthdays' | 'unassigned' | 'missing_phone'>('all');
   const [expandedKidDetails, setExpandedKidDetails] = useState<Record<string, boolean>>({});
 
   // Modals
@@ -335,12 +335,28 @@ export const KidsDirectoryScreen: React.FC = () => {
       }
     }
 
-    if (mobileGenderFilter !== 'all') {
-      if (kid.info?.gender !== mobileGenderFilter) return false;
-    }
-
-    if (mobileDeaconFilter === 'deacon') {
-      if (!kid.info?.deacon) return false;
+    // Mobile Ministry Quick Filters
+    if (mobileQuickFilter === 'needs_care') {
+      const hasNotes = Boolean(kid.notes && kid.notes.trim());
+      if (!hasNotes) return false;
+    } else if (mobileQuickFilter === 'birthdays') {
+      const dobStr = normalizeDateStr(kid.info?.dob);
+      if (!dobStr) return false;
+      const parts = dobStr.split('-');
+      const dobMonth = parseInt(parts[1], 10);
+      const currentMonth = new Date().getMonth() + 1;
+      if (dobMonth !== currentMonth) return false;
+    } else if (mobileQuickFilter === 'unassigned') {
+      const isUnassigned = !asgn.classId && !kid.classId;
+      if (!isUnassigned) return false;
+    } else if (mobileQuickFilter === 'missing_phone') {
+      const hasPhone = Boolean(
+        kid.contacts?.fatherMob?.trim() ||
+        kid.contacts?.motherMob?.trim() ||
+        kid.contacts?.kidMob?.trim() ||
+        kid.contacts?.otherMob?.trim()
+      );
+      if (hasPhone) return false;
     }
 
     // Header Filter Matrix
@@ -798,8 +814,8 @@ export const KidsDirectoryScreen: React.FC = () => {
           )}
         </div>
 
-        {/* Mobile Actions Button (< sm) */}
-        <div className="flex sm:hidden items-center gap-2">
+        {/* Mobile Actions Button & Prominent View Mode Switcher (< sm) */}
+        <div className="flex sm:hidden items-center justify-between gap-2 w-full">
           <button
             type="button"
             onClick={() => setMobileActionsSheetOpen(true)}
@@ -808,6 +824,9 @@ export const KidsDirectoryScreen: React.FC = () => {
             <MoreHorizontal className="w-4 h-4" />
             <span>{translate('actions')}</span>
           </button>
+
+          {/* Prominent View Mode Switcher (Tiles vs List) */}
+          <MobileViewToggle />
         </div>
       </div>
 
@@ -893,58 +912,164 @@ export const KidsDirectoryScreen: React.FC = () => {
           )}
         </div>
 
-        {/* Mobile Filter Chips & Selection Bar */}
-        <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1 text-xs">
+        {/* Mobile Ministry Quick Filter Chips & Selection Bar */}
+        <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1 text-xs no-scrollbar">
           <div className="flex items-center gap-1.5 shrink-0">
             {[
-              { id: 'all', label: translate('all') || 'All' },
-              { id: 'male', label: `👦 ${translate('male')}` },
-              { id: 'female', label: `👧 ${translate('female')}` },
+              { id: 'all', label: translate('filter_all') || 'All' },
+              { id: 'needs_care', label: `⚠️ ${translate('filter_needs_care') || 'Needs Follow-up'}` },
+              { id: 'birthdays', label: `🎂 ${translate('filter_birthdays_month') || 'Birthdays'}` },
+              { id: 'unassigned', label: `❓ ${translate('filter_unassigned') || 'Unassigned'}` },
+              { id: 'missing_phone', label: `📞 ${translate('filter_missing_phone') || 'Missing Phone'}` },
             ].map((chip) => (
               <button
                 key={chip.id}
                 type="button"
-                onClick={() => setMobileGenderFilter(chip.id as any)}
-                className={`px-2.5 py-1 rounded-xl font-bold transition cursor-pointer ${
-                  mobileGenderFilter === chip.id
+                onClick={() => setMobileQuickFilter(chip.id as any)}
+                className={`px-3 py-1.5 rounded-xl font-bold transition cursor-pointer shrink-0 ${
+                  mobileQuickFilter === chip.id
                     ? 'bg-teal-600 text-white shadow-2xs'
-                    : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700'
+                    : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50'
                 }`}
               >
                 {chip.label}
               </button>
             ))}
-            <button
-              type="button"
-              onClick={() => setMobileDeaconFilter(mobileDeaconFilter === 'deacon' ? 'all' : 'deacon')}
-              className={`px-2.5 py-1 rounded-xl font-bold transition cursor-pointer border ${
-                mobileDeaconFilter === 'deacon'
-                  ? 'bg-amber-600 text-white border-amber-600 shadow-2xs'
-                  : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700'
-              }`}
-            >
-              ✠ {translate('deacon')}
-            </button>
           </div>
 
           {/* Master Select All Button on Mobile */}
-          <button
-            type="button"
-            onClick={toggleSelectAll}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold border transition cursor-pointer shrink-0 ${
-              allFilteredSelected
-                ? 'bg-purple-600 text-white border-purple-600 shadow-2xs'
-                : selectedKidIds.length > 0
-                ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 border-purple-200 dark:border-purple-800'
-                : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700'
-            }`}
-          >
-            {allFilteredSelected ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
-            <span>{selectedKidIds.length > 0 ? `${selectedKidIds.length}` : 'Select'}</span>
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0 ms-2">
+            <button
+              type="button"
+              onClick={toggleSelectAll}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer shrink-0 ${
+                allFilteredSelected
+                  ? 'bg-purple-600 text-white border-purple-600 shadow-2xs'
+                  : selectedKidIds.length > 0
+                  ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 border-purple-200 dark:border-purple-800'
+                  : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700'
+              }`}
+            >
+              {allFilteredSelected ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
+              <span>{selectedKidIds.length > 0 ? `${selectedKidIds.length}` : 'Select'}</span>
+            </button>
+          </div>
         </div>
 
-        {displayedKids.map((kid) => {
+        {mobileViewMode === 'list' ? (
+          <div className="divide-y divide-zinc-100 dark:divide-zinc-800/80 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-xs">
+            {displayedKids.map((kid) => {
+              const fatherPhone = kid.contacts?.fatherMob;
+              const motherPhone = kid.contacts?.motherMob;
+              const kidPhone = kid.contacts?.kidMob;
+              const primaryPhone = fatherPhone || motherPhone || kidPhone;
+              const isSelected = selectedKidIds.includes(kid.id);
+
+              return (
+                <div
+                  key={kid.id}
+                  className={`flex items-center justify-between p-3 gap-2.5 transition ${
+                    isSelected ? 'bg-purple-50/40 dark:bg-purple-950/30' : 'hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <button
+                      type="button"
+                      onClick={() => toggleSelectKid(kid.id)}
+                      className="p-1 -ms-1 text-zinc-400 hover:text-purple-600 shrink-0 cursor-pointer"
+                    >
+                      {isSelected ? (
+                        <CheckSquare className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                      ) : (
+                        <Square className="w-4 h-4 text-zinc-300 dark:text-zinc-600" />
+                      )}
+                    </button>
+
+                    <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 flex items-center justify-center border border-zinc-200 dark:border-zinc-700 shadow-2xs">
+                      {kid.info.photoUrl ? (
+                        <img src={kid.info.photoUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className={`w-full h-full flex items-center justify-center font-bold text-xs ${
+                          kid.info.gender === 'female' ? 'bg-rose-50 text-rose-600' : 'bg-teal-50 text-teal-600'
+                        }`}>
+                          {kid.info.fullName.charAt(0)}
+                        </span>
+                      )}
+                    </div>
+
+                    <div
+                      className="min-w-0 cursor-pointer flex-1"
+                      onClick={() => {
+                        setActiveKid(kid);
+                        setEditModalOpen(true);
+                      }}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
+                          {kid.info.fullName}
+                        </span>
+                        {kid.info.deacon && <span className="text-[10px] text-amber-500 font-bold shrink-0">✠</span>}
+                      </div>
+                      <p className="text-[10px] text-zinc-400 truncate">
+                        {kid.contacts?.fatherName ? `${kid.contacts.fatherName}` : (kid.address?.region || 'Sunday School')}
+                        {primaryPhone && ` • ${primaryPhone}`}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Actions Strip */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {primaryPhone && (
+                      <a
+                        href={`tel:${primaryPhone}`}
+                        className="p-2 rounded-xl text-blue-600 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 active:scale-95 transition"
+                        title={translate('phone')}
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                    {primaryPhone && (
+                      <a
+                        href={`https://wa.me/${String(primaryPhone).replace(/\+/g, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-2 rounded-xl text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 active:scale-95 transition"
+                        title="WhatsApp"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setKidsToPrint([kid]);
+                        setPrintModalOpen(true);
+                      }}
+                      className="p-2 rounded-xl text-zinc-400 hover:text-teal-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition cursor-pointer"
+                      title={translate('print_id_badge')}
+                    >
+                      <IdCard className="w-3.5 h-3.5" />
+                    </button>
+                    {canManageKid(kid) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveKid(kid);
+                          setEditModalOpen(true);
+                        }}
+                        className="p-2 rounded-xl text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition cursor-pointer"
+                        title={translate('edit')}
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          displayedKids.map((kid) => {
           const fatherPhone = kid.contacts?.fatherMob;
           const motherPhone = kid.contacts?.motherMob;
           const kidPhone = kid.contacts?.kidMob;
@@ -1191,7 +1316,8 @@ export const KidsDirectoryScreen: React.FC = () => {
               </div>
             </div>
           );
-        })}
+        })
+        )}
 
         {filteredKids.length > displayLimit && (
           <div className="flex items-center justify-center p-2">
