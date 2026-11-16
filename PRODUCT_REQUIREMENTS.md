@@ -934,15 +934,18 @@ Enables Sunday School servants and administrators to synchronize church contact 
 
 ## 39. Home Visits Mobile UI/UX Overhaul & Single-Line Pastoral Ergonomics
 
-*   **Compact Single-Line Mode Switcher:**
-    *   Streamlined tab labels (`[ 👥 Roster / المخدومين ]`, `[ ⏳ Timeline / السجل ]`, `[ ✨ Insights / إحصائيات ]`) side-by-side with `[ 🪟 Tiles | ☰ List ]` in a single line without text wrapping.
+*   **Compact 2-Tab Mobile Mode Switcher:**
+    *   On mobile viewports, displays strictly the 2 core operational tabs: `[ 👥 Roster / المخدومين ]` and `[ ⏳ Timeline / السجل ]` (with Insights preserved for desktop viewports `hidden sm:flex`).
+    *   Provides full horizontal breathing room for the `[ 🪟 Tiles | ☰ List ]` switcher on the exact same row with zero text wrapping or edge clipping.
 *   **Floating Action Button (FAB) Architecture:**
-    *   Moved `+ Log Home Visit` from a clunky header button into a thumb-level bottom-right circular FAB (`fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] end-4 z-40`), saving over 60px of vertical header space.
+    *   Moved `+ Log Home Visit` from a clunky header button into a thumb-level bottom-right circular FAB (`fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] end-4 z-40`), saving over 70px of vertical header space.
     *   `Export Excel` moved to desktop viewports (`hidden sm:flex`).
 *   **Polished Pastoral Contact Rows:**
-    *   **Avatar Health Rings:** 38px circular avatars bordered with colored status rings (🟢 Green $\le 30$d, 🟡 Amber $31-60$d, 🔴 Red $>60$d, ⚪ Gray never).
-    *   **Localized Status Subtitles:** Bilingual elapsed time labels (`🟢 منذ 12 يوم • روكسي` / `🔴 متأخر (منذ 65 يوم) • روكسي` / `⚪ لم يفتقد هذا العام`).
-    *   **1-Tap Direct Touch Targets:** Dedicated Phone Call (`[ 📞 ]`), WhatsApp Check-in (`[ 💬 ]`), Google/Apple Maps GPS Navigation (`[ 🚗 ]`), and Log Visit (`[ + ]`).
+    *   **Elimination of Repetitive Noise & Stray Glyphs:** Removed the unaligned floating grey dot and eliminated repetitive *"Never Visited"* placeholders on unvisited students, giving 70% of the row width to the student's name and residential location.
+    *   **Prominent Address & Landmark:** Displays the registered residence area / street first with a `📍` pin (e.g. `📍 روكسي (مربعات الكنيسة)`).
+    *   **Active Status Badges:** Appends care elapsed time only when actual interaction exists (e.g. `• 12d ago`), alongside bold colored warning markers (`⚠️` for overdue, `✓` for recently visited).
+    *   **Avatar Care Rings:** 40px circular avatars with status-reactive rings (🟢 Green $\le 30$d, 🟡 Amber $31-60$d, 🔴 Red $>60$d) and clean initials fallback.
+    *   **2 High-Value Direct Touch Targets:** Streamlined right-hand action targets to Phone Call (`[ 📞 ]`) and WhatsApp (`[ 💬 ]`) (with `[ 🚗 ]` for direct GPS navigation when coordinates exist), removing the redundant per-row `+` button in favor of the bottom FAB. Tapping the row directly opens the student's full interaction log modal.
 
 
 

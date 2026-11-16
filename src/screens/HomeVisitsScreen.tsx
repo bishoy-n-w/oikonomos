@@ -516,7 +516,7 @@ export const HomeVisitsScreen: React.FC = () => {
             <button
               type="button"
               onClick={() => setViewMode('insights')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+              className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
                 viewMode === 'insights'
                   ? 'bg-white dark:bg-zinc-900 text-teal-600 dark:text-teal-400 shadow-xs'
                   : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
@@ -647,25 +647,13 @@ export const HomeVisitsScreen: React.FC = () => {
             <div className="sm:hidden divide-y divide-zinc-100 dark:divide-zinc-800/80 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-xs">
               {filteredRoster.map(({ kid, status, daysAgo }) => {
                 const targetPhone = kid.contacts?.fatherMob || kid.contacts?.motherMob || kid.contacts?.kidMob;
+                const regionOrAddress = kid.address?.region || kid.address?.street;
 
                 const statusColorRing = 
                   status === 'overdue_for_visit' ? 'ring-2 ring-rose-500' :
                   status === 'due_for_visit' ? 'ring-2 ring-amber-500' :
                   status === 'recently_visited' ? 'ring-2 ring-emerald-500' :
-                  'ring-1 ring-zinc-300 dark:ring-zinc-700';
-
-                const statusDotColor = 
-                  status === 'overdue_for_visit' ? 'bg-rose-500' :
-                  status === 'due_for_visit' ? 'bg-amber-500' :
-                  status === 'recently_visited' ? 'bg-emerald-500' :
-                  'bg-zinc-400';
-
-                const statusLabel = 
-                  daysAgo === Infinity 
-                    ? translate('never_visited')
-                    : daysAgo === 0 
-                    ? translate('today') 
-                    : `${daysAgo} ${translate('days_ago')}`;
+                  '';
 
                 return (
                   <div
@@ -684,10 +672,12 @@ export const HomeVisitsScreen: React.FC = () => {
                         {kid.info.photoUrl ? (
                           <img src={kid.info.photoUrl} alt="" className="w-full h-full object-cover" />
                         ) : (
-                          <span className={`w-full h-full flex items-center justify-center font-bold text-xs ${
-                            kid.info.gender === 'female' ? 'bg-rose-50 text-rose-600' : 'bg-teal-50 text-teal-600'
+                          <span className={`w-full h-full flex items-center justify-center font-bold text-xs select-none ${
+                            kid.info.gender === 'female' 
+                              ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400' 
+                              : 'bg-teal-50 text-teal-600 dark:bg-teal-950/50 dark:text-teal-400'
                           }`}>
-                            {kid.info.fullName.charAt(0)}
+                            {kid.info.fullName ? kid.info.fullName.trim().charAt(0) : '?'}
                           </span>
                         )}
                       </div>
@@ -697,16 +687,29 @@ export const HomeVisitsScreen: React.FC = () => {
                           <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
                             {kid.info.fullName}
                           </span>
-                          <span className={`w-2 h-2 rounded-full shrink-0 ${statusDotColor}`} />
+                          {status === 'overdue_for_visit' && (
+                            <span className="text-[10px] text-rose-600 font-bold shrink-0">⚠️</span>
+                          )}
+                          {status === 'recently_visited' && (
+                            <span className="text-[10px] text-emerald-600 font-bold shrink-0">✓</span>
+                          )}
                         </div>
-                        <p className="text-[10px] text-zinc-400 truncate mt-0.5">
-                          <span className="font-semibold">{statusLabel}</span>
-                          {kid.address?.region && ` • ${kid.address.region}`}
+                        <p className="text-[11px] text-zinc-400 truncate mt-0.5">
+                          {regionOrAddress ? (
+                            <span>📍 {regionOrAddress}</span>
+                          ) : (
+                            <span className="italic">{translate('address_group')}</span>
+                          )}
+                          {daysAgo !== Infinity && (
+                            <span className="ms-1.5 font-medium text-zinc-500 dark:text-zinc-400">
+                              • {daysAgo === 0 ? translate('today') : `${daysAgo}d ago`}
+                            </span>
+                          )}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       {targetPhone && (
                         <a
                           href={`tel:${targetPhone}`}
@@ -737,20 +740,6 @@ export const HomeVisitsScreen: React.FC = () => {
                         >
                           <Navigation className="w-3.5 h-3.5" />
                         </a>
-                      )}
-                      {canEdit && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPreselectedKidId(kid.id);
-                            setEditingVisit(null);
-                            setLogModalOpen(true);
-                          }}
-                          className="p-2 rounded-xl text-zinc-500 hover:text-teal-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
-                          title="Log Visit"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
                       )}
                     </div>
                   </div>
