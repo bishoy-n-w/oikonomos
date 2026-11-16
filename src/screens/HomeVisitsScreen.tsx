@@ -35,7 +35,8 @@ import {
   MessageSquare,
   Sparkles,
   ExternalLink,
-  Navigation
+  Navigation,
+  Phone
 } from 'lucide-react';
 import { MobileViewToggle } from '../components/common/MobileViewToggle';
 import * as XLSX from 'xlsx';
@@ -546,8 +547,8 @@ export const HomeVisitsScreen: React.FC = () => {
           />
         </div>
 
-        {/* Right: Actions */}
-        <div className="flex items-center gap-2">
+        {/* Right: Desktop Actions (Export & Log Visit) */}
+        <div className="hidden sm:flex items-center gap-2">
           <button
             type="button"
             onClick={handleExportExcel}
@@ -646,15 +647,40 @@ export const HomeVisitsScreen: React.FC = () => {
             <div className="sm:hidden divide-y divide-zinc-100 dark:divide-zinc-800/80 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-xs">
               {filteredRoster.map(({ kid, status, daysAgo }) => {
                 const targetPhone = kid.contacts?.fatherMob || kid.contacts?.motherMob || kid.contacts?.kidMob;
-                const statusDot = status === 'overdue_for_visit' ? 'bg-rose-500' : status === 'due_for_visit' ? 'bg-amber-500' : status === 'recently_visited' ? 'bg-emerald-500' : 'bg-zinc-400';
+
+                const statusColorRing = 
+                  status === 'overdue_for_visit' ? 'ring-2 ring-rose-500' :
+                  status === 'due_for_visit' ? 'ring-2 ring-amber-500' :
+                  status === 'recently_visited' ? 'ring-2 ring-emerald-500' :
+                  'ring-1 ring-zinc-300 dark:ring-zinc-700';
+
+                const statusDotColor = 
+                  status === 'overdue_for_visit' ? 'bg-rose-500' :
+                  status === 'due_for_visit' ? 'bg-amber-500' :
+                  status === 'recently_visited' ? 'bg-emerald-500' :
+                  'bg-zinc-400';
+
+                const statusLabel = 
+                  daysAgo === Infinity 
+                    ? translate('never_visited')
+                    : daysAgo === 0 
+                    ? translate('today') 
+                    : `${daysAgo} ${translate('days_ago')}`;
 
                 return (
                   <div
                     key={kid.id}
                     className="flex items-center justify-between p-3 gap-2.5 transition hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40"
                   >
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                      <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 flex items-center justify-center border border-zinc-200 dark:border-zinc-700 shadow-2xs">
+                    <div 
+                      className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
+                      onClick={() => {
+                        setPreselectedKidId(kid.id);
+                        setEditingVisit(null);
+                        setLogModalOpen(true);
+                      }}
+                    >
+                      <div className={`w-10 h-10 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center border border-zinc-200 dark:border-zinc-700 shadow-2xs ${statusColorRing}`}>
                         {kid.info.photoUrl ? (
                           <img src={kid.info.photoUrl} alt="" className="w-full h-full object-cover" />
                         ) : (
@@ -671,25 +697,23 @@ export const HomeVisitsScreen: React.FC = () => {
                           <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
                             {kid.info.fullName}
                           </span>
-                          <span className={`w-2 h-2 rounded-full shrink-0 ${statusDot}`} />
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${statusDotColor}`} />
                         </div>
-                        <p className="text-[10px] text-zinc-400 truncate">
-                          {daysAgo === Infinity ? translate('never_visited') : `${daysAgo}d ago`}
+                        <p className="text-[10px] text-zinc-400 truncate mt-0.5">
+                          <span className="font-semibold">{statusLabel}</span>
                           {kid.address?.region && ` • ${kid.address.region}`}
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-1 shrink-0">
-                      {kid.address?.geoLocation && (
+                      {targetPhone && (
                         <a
-                          href={getUniversalNavigationUrl(kid.address.geoLocation, `${kid.address.building || ''} ${kid.address.street || ''} ${kid.address.region || ''}`)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="p-2 rounded-xl text-teal-600 bg-teal-50 dark:bg-teal-950/60 hover:bg-teal-100 active:scale-95 transition"
-                          title="GPS Navigation"
+                          href={`tel:${targetPhone}`}
+                          className="p-2 rounded-xl text-blue-600 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 active:scale-95 transition"
+                          title={translate('call_parent')}
                         >
-                          <Navigation className="w-3.5 h-3.5" />
+                          <Phone className="w-3.5 h-3.5" />
                         </a>
                       )}
                       {targetPhone && (
@@ -703,6 +727,17 @@ export const HomeVisitsScreen: React.FC = () => {
                           <MessageSquare className="w-3.5 h-3.5" />
                         </a>
                       )}
+                      {kid.address?.geoLocation && (
+                        <a
+                          href={getUniversalNavigationUrl(kid.address.geoLocation, `${kid.address.building || ''} ${kid.address.street || ''} ${kid.address.region || ''}`)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-2 rounded-xl text-teal-600 bg-teal-50 dark:bg-teal-950/60 hover:bg-teal-100 active:scale-95 transition"
+                          title={translate('navigate')}
+                        >
+                          <Navigation className="w-3.5 h-3.5" />
+                        </a>
+                      )}
                       {canEdit && (
                         <button
                           type="button"
@@ -711,7 +746,7 @@ export const HomeVisitsScreen: React.FC = () => {
                             setEditingVisit(null);
                             setLogModalOpen(true);
                           }}
-                          className="p-2 rounded-xl text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
+                          className="p-2 rounded-xl text-zinc-500 hover:text-teal-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
                           title="Log Visit"
                         >
                           <Plus className="w-3.5 h-3.5" />
@@ -1194,6 +1229,23 @@ export const HomeVisitsScreen: React.FC = () => {
           misters={misters}
           currentServantEmail={user?.email || undefined}
         />
+      )}
+
+      {/* Mobile Floating Action Button (FAB) for Logging a Visit (< sm) */}
+      {canEdit && (
+        <button
+          type="button"
+          onClick={() => {
+            setPreselectedKidId(undefined);
+            setEditingVisit(null);
+            setLogModalOpen(true);
+          }}
+          className="sm:hidden fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] end-4 z-40 w-14 h-14 rounded-full bg-teal-600 text-white shadow-xl shadow-teal-900/30 flex items-center justify-center active:scale-90 transition hover:bg-teal-700 cursor-pointer"
+          title={translate('log_visit')}
+          aria-label={translate('log_visit')}
+        >
+          <Plus className="w-6 h-6 stroke-[2.5]" />
+        </button>
       )}
     </div>
   );

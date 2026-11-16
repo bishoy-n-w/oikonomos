@@ -910,23 +910,40 @@ Enables Sunday School servants and administrators to synchronize church contact 
 
 ---
 
-## 37. Sunday School Ministry Operational Quick Filters (فلاتر الافتقاد والخدمة السريعة)
+## 37. Sunday School Dynamic Class & Ministry Quick Filters (فلاتر الفصول والخدمة الديناميكية)
 
-*   **Pastoral Reality Alignment:**
-    *   Replaced naive demographic chips (e.g. `Male`/`Female`/`Deacon`, which are often redundant within single-gender service groups like "أعدادي ولاد") with 4 high-value pastoral operational filters.
-*   **Ministry Quick Filter Presets:**
-    1.  **`[ ⚠️ Needs Follow-up / يحتاج افتقاد ]`:**
-        *   Instantly isolates students who have active pastoral follow-up notes or require care. Servants can tap this on meeting mornings to immediately see who needs a check-in or visit.
-    2.  **`[ 🎂 Birthdays / أعياد ميلاد الشهر ]`:**
-        *   Filters students celebrating their birthdays in the current calendar month (`dobMonth === currentMonth`). Allows servants to prepare birthday greetings, gifts, and celebrate them in class.
-    3.  **`[ ❓ Unassigned / غير مسكّن ]`:**
-        *   Filters students in the church/service group who are **not currently enrolled in any class** (`!activeAssignment.classId`). Essential for service supervisors and coordinators during roster organization at the start of the academic year.
-    4.  **`[ 📞 Missing Phone / بدون هاتف ]`:**
-        *   Flags student profiles that have no emergency or contact phone numbers registered (`no fatherMob, motherMob, kidMob, or otherMob`). Allows servants to collect phone numbers on the spot during attendance roll-call.
-    5.  **`[ All / الكل ]`:**
-        *   Resets the quick filter back to the complete classroom or group roster.
-*   **Bilingual Localization:**
-    *   Full English and Arabic translations registered in `i18n.ts` (`filter_all`, `filter_needs_care`, `filter_birthdays_month`, `filter_unassigned`, `filter_missing_phone`).
+*   **Context-Aware Dynamic Quick Filters (Option A):**
+    *   **Group View Mode:** When a Service Group (e.g. *"أعدادى ولاد"*) is selected without a specific class, the quick filter chips dynamically populate with the **exact classrooms/grades** belonging to that group (e.g. `[ أولى إعدادي ]`, `[ تانية إعدادي ]`, `[ تالتة إعدادي ]`), allowing immediate 1-tap switching between grades without opening dropdowns.
+    *   **Ministry Sub-Filters:** Complemented by pastoral ministry chips:
+        *   `[ ✠ Deacons / الشمامسة ]`: Filters students consecrated as deacons (`kid.info.deacon === true`).
+        *   `[ 🎂 Birthdays / أعياد ميلاد الشهر ]`: Filters students celebrating birthdays in the current calendar month.
+        *   `[ 📞 Missing Phone / بدون هاتف ]`: Isolates students lacking registered contact numbers for rapid on-the-spot data collection.
+        *   `[ All / الكل ]`: Resets back to the full service group or classroom roster.
+
+---
+
+## 38. Attendance Tracker Intelligent Session Auto-Scroll & Today Defaulting
+
+*   **Smart Session Selection:**
+    *   Automatically selects today's active session (`eventDate === todayDateStr`) on initial screen load.
+    *   If today is a non-meeting day (e.g. weekday), it dynamically selects the **closest upcoming session** (e.g. next Sunday), falling back to the most recent past session if all sessions are past—completely eliminating accidental jumps to the end of the academic year.
+*   **Automatic Ribbon Centering:**
+    *   Smoothly scrolls and centers the active session pill in the timeline ribbon (`scrollIntoView({ inline: 'center', behavior: 'smooth' })`) on component mount and whenever a classroom is selected.
+
+---
+
+## 39. Home Visits Mobile UI/UX Overhaul & Single-Line Pastoral Ergonomics
+
+*   **Compact Single-Line Mode Switcher:**
+    *   Streamlined tab labels (`[ 👥 Roster / المخدومين ]`, `[ ⏳ Timeline / السجل ]`, `[ ✨ Insights / إحصائيات ]`) side-by-side with `[ 🪟 Tiles | ☰ List ]` in a single line without text wrapping.
+*   **Floating Action Button (FAB) Architecture:**
+    *   Moved `+ Log Home Visit` from a clunky header button into a thumb-level bottom-right circular FAB (`fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] end-4 z-40`), saving over 60px of vertical header space.
+    *   `Export Excel` moved to desktop viewports (`hidden sm:flex`).
+*   **Polished Pastoral Contact Rows:**
+    *   **Avatar Health Rings:** 38px circular avatars bordered with colored status rings (🟢 Green $\le 30$d, 🟡 Amber $31-60$d, 🔴 Red $>60$d, ⚪ Gray never).
+    *   **Localized Status Subtitles:** Bilingual elapsed time labels (`🟢 منذ 12 يوم • روكسي` / `🔴 متأخر (منذ 65 يوم) • روكسي` / `⚪ لم يفتقد هذا العام`).
+    *   **1-Tap Direct Touch Targets:** Dedicated Phone Call (`[ 📞 ]`), WhatsApp Check-in (`[ 💬 ]`), Google/Apple Maps GPS Navigation (`[ 🚗 ]`), and Log Visit (`[ + ]`).
+
 
 
 

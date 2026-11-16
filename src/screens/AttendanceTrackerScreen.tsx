@@ -273,12 +273,16 @@ export const AttendanceTrackerScreen: React.FC = () => {
 
       setEvents(items);
 
-      // Select today's event or closest event if none selected
+      // Select today's event or closest upcoming/recent event by default
       if (items.length > 0) {
         const todayEvt = items.find((e) => e.eventDate === todayDateStr);
+        const closestUpcoming = items.find((e) => e.eventDate > todayDateStr);
+        const pastEvts = items.filter((e) => e.eventDate < todayDateStr);
+        const fallbackTarget = todayEvt || closestUpcoming || (pastEvts.length > 0 ? pastEvts[pastEvts.length - 1] : items[0]);
+
         setSelectedEventId((prev) => {
           if (prev && items.some((e) => e.id === prev)) return prev;
-          return todayEvt ? todayEvt.id : items[items.length - 1].id;
+          return fallbackTarget.id;
         });
       } else {
         setSelectedEventId(null);
@@ -287,6 +291,18 @@ export const AttendanceTrackerScreen: React.FC = () => {
 
     return () => unsubEvents();
   }, [selectedChurchId, selectedClassId, selectedAcademicYearId, todayDateStr]);
+
+  // Auto-scroll timeline ribbon to center the active session on load & selection
+  useEffect(() => {
+    if (!selectedEventId) return;
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`ribbon_evt_${selectedEventId}`);
+      if (el && ribbonRef.current) {
+        el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [selectedEventId]);
 
   // Active event
   const selectedEvent = events.find((e) => e.id === selectedEventId) || null;

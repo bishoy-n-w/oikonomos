@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, getDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
@@ -86,8 +86,22 @@ export const KidsDirectoryScreen: React.FC = () => {
 
   // Mobile Search & Ministry Quick Filter state
   const [mobileSearchQuery, setMobileSearchQuery] = useState('');
-  const [mobileQuickFilter, setMobileQuickFilter] = useState<'all' | 'needs_care' | 'birthdays' | 'unassigned' | 'missing_phone'>('all');
+  const [mobileQuickFilter, setMobileQuickFilter] = useState<string>('all');
   const [expandedKidDetails, setExpandedKidDetails] = useState<Record<string, boolean>>({});
+
+  // Reset mobile quick filter when service group or class filter changes
+  useEffect(() => {
+    setMobileQuickFilter('all');
+  }, [selectedServiceGroupId, selectedClassId]);
+
+  // Available classes in currently selected Service Group (for dynamic quick-filter chips)
+  const availableClassesInGroup = useMemo(() => {
+    if (!selectedServiceGroupId) return [];
+    return classesList.filter((c) => {
+      const yearData = selectedAcademicYearId ? c.academicYears?.[selectedAcademicYearId] : Object.values(c.academicYears || {})[0];
+      return yearData?.serviceGroupId === selectedServiceGroupId;
+    });
+  }, [classesList, selectedServiceGroupId, selectedAcademicYearId]);
 
   // Modals
   const [syncModalOpen, setSyncModalOpen] = useState(false);
@@ -335,10 +349,12 @@ export const KidsDirectoryScreen: React.FC = () => {
       }
     }
 
-    // Mobile Ministry Quick Filters
-    if (mobileQuickFilter === 'needs_care') {
-      const hasNotes = Boolean(kid.notes && kid.notes.trim());
-      if (!hasNotes) return false;
+    // Mobile Ministry & Dynamic Class Quick Filters
+    if (mobileQuickFilter.startsWith('class:')) {
+      const targetClassId = mobileQuickFilter.replace('class:', '');
+      if (asgn.classId !== targetClassId && kid.classId !== targetClassId) return false;
+    } else if (mobileQuickFilter === 'deacon') {
+      if (!kid.info?.deacon) return false;
     } else if (mobileQuickFilter === 'birthdays') {
       const dobStr = normalizeDateStr(kid.info?.dob);
       if (!dobStr) return false;
@@ -346,9 +362,6 @@ export const KidsDirectoryScreen: React.FC = () => {
       const dobMonth = parseInt(parts[1], 10);
       const currentMonth = new Date().getMonth() + 1;
       if (dobMonth !== currentMonth) return false;
-    } else if (mobileQuickFilter === 'unassigned') {
-      const isUnassigned = !asgn.classId && !kid.classId;
-      if (!isUnassigned) return false;
     } else if (mobileQuickFilter === 'missing_phone') {
       const hasPhone = Boolean(
         kid.contacts?.fatherMob?.trim() ||
@@ -912,29 +925,81 @@ export const KidsDirectoryScreen: React.FC = () => {
           )}
         </div>
 
-        {/* Mobile Ministry Quick Filter Chips & Selection Bar */}
+        {/* Mobile Ministry & Dynamic Class Filter Chips */}
         <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1 text-xs no-scrollbar">
           <div className="flex items-center gap-1.5 shrink-0">
-            {[
-              { id: 'all', label: translate('filter_all') || 'All' },
-              { id: 'needs_care', label: `⚠️ ${translate('filter_needs_care') || 'Needs Follow-up'}` },
-              { id: 'birthdays', label: `🎂 ${translate('filter_birthdays_month') || 'Birthdays'}` },
-              { id: 'unassigned', label: `❓ ${translate('filter_unassigned') || 'Unassigned'}` },
-              { id: 'missing_phone', label: `📞 ${translate('filter_missing_phone') || 'Missing Phone'}` },
-            ].map((chip) => (
-              <button
-                key={chip.id}
-                type="button"
-                onClick={() => setMobileQuickFilter(chip.id as any)}
-                className={`px-3 py-1.5 rounded-xl font-bold transition cursor-pointer shrink-0 ${
-                  mobileQuickFilter === chip.id
-                    ? 'bg-teal-600 text-white shadow-2xs'
-                    : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50'
-                }`}
-              >
-                {chip.label}
-              </button>
-            ))}
+            {/* 'All' Chip */}
+            <button
+              type="button"
+              onClick={() => setMobileQuickFilter('all')}
+              className={`px-3 py-1.5 rounded-xl font-bold transition cursor-pointer shrink-0 ${
+                mobileQuickFilter === 'all'
+                  ? 'bg-teal-600 text-white shadow-2xs'
+                  : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50'
+              }`}
+            >
+              {translate('filter_all') || 'All'}
+            </button>
+
+            {/* Dynamic Class Chips when a Service Group is selected and no specific class is chosen */}
+            {selectedServiceGroupId && !selectedClassId && availableClassesInGroup.map((cls) => {
+              const chipId = `class:${cls.id}`;
+              const yearData = selectedAcademicYearId ? cls.academicYears?.[selectedAcademicYearId] : Object.values(cls.academicYears || {})[0];
+              const label = yearData?.displayName || yearData?.name || cls.id;
+              return (
+                <button
+                  key={chipId}
+                  type="button"
+                  onClick={() => setMobileQuickFilter(mobileQuickFilter === chipId ? 'all' : chipId)}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition cursor-pointer shrink-0 ${
+                    mobileQuickFilter === chipId
+                      ? 'bg-teal-600 text-white shadow-2xs'
+                      : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+
+            {/* Deacons Chip */}
+            <button
+              type="button"
+              onClick={() => setMobileQuickFilter(mobileQuickFilter === 'deacon' ? 'all' : 'deacon')}
+              className={`px-3 py-1.5 rounded-xl font-bold transition cursor-pointer shrink-0 ${
+                mobileQuickFilter === 'deacon'
+                  ? 'bg-amber-600 text-white shadow-2xs'
+                  : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50'
+              }`}
+            >
+              ✠ {translate('filter_deacons') || 'Deacons'}
+            </button>
+
+            {/* Birthdays this month Chip */}
+            <button
+              type="button"
+              onClick={() => setMobileQuickFilter(mobileQuickFilter === 'birthdays' ? 'all' : 'birthdays')}
+              className={`px-3 py-1.5 rounded-xl font-bold transition cursor-pointer shrink-0 ${
+                mobileQuickFilter === 'birthdays'
+                  ? 'bg-purple-600 text-white shadow-2xs'
+                  : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50'
+              }`}
+            >
+              🎂 {translate('filter_birthdays_month') || 'Birthdays'}
+            </button>
+
+            {/* Missing Phone Chip */}
+            <button
+              type="button"
+              onClick={() => setMobileQuickFilter(mobileQuickFilter === 'missing_phone' ? 'all' : 'missing_phone')}
+              className={`px-3 py-1.5 rounded-xl font-bold transition cursor-pointer shrink-0 ${
+                mobileQuickFilter === 'missing_phone'
+                  ? 'bg-rose-600 text-white shadow-2xs'
+                  : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50'
+              }`}
+            >
+              📞 {translate('filter_missing_phone') || 'Missing Phone'}
+            </button>
           </div>
 
           {/* Master Select All Button on Mobile */}
