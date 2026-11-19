@@ -604,6 +604,10 @@ describe('Smart Import & Bulk Operations Logic', () => {
     });
 
     it('normalizes schoolType values accurately and preserves custom types', () => {
+      expect(normalizeSchoolTypeValue('International', '', false)).toBe('International');
+      expect(normalizeSchoolTypeValue('international', '', false)).toBe('International');
+      expect(normalizeSchoolTypeValue('National', '', false)).toBe('National');
+      expect(normalizeSchoolTypeValue('national', '', false)).toBe('National');
       expect(normalizeSchoolTypeValue('لغات', '', false)).toBe('National');
       expect(normalizeSchoolTypeValue('تجريبي', '', false)).toBe('National');
       expect(normalizeSchoolTypeValue('عربي', '', false)).toBe('National');

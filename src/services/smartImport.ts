@@ -833,76 +833,13 @@ export async function executeImportBatch(
       }
 
       // Normalize schoolType with optional auto-detection from school name
-      let finalSchoolType = String(record.schoolType || defaultValues?.schoolType || '').trim();
-      const isAutoDetect = finalSchoolType === 'auto' || (!finalSchoolType && defaultValues?.schoolType === 'auto');
-
-      if (isAutoDetect) {
-        const schoolSource = String(record.school || record.schoolType || '').toLowerCase();
-        if (
-          schoolSource.includes('international') ||
-          schoolSource.includes('انترناشونال') ||
-          schoolSource.includes('دولي') ||
-          schoolSource.includes('امريكان') ||
-          schoolSource.includes('أمريكان') ||
-          schoolSource.includes('american') ||
-          schoolSource.includes('بريطاني') ||
-          schoolSource.includes('british') ||
-          schoolSource.includes('french') ||
-          schoolSource.includes('فرنسي') ||
-          schoolSource.includes('german') ||
-          schoolSource.includes('ألماني') ||
-          /\b(ig|ib|igcse)\b/i.test(schoolSource)
-        ) {
-          finalSchoolType = 'International';
-        } else if (
-          schoolSource.includes('national') ||
-          schoolSource.includes('ناشونال') ||
-          schoolSource.includes('حكومي') ||
-          schoolSource.includes('تجريبي') ||
-          schoolSource.includes('لغات') ||
-          schoolSource.includes('عربي') ||
-          schoolSource.includes('خاص') ||
-          schoolSource.includes('قومية') ||
-          schoolSource.includes('قومي') ||
-          schoolSource.includes('راهبات')
-        ) {
-          finalSchoolType = 'National';
-        } else {
-          finalSchoolType = '';
-        }
-      } else if (finalSchoolType) {
-        const lowerSt = finalSchoolType.toLowerCase();
-        if (
-          lowerSt.includes('national') ||
-          lowerSt.includes('ناشونال') ||
-          lowerSt.includes('حكومي') ||
-          lowerSt.includes('تجريبي') ||
-          lowerSt.includes('لغات') ||
-          lowerSt.includes('عربي') ||
-          lowerSt.includes('خاص') ||
-          lowerSt.includes('قومية') ||
-          lowerSt.includes('قومي') ||
-          lowerSt.includes('راهبات')
-        ) {
-          finalSchoolType = 'National';
-        } else if (
-          lowerSt.includes('international') ||
-          lowerSt.includes('انترناشونال') ||
-          lowerSt.includes('دولي') ||
-          lowerSt.includes('امريكان') ||
-          lowerSt.includes('أمريكان') ||
-          lowerSt.includes('american') ||
-          lowerSt.includes('بريطاني') ||
-          lowerSt.includes('british') ||
-          lowerSt.includes('french') ||
-          lowerSt.includes('فرنسي') ||
-          lowerSt.includes('german') ||
-          lowerSt.includes('ألماني') ||
-          /\b(ig|ib|igcse)\b/i.test(lowerSt)
-        ) {
-          finalSchoolType = 'International';
-        }
-      }
+      const rawSchoolType = String(record.schoolType || defaultValues?.schoolType || '').trim();
+      const isAutoDetect = rawSchoolType === 'auto' || (!rawSchoolType && defaultValues?.schoolType === 'auto');
+      const finalSchoolType = normalizeSchoolTypeValue(
+        rawSchoolType === 'auto' ? '' : rawSchoolType,
+        record.school,
+        isAutoDetect
+      );
 
       // Parse deacon (boolean)
       let parsedDeacon: boolean | undefined = undefined;
