@@ -412,9 +412,19 @@ export const ClassesScreen: React.FC = () => {
                     <span className={`w-2 h-2 rounded-full shrink-0 ${cls.active !== false ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
-                          {yearData.displayName || cls.id}
-                        </span>
+                        {canEditClass(cls.id) ? (
+                          <button
+                            type="button"
+                            onClick={() => setEditClass(cls)}
+                            className="font-bold text-xs text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start truncate"
+                          >
+                            {yearData.displayName || cls.id}
+                          </button>
+                        ) : (
+                          <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
+                            {yearData.displayName || cls.id}
+                          </span>
+                        )}
                         {gradeItem && (
                           <span className="text-[9px] font-mono font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950 px-1 py-0.2 rounded border border-teal-200 dark:border-teal-800 shrink-0">
                             #{yearData.gradeId}
@@ -488,9 +498,19 @@ export const ClassesScreen: React.FC = () => {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-extrabold text-base text-zinc-900 dark:text-zinc-100">
-                      {yearData.displayName || cls.id}
-                    </h3>
+                    {canEditClass(cls.id) ? (
+                      <button
+                        type="button"
+                        onClick={() => setEditClass(cls)}
+                        className="font-extrabold text-base text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start"
+                      >
+                        {yearData.displayName || cls.id}
+                      </button>
+                    ) : (
+                      <h3 className="font-extrabold text-base text-zinc-900 dark:text-zinc-100">
+                        {yearData.displayName || cls.id}
+                      </h3>
+                    )}
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
                       cls.active !== false
                         ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
@@ -634,8 +654,20 @@ export const ClassesScreen: React.FC = () => {
                     </td>
 
                     {/* 2. DisplayName */}
-                    <td className="px-6 py-4 font-bold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
-                      {yearData.displayName || yearData.name || cls.id}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {canEditClass(cls.id) ? (
+                        <button
+                          type="button"
+                          onClick={() => setEditClass(cls)}
+                          className="font-bold text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer transition text-start truncate block max-w-xs"
+                        >
+                          {yearData.displayName || yearData.name || cls.id}
+                        </button>
+                      ) : (
+                        <span className="font-bold text-zinc-900 dark:text-zinc-100">
+                          {yearData.displayName || yearData.name || cls.id}
+                        </span>
+                      )}
                     </td>
 
                     {/* 3. ServiceGroupId DisplayName */}

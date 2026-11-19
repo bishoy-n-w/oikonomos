@@ -66,6 +66,7 @@ export const ChurchesScreen: React.FC = () => {
   const [isCreatingChurch, setIsCreatingChurch] = useState(false);
 
   const isOwner = userRole === 'owner';
+  const isAdmin = userRole === 'Admin' || userRole === 'owner';
 
   // Dismiss modals on Escape key without saving
   useModalEscape(() => setEditChurch(null), !!editChurch && !gradesModalChurch);
@@ -420,9 +421,22 @@ export const ChurchesScreen: React.FC = () => {
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
-                          {church.displayName}
-                        </span>
+                        {isAdmin ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditChurch(church);
+                              setEditLogoUrl(church.logoUrl);
+                            }}
+                            className="font-bold text-xs text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start truncate"
+                          >
+                            {church.displayName}
+                          </button>
+                        ) : (
+                          <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
+                            {church.displayName}
+                          </span>
+                        )}
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${church.active ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
                       </div>
                       <p className="text-[10px] text-zinc-400 truncate">
@@ -482,9 +496,22 @@ export const ChurchesScreen: React.FC = () => {
                     </div>
                   )}
                   <div>
-                    <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
-                      {church.displayName}
-                    </h3>
+                    {isAdmin ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditChurch(church);
+                          setEditLogoUrl(church.logoUrl);
+                        }}
+                        className="font-bold text-sm text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start"
+                      >
+                        {church.displayName}
+                      </button>
+                    ) : (
+                      <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
+                        {church.displayName}
+                      </h3>
+                    )}
                     <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
                       church.active
                         ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
@@ -595,21 +622,47 @@ export const ChurchesScreen: React.FC = () => {
                     </td>
 
                     {/* 2. DisplayName with Logo */}
-                    <td className="px-6 py-4 font-bold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
-                      <div className="flex items-center gap-2.5">
-                        {church.logoUrl ? (
-                          <img
-                            src={church.logoUrl}
-                            alt={church.displayName}
-                            className="w-8 h-8 rounded-xl object-cover border border-zinc-200 dark:border-zinc-700 shrink-0 shadow-2xs"
-                          />
-                        ) : (
-                          <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold text-xs shrink-0">
-                            {church.displayName.slice(0, 2).toUpperCase()}
-                          </div>
-                        )}
-                        <span>{church.displayName}</span>
-                      </div>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {isAdmin ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditChurch(church);
+                            setEditLogoUrl(church.logoUrl);
+                          }}
+                          className="flex items-center gap-2.5 text-start hover:text-teal-600 dark:hover:text-teal-400 group cursor-pointer transition"
+                        >
+                          {church.logoUrl ? (
+                            <img
+                              src={church.logoUrl}
+                              alt={church.displayName}
+                              className="w-8 h-8 rounded-xl object-cover border border-zinc-200 dark:border-zinc-700 shrink-0 shadow-2xs group-hover:ring-2 group-hover:ring-teal-500/30"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold text-xs shrink-0 group-hover:bg-teal-100">
+                              {church.displayName.slice(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                          <span className="font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 group-hover:underline">
+                            {church.displayName}
+                          </span>
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-2.5 font-bold text-zinc-900 dark:text-zinc-100">
+                          {church.logoUrl ? (
+                            <img
+                              src={church.logoUrl}
+                              alt={church.displayName}
+                              className="w-8 h-8 rounded-xl object-cover border border-zinc-200 dark:border-zinc-700 shrink-0 shadow-2xs"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold text-xs shrink-0">
+                              {church.displayName.slice(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                          <span>{church.displayName}</span>
+                        </div>
+                      )}
                     </td>
 
                     {/* 3. ActiveAcademicYear DisplayName */}

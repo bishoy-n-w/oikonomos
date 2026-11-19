@@ -1000,6 +1000,22 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   Initialized `mistersMap` in `EditServiceGroupModal` by defensively merging `group.misters`, `group.admins`, and `group.servants` with lowercase trimmed emails.
     *   Normalized email comparisons across `ServantsDirectoryScreen.tsx` group filters to ensure servants appear in their assigned service groups regardless of casing differences.
 
+---
+
+## 43. Universal Click-to-Edit Entity Names Across All Directories & Views
+
+*   **Fitts's Law Alignment & 1-Click Access:**
+    *   Unified the click-to-edit mental model established in the Kids Directory across all remaining screens. Clicking any entity name or primary visual icon opens its edit/settings modal directly, eliminating the need to scroll across wide desktop viewports to reach the right-hand action column.
+*   **Per-Screen Implementation:**
+    *   **Classes Screen (`ClassesScreen.tsx`):** Class names in the desktop table, mobile list, and mobile cards are clickable buttons opening `EditClassModal` (governed by `canEditClass(cls.id)`).
+    *   **Service Groups (`ServiceGroupsScreen.tsx`):** Group names in the desktop table, mobile list, and mobile cards are clickable buttons opening `EditServiceGroupModal` (governed by `canEditGroup(group)`).
+    *   **Servants Directory (`ServantsDirectoryScreen.tsx`):** Servant names and circular avatars in the desktop table and mobile cards are clickable buttons opening `MisterFormModal` (governed by `isAdmin || isSelf`).
+    *   **Churches Screen (`ChurchesScreen.tsx`):** Church names and logos in the desktop table, mobile list, and mobile cards are clickable buttons opening `ChurchEditModal` (governed by `isAdmin`).
+*   **Visual & Accessibility Polish:**
+    *   Styled with `hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer transition` for authorized editors.
+    *   Renders as standard static text (`cursor-default`) for unauthorized/view-only roles with no dead clicks.
+
+
 
 
 

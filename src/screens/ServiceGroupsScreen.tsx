@@ -344,9 +344,19 @@ export const ServiceGroupsScreen: React.FC = () => {
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <span className={`w-2 h-2 rounded-full shrink-0 ${group.active ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
                     <div className="min-w-0 flex-1">
-                      <p className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
-                        {group.displayName}
-                      </p>
+                      {canEditGroup(group) ? (
+                        <button
+                          type="button"
+                          onClick={() => setEditGroup(group)}
+                          className="font-bold text-xs text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start truncate"
+                        >
+                          {group.displayName}
+                        </button>
+                      ) : (
+                        <p className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
+                          {group.displayName}
+                        </p>
+                      )}
                       <p className="text-[10px] text-zinc-400 truncate">
                         {adminsList.length} Admins • {servantsCount} Servants
                       </p>
@@ -389,9 +399,19 @@ export const ServiceGroupsScreen: React.FC = () => {
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
-                    {group.displayName}
-                  </h3>
+                  {canEditGroup(group) ? (
+                    <button
+                      type="button"
+                      onClick={() => setEditGroup(group)}
+                      className="font-bold text-sm text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start"
+                    >
+                      {group.displayName}
+                    </button>
+                  ) : (
+                    <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
+                      {group.displayName}
+                    </h3>
+                  )}
                   <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
                     group.active
                       ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
@@ -533,8 +553,20 @@ export const ServiceGroupsScreen: React.FC = () => {
                     </td>
 
                     {/* 2. DisplayName */}
-                    <td className="px-6 py-4 font-bold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
-                      {group.displayName}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {canEditGroup(group) ? (
+                        <button
+                          type="button"
+                          onClick={() => setEditGroup(group)}
+                          className="font-bold text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer transition text-start truncate block max-w-xs"
+                        >
+                          {group.displayName}
+                        </button>
+                      ) : (
+                        <span className="font-bold text-zinc-900 dark:text-zinc-100">
+                          {group.displayName}
+                        </span>
+                      )}
                     </td>
 
                     {/* 3. Admins (Stacked chips) */}

@@ -446,9 +446,19 @@ export const ServantsDirectoryScreen: React.FC = () => {
                   )}
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 truncate">
-                        {mister.displayName}
-                      </span>
+                      {(isAdmin || isSelf) ? (
+                        <button
+                          type="button"
+                          onClick={() => setEditMister(mister)}
+                          className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start truncate"
+                        >
+                          {mister.displayName}
+                        </button>
+                      ) : (
+                        <span className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 truncate">
+                          {mister.displayName}
+                        </span>
+                      )}
                       {isSelf && (
                         <span className="text-[10px] font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/80 px-1.5 py-0.2 rounded-full border border-teal-200 dark:border-teal-800">
                           You
@@ -632,28 +642,60 @@ export const ServantsDirectoryScreen: React.FC = () => {
                     </td>
 
                     {/* 2. DisplayName */}
-                    <td className="px-5 py-4 font-bold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
-                      <div className="flex items-center gap-2.5">
-                        {mister.personalInfo?.photoUrl ? (
-                          <img
-                            src={mister.personalInfo.photoUrl}
-                            alt={mister.displayName}
-                            className="w-7 h-7 rounded-full object-cover shrink-0 shadow-xs border border-zinc-200 dark:border-zinc-700"
-                          />
-                        ) : (
-                          <div className="w-7 h-7 rounded-full bg-teal-100 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 flex items-center justify-center font-bold text-[10px] shrink-0">
-                            {mister.displayName.slice(0, 2).toUpperCase()}
-                          </div>
-                        )}
-                        <div className="flex items-center gap-1.5">
-                          <span>{mister.displayName}</span>
-                          {isSelf && (
-                            <span className="text-[10px] font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/80 px-1.5 py-0.2 rounded-full border border-teal-200 dark:border-teal-800">
-                              You
-                            </span>
+                    <td className="px-5 py-4 whitespace-nowrap">
+                      {(isAdmin || isSelf) ? (
+                        <button
+                          type="button"
+                          onClick={() => setEditMister(mister)}
+                          className="flex items-center gap-2.5 text-start hover:text-teal-600 dark:hover:text-teal-400 group cursor-pointer transition"
+                        >
+                          {mister.personalInfo?.photoUrl ? (
+                            <img
+                              src={mister.personalInfo.photoUrl}
+                              alt={mister.displayName}
+                              className="w-7 h-7 rounded-full object-cover shrink-0 shadow-xs border border-zinc-200 dark:border-zinc-700 group-hover:ring-2 group-hover:ring-teal-500/30"
+                            />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-teal-100 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 flex items-center justify-center font-bold text-[10px] shrink-0 group-hover:bg-teal-200">
+                              {mister.displayName.slice(0, 2).toUpperCase()}
+                            </div>
                           )}
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 group-hover:underline">
+                              {mister.displayName}
+                            </span>
+                            {isSelf && (
+                              <span className="text-[10px] font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/80 px-1.5 py-0.2 rounded-full border border-teal-200 dark:border-teal-800">
+                                You
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-2.5">
+                          {mister.personalInfo?.photoUrl ? (
+                            <img
+                              src={mister.personalInfo.photoUrl}
+                              alt={mister.displayName}
+                              className="w-7 h-7 rounded-full object-cover shrink-0 shadow-xs border border-zinc-200 dark:border-zinc-700"
+                            />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-teal-100 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 flex items-center justify-center font-bold text-[10px] shrink-0">
+                              {mister.displayName.slice(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-zinc-900 dark:text-zinc-100">
+                              {mister.displayName}
+                            </span>
+                            {isSelf && (
+                              <span className="text-[10px] font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/80 px-1.5 py-0.2 rounded-full border border-teal-200 dark:border-teal-800">
+                                You
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </td>
 
                     {/* 3. ChurchRole */}
