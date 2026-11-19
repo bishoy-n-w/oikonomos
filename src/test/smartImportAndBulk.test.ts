@@ -6,7 +6,9 @@ import {
   normalizeDateValueWithMeta,
   sanitizeFirestorePayload,
   autoDetectHeaderRow,
-  parseSpreadsheetFile 
+  parseSpreadsheetFile,
+  buildRecordNotes,
+  normalizeSchoolTypeValue 
 } from '../services/smartImport';
 import { normalizePhoneNumber } from '../services/googleContacts';
 
@@ -563,6 +565,59 @@ describe('Smart Import & Bulk Operations Logic', () => {
 
       expect(activeKids.map((k) => k.id)).toEqual(['k1', 'k2']);
       expect(activeKids.some((k) => k.id === 'k3')).toBe(false);
+    });
+  });
+
+  describe('Smart Import Heuristic & Multi-Column Notes Mapping', () => {
+    it('correctly maps نوع الطفل and نوع المخدوم to gender', () => {
+      const headers = ['نوع الطفل', 'نوع المخدوم', 'نوع التلميذ', 'جنس الطفل'];
+      const mapped = autoMapHeadersHeuristically(headers);
+
+      expect(mapped['نوع الطفل']).toBe('gender');
+      expect(mapped['نوع المخدوم']).toBe('gender');
+      expect(mapped['نوع التلميذ']).toBe('gender');
+      expect(mapped['جنس الطفل']).toBe('gender');
+    });
+
+    it('correctly maps نظام الدراسة and نوع الدراسة to schoolType', () => {
+      const headers = ['نظام الدراسة', 'نظام الدراسه', 'نوع الدراسة', 'طبيعة الدراسة'];
+      const mapped = autoMapHeadersHeuristically(headers);
+
+      expect(mapped['نظام الدراسة']).toBe('schoolType');
+      expect(mapped['نظام الدراسه']).toBe('schoolType');
+      expect(mapped['نوع الدراسة']).toBe('schoolType');
+      expect(mapped['طبيعة الدراسة']).toBe('schoolType');
+    });
+
+    it('correctly formats and concatenates multi-column notes with header prefixes', () => {
+      const headers = ['اسم الطالب', 'المواهب', 'ملاحظات الخادم', 'هوايات'];
+      const row = ['بيشوي ناجي', 'رسم وتلوين', 'هادئ وملتزم', 'قراءة'];
+      const mapping = {
+        'اسم الطالب': 'fullName',
+        'المواهب': 'notes',
+        'ملاحظات الخادم': 'notes',
+        'هوايات': 'notes',
+      };
+
+      const notes = buildRecordNotes(headers, row, mapping, 'ملاحظة عامة');
+      expect(notes).toBe('المواهب: رسم وتلوين\nملاحظات الخادم: هادئ وملتزم\nهوايات: قراءة\nملاحظة عامة');
+    });
+
+    it('normalizes schoolType values accurately and preserves custom types', () => {
+      expect(normalizeSchoolTypeValue('لغات', '', false)).toBe('National');
+      expect(normalizeSchoolTypeValue('تجريبي', '', false)).toBe('National');
+      expect(normalizeSchoolTypeValue('عربي', '', false)).toBe('National');
+      expect(normalizeSchoolTypeValue('حكومي', '', false)).toBe('National');
+      expect(normalizeSchoolTypeValue('American', '', false)).toBe('International');
+      expect(normalizeSchoolTypeValue('IGCSE', '', false)).toBe('International');
+      expect(normalizeSchoolTypeValue('انترناشونال', '', false)).toBe('International');
+      expect(normalizeSchoolTypeValue('دولي', '', false)).toBe('International');
+      expect(normalizeSchoolTypeValue('أزهري', '', false)).toBe('أزهري');
+      expect(normalizeSchoolTypeValue('STEM', '', false)).toBe('STEM');
+
+      // Auto-detect from school name
+      expect(normalizeSchoolTypeValue('', 'Saint George International School', true)).toBe('International');
+      expect(normalizeSchoolTypeValue('', 'مدرسة الحرية للغات', true)).toBe('National');
     });
   });
 });

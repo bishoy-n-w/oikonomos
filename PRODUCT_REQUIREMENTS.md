@@ -947,6 +947,24 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   **Avatar Care Rings:** 40px circular avatars with status-reactive rings (🟢 Green $\le 30$d, 🟡 Amber $31-60$d, 🔴 Red $>60$d) and clean initials fallback.
     *   **2 High-Value Direct Touch Targets:** Streamlined right-hand action targets to Phone Call (`[ 📞 ]`) and WhatsApp (`[ 💬 ]`) (with `[ 🚗 ]` for direct GPS navigation when coordinates exist), removing the redundant per-row `+` button in favor of the bottom FAB. Tapping the row directly opens the student's full interaction log modal.
 
+---
+
+## 40. Smart Import Multi-Column Notes & Heuristic Auto-Mapping Enhancements
+
+*   **Bilingual Heuristic Header Mapping:**
+    *   **Gender:** Expanded heuristic dictionary to recognize colloquial Arabic variants: `نوع الطفل`, `نوع المخدوم`, `نوع التلميذ`, `نوع_الطفل`, `جنس الطفل`, and `جنس المخدوم`, preventing column drop and male default assumption.
+    *   **School Type:** Expanded heuristic dictionary to recognize Egyptian school classification terms: `نظام الدراسة`, `نظام الدراسه`, `نوع الدراسة`, `طبيعة الدراسة`, and `نظام_الدراسة`.
+*   **Comprehensive School Type Value Normalization:**
+    *   **International:** Evaluates `International`, `انترناشونال`, `دولي`, `امريكان`, `أمريكان`, `american`, `بريطاني`, `british`, `french`, `german`, `ig`, `igcse`, `ib` $\longrightarrow$ **`International`**. Checks `International` before `National` to prevent substring collision between `انترناشونال` and `ناشونال`.
+    *   **National:** Evaluates `National`, `ناشونال`, `حكومي`, `تجريبي`, `لغات`, `عربي`, `خاص`, `قومية`, `قومي`, `راهبات` $\longrightarrow$ **`National`**.
+    *   **Custom School Types:** When a school type does not strictly belong to National/International (e.g., `أزهري`, `STEM`, `منازل`), the custom string is safely preserved.
+*   **Column Mapping 1-to-1 Enforcement:**
+    *   For all CRM target fields except Notes, column mapping enforces strict **1-to-1 uniqueness**. Selecting an already-mapped field automatically resets the previously mapped column to `[ Ignore ]`, preventing unintentional data overwrite.
+*   **Multi-Column Notes Concatenation with Header Prefixing:**
+    *   The `Notes` field allows **multiple spreadsheet columns to be mapped simultaneously**.
+    *   Values from mapped columns are automatically formatted as `[Column Header]: [Value]` and concatenated with clean line breaks (`\n`). Any default notes provided during import are appended seamlessly.
+
+
 
 
 

@@ -83,13 +83,13 @@ const HEURISTIC_PATTERNS: Record<string, string[]> = {
   
   // Student profile
   fullName: ['fullname', 'studentname', 'kidname', 'اسم الطالب', 'الاسم بالكامل', 'اسم الطفل', 'اسم المخدوم', 'اسم المخدوم بالكامل', 'full name', 'name', 'الاسم', 'اسم التلميذ', 'الاسم رباعي', 'الاسم ثلاثي', 'الاسم ثنائي', 'اسم الطالب/الطالبة', 'student full name'],
-  gender: ['gender', 'sex', 'النوع', 'الجنس', 'بنت ولد', 'ولد بنت', 'النوع (بنت/ولد)', 'بنت/ولد'],
+  gender: ['gender', 'sex', 'النوع', 'الجنس', 'بنت ولد', 'ولد بنت', 'النوع (بنت/ولد)', 'بنت/ولد', 'نوع الطفل', 'نوع المخدوم', 'نوع التلميذ', 'نوع_الطفل', 'نوع', 'جنس الطفل', 'جنس المخدوم'],
   dob: [
     'dob', 'birthdate', 'dateofbirth', 'birth date', 'تاريخ الميلاد', 'الميلاد', 'تاريخ ميلاد', 'تاريخ', 
     'سنة الميلاد', 'سنه الميلاد', 'سنة ميلاد', 'سنه ميلاد', 'عيد الميلاد', 'عيد ميلاد', 'تاريخ_الميلاد', 'تاريخ_ميلاد',
     'السن', 'سن الطالب', 'ميلاد', 'date of birth', 'bdate', 'birthday'
   ],
-  schoolType: ['schooltype', 'نوع المدرسة', 'نوع المدرسه', 'نظام التعليم', 'لغات', 'تجريبي', 'خاص', 'حكومي', 'ناشونال', 'انترناشونال', 'national', 'international', 'school type'],
+  schoolType: ['schooltype', 'نوع المدرسة', 'نوع المدرسه', 'نظام التعليم', 'نظام الدراسة', 'نظام الدراسه', 'نوع الدراسة', 'نوع الدراسه', 'طبيعة الدراسة', 'نظام_الدراسة', 'لغات', 'تجريبي', 'خاص', 'حكومي', 'ناشونال', 'انترناشونال', 'national', 'international', 'school type'],
   school: ['school', 'المدرسة', 'مدرسة'],
   deacon: ['deacon', 'شماس', 'مرتسم شماس', 'رتبة شماس', 'شموسية', 'شموسيه', 'هل شماس', 'رتبة الشموسية'],
   fatherOfConfession: ['fatherofconfession', 'confessionfather', 'abouna', 'اب الاعتراف', 'اسم اب الاعتراف', 'ابونا', 'كاهن الاعتراف', 'اب اعتراف الطالب'],
@@ -547,6 +547,119 @@ export async function parseSpreadsheetFile(
   };
 }
 
+/**
+ * Formats and combines notes from multiple mapped columns, prefixing each with its column header.
+ */
+export function buildRecordNotes(
+  headers: string[],
+  row: any[],
+  mapping: Record<string, string>,
+  defaultNote?: string
+): string {
+  const noteParts: string[] = [];
+  headers.forEach((hdr, colIdx) => {
+    const targetField = mapping[hdr];
+    if (targetField === 'notes') {
+      const cellVal = row[colIdx];
+      if (cellVal !== undefined && cellVal !== null) {
+        const trimmed = String(cellVal).trim();
+        if (trimmed) {
+          const cleanHdr = hdr.trim();
+          noteParts.push(`${cleanHdr}: ${trimmed}`);
+        }
+      }
+    }
+  });
+
+  let finalNotes = noteParts.join('\n');
+  if (defaultNote && String(defaultNote).trim()) {
+    const defNote = String(defaultNote).trim();
+    finalNotes = finalNotes ? `${finalNotes}\n${defNote}` : defNote;
+  }
+  return finalNotes;
+}
+
+/**
+ * Normalizes school type values to National, International, or preserves custom text.
+ */
+export function normalizeSchoolTypeValue(
+  rawSchoolType: string,
+  rawSchoolName: string,
+  isAutoDetect: boolean
+): string {
+  let finalSchoolType = String(rawSchoolType || '').trim();
+
+  if (isAutoDetect) {
+    const schoolSource = String(rawSchoolName || rawSchoolType || '').toLowerCase();
+    if (
+      schoolSource.includes('international') ||
+      schoolSource.includes('انترناشونال') ||
+      schoolSource.includes('دولي') ||
+      schoolSource.includes('امريكان') ||
+      schoolSource.includes('أمريكان') ||
+      schoolSource.includes('american') ||
+      schoolSource.includes('بريطاني') ||
+      schoolSource.includes('british') ||
+      schoolSource.includes('french') ||
+      schoolSource.includes('فرنسي') ||
+      schoolSource.includes('german') ||
+      schoolSource.includes('ألماني') ||
+      /\b(ig|ib|igcse)\b/i.test(schoolSource)
+    ) {
+      return 'International';
+    } else if (
+      schoolSource.includes('national') ||
+      schoolSource.includes('ناشونال') ||
+      schoolSource.includes('حكومي') ||
+      schoolSource.includes('تجريبي') ||
+      schoolSource.includes('لغات') ||
+      schoolSource.includes('عربي') ||
+      schoolSource.includes('خاص') ||
+      schoolSource.includes('قومية') ||
+      schoolSource.includes('قومي') ||
+      schoolSource.includes('راهبات')
+    ) {
+      return 'National';
+    } else {
+      return '';
+    }
+  } else if (finalSchoolType) {
+    const lowerSt = finalSchoolType.toLowerCase();
+    if (
+      lowerSt.includes('international') ||
+      lowerSt.includes('انترناشونال') ||
+      lowerSt.includes('دولي') ||
+      lowerSt.includes('امريكان') ||
+      lowerSt.includes('أمريكان') ||
+      lowerSt.includes('american') ||
+      lowerSt.includes('بريطاني') ||
+      lowerSt.includes('british') ||
+      lowerSt.includes('french') ||
+      lowerSt.includes('فرنسي') ||
+      lowerSt.includes('german') ||
+      lowerSt.includes('ألماني') ||
+      /\b(ig|ib|igcse)\b/i.test(lowerSt)
+    ) {
+      return 'International';
+    } else if (
+      lowerSt.includes('national') ||
+      lowerSt.includes('ناشونال') ||
+      lowerSt.includes('حكومي') ||
+      lowerSt.includes('تجريبي') ||
+      lowerSt.includes('لغات') ||
+      lowerSt.includes('عربي') ||
+      lowerSt.includes('خاص') ||
+      lowerSt.includes('قومية') ||
+      lowerSt.includes('قومي') ||
+      lowerSt.includes('راهبات')
+    ) {
+      return 'National';
+    }
+  }
+
+  return finalSchoolType;
+}
+
 export interface ImportResult {
   success: boolean;
   batchId: string;
@@ -604,10 +717,23 @@ export async function executeImportBatch(
     chunk.forEach((row, rowIdx) => {
       // Build row data object - keep raw cell values to preserve Date instances and types
       const record: Record<string, any> = {};
+      const noteParts: string[] = [];
+
       headers.forEach((hdr, colIdx) => {
         const targetField = mapping[hdr];
-        if (targetField && targetField !== 'ignore') {
-          record[targetField] = row[colIdx];
+        if (!targetField || targetField === 'ignore') return;
+
+        const cellVal = row[colIdx];
+        if (targetField === 'notes') {
+          if (cellVal !== undefined && cellVal !== null) {
+            const trimmed = String(cellVal).trim();
+            if (trimmed) {
+              const cleanHdr = hdr.trim();
+              noteParts.push(`${cleanHdr}: ${trimmed}`);
+            }
+          }
+        } else {
+          record[targetField] = cellVal;
         }
       });
 
@@ -637,7 +763,7 @@ export async function executeImportBatch(
       } else {
         const rawGender = String(record.gender || '').trim().toLowerCase();
         parsedGender =
-          rawGender.includes('بنت') || rawGender.includes('أنثى') || rawGender.includes('انثى') || rawGender === 'female' || rawGender === 'f'
+          rawGender.includes('بنت') || rawGender.includes('أنثى') || rawGender.includes('انثى') || rawGender.includes('طفلة') || rawGender.includes('طفله') || rawGender === 'female' || rawGender === 'f'
             ? 'female'
             : 'male';
       }
@@ -671,7 +797,13 @@ export async function executeImportBatch(
       const finalConfession = String(record.fatherOfConfession || defaultValues?.fatherOfConfession || '').trim();
       const finalRegion = String(record.region || defaultValues?.region || '').trim();
       const finalStreet = String(record.street || defaultValues?.street || '').trim();
-      const finalNotes = String(record.notes || defaultValues?.notes || '').trim();
+
+      // Combine multi-column notes with default notes
+      let finalNotes = noteParts.join('\n');
+      if (defaultValues?.notes && String(defaultValues.notes).trim()) {
+        const defNote = String(defaultValues.notes).trim();
+        finalNotes = finalNotes ? `${finalNotes}\n${defNote}` : defNote;
+      }
 
       // Normalize schoolType with optional auto-detection from school name
       let finalSchoolType = String(record.schoolType || defaultValues?.schoolType || '').trim();
@@ -685,8 +817,14 @@ export async function executeImportBatch(
           schoolSource.includes('دولي') ||
           schoolSource.includes('امريكان') ||
           schoolSource.includes('أمريكان') ||
+          schoolSource.includes('american') ||
           schoolSource.includes('بريطاني') ||
-          /\b(ig|ib)\b/i.test(schoolSource)
+          schoolSource.includes('british') ||
+          schoolSource.includes('french') ||
+          schoolSource.includes('فرنسي') ||
+          schoolSource.includes('german') ||
+          schoolSource.includes('ألماني') ||
+          /\b(ig|ib|igcse)\b/i.test(schoolSource)
         ) {
           finalSchoolType = 'International';
         } else if (
@@ -697,6 +835,8 @@ export async function executeImportBatch(
           schoolSource.includes('لغات') ||
           schoolSource.includes('عربي') ||
           schoolSource.includes('خاص') ||
+          schoolSource.includes('قومية') ||
+          schoolSource.includes('قومي') ||
           schoolSource.includes('راهبات')
         ) {
           finalSchoolType = 'National';
@@ -713,6 +853,8 @@ export async function executeImportBatch(
           lowerSt.includes('لغات') ||
           lowerSt.includes('عربي') ||
           lowerSt.includes('خاص') ||
+          lowerSt.includes('قومية') ||
+          lowerSt.includes('قومي') ||
           lowerSt.includes('راهبات')
         ) {
           finalSchoolType = 'National';
@@ -722,7 +864,14 @@ export async function executeImportBatch(
           lowerSt.includes('دولي') ||
           lowerSt.includes('امريكان') ||
           lowerSt.includes('أمريكان') ||
-          lowerSt.includes('بريطاني')
+          lowerSt.includes('american') ||
+          lowerSt.includes('بريطاني') ||
+          lowerSt.includes('british') ||
+          lowerSt.includes('french') ||
+          lowerSt.includes('فرنسي') ||
+          lowerSt.includes('german') ||
+          lowerSt.includes('ألماني') ||
+          /\b(ig|ib|igcse)\b/i.test(lowerSt)
         ) {
           finalSchoolType = 'International';
         }
