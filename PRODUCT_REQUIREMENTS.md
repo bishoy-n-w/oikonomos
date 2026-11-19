@@ -967,6 +967,26 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   The `Notes` field allows **multiple spreadsheet columns to be mapped simultaneously**.
     *   Values from mapped columns are automatically formatted as `[Column Header]: [Value]` and concatenated with clean line breaks (`\n`). Any default notes provided during import are appended seamlessly.
 
+---
+
+## 41. School Type High-Contrast Badges & Universal Empty Value Filtering
+
+*   **Distinct High-Contrast School Type Palette:**
+    *   **International:** Styled with Vibrant Royal Purple (`bg-purple-100 text-purple-800 dark:bg-purple-950/80 dark:text-purple-300 border border-purple-200 dark:border-purple-800`).
+    *   **National:** Styled with Fresh Ocean Sky Blue (`bg-sky-100 text-sky-800 dark:bg-sky-950/80 dark:text-sky-300 border border-sky-200 dark:border-sky-800`).
+    *   **Other / Custom (e.g. أزهري, STEM):** Styled with Warm Amber (`bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200 dark:border-amber-800`).
+    *   **Empty:** Displayed as a clean grey dash (`-`).
+    *   Eliminates previous color ambiguity where both National and International shared the same pale indigo hue.
+*   **Select Filter Enhancement with "Empty" Option:**
+    *   **School Type Filter:** Added `{ value: 'empty', label: '⚠️ Empty / Unspecified (فارغ / غير مسجل)' }` to the filter matrix dropdown, enabling coordinators to instantly isolate students with unrecorded school types.
+    *   **Gender Filter:** Added `{ value: 'empty', label: '⚠️ Empty / Unspecified (فارغ / غير مسجل)' }` to catch records with missing gender.
+*   **Universal `empty` / `بدون` / `فارغ` Keyword Matching for Text Filters:**
+    *   Allows typing `empty`, `بدون`, or `فارغ` into any text column filter across desktop tables:
+        *   *Class:* Isolates unassigned students (`!classId`).
+        *   *Father of Confession:* Isolates students without an assigned priest.
+        *   *School / Phones / Address:* Isolates student records missing those attributes.
+
+
 
 
 

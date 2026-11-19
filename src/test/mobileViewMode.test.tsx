@@ -35,12 +35,14 @@ describe('Mobile View Mode Architecture & Switcher', () => {
 
   it('provides bilingual translations for real-world ministry quick filters', () => {
     expect(t('filter_all', 'en')).toBe('All');
+    expect(t('filter_empty', 'en')).toBe('Empty / Unspecified');
     expect(t('filter_needs_care', 'en')).toBe('Needs Follow-up');
     expect(t('filter_birthdays_month', 'en')).toBe('Birthdays');
     expect(t('filter_unassigned', 'en')).toBe('Unassigned');
     expect(t('filter_missing_phone', 'en')).toBe('Missing Phone');
 
     expect(t('filter_all', 'ar')).toBe('الكل');
+    expect(t('filter_empty', 'ar')).toBe('فارغ / غير مسجل');
     expect(t('filter_needs_care', 'ar')).toBe('يحتاج افتقاد');
     expect(t('filter_birthdays_month', 'ar')).toBe('أعياد ميلاد الشهر');
     expect(t('filter_unassigned', 'ar')).toBe('غير مسكّن');

@@ -263,13 +263,18 @@ export const KidsDirectoryScreen: React.FC = () => {
     ] : []),
     // Profile Group (Gender, DOB, School, School Type, Deacon, Father of Confession)
     ...(!foldProfile ? [
-      { key: 'gender', type: 'select', options: [{ value: 'male', label: translate('male') }, { value: 'female', label: translate('female') }] } as ColumnFilterConfig,
+      { key: 'gender', type: 'select', options: [
+        { value: 'male', label: translate('male') }, 
+        { value: 'female', label: translate('female') },
+        { value: 'empty', label: `⚠️ ${translate('filter_empty')}` }
+      ] } as ColumnFilterConfig,
       { key: 'dob', type: 'text', placeholder: `${translate('search')} ${translate('dob')}...` } as ColumnFilterConfig,
       { key: 'school', type: 'text', placeholder: `${translate('search')} ${translate('school')}...` } as ColumnFilterConfig,
       { key: 'schoolType', type: 'select', options: [
         { value: 'National', label: translate('school_type_national') }, 
         { value: 'International', label: translate('school_type_international') }, 
-        { value: 'other', label: translate('school_type_other') }
+        { value: 'other', label: translate('school_type_other') },
+        { value: 'empty', label: `⚠️ ${translate('filter_empty')}` }
       ] } as ColumnFilterConfig,
       { key: 'deacon', type: 'select', options: [
         { value: 'true', label: `${translate('deacon')} (${translate('yes')})` }, 
@@ -372,34 +377,51 @@ export const KidsDirectoryScreen: React.FC = () => {
       if (hasPhone) return false;
     }
 
+    // Text filter matching helper supporting 'empty' / 'بدون' / 'فارغ' keywords
+    const matchesTextFilter = (val: string | undefined | null, filterQuery?: string): boolean => {
+      if (!filterQuery) return true;
+      const q = filterQuery.trim().toLowerCase();
+      if (!q) return true;
+      if (q === 'empty' || q === 'بدون' || q === 'فارغ') {
+        return !val || val.trim() === '';
+      }
+      return (val || '').toLowerCase().includes(q);
+    };
+
     // Header Filter Matrix
     if (filters.active !== undefined && filters.active !== '') {
       const isKidActive = kid.active !== false;
       if (String(isKidActive) !== filters.active) return false;
     }
     if (filters.fullName) {
-      if (!(kid.info?.fullName || '').toLowerCase().includes(filters.fullName.toLowerCase())) return false;
+      if (!matchesTextFilter(kid.info?.fullName, filters.fullName)) return false;
     }
     if (filters.year) {
-      if (!resolveYearName(asgn.academicYearId).toLowerCase().includes(filters.year.toLowerCase())) return false;
+      if (!matchesTextFilter(resolveYearName(asgn.academicYearId), filters.year)) return false;
     }
     if (filters.group) {
-      if (!resolveGroupName(asgn.serviceGroupId).toLowerCase().includes(filters.group.toLowerCase())) return false;
+      if (!matchesTextFilter(resolveGroupName(asgn.serviceGroupId), filters.group)) return false;
     }
     if (filters.class) {
-      if (!resolveClassName(asgn.classId).toLowerCase().includes(filters.class.toLowerCase())) return false;
+      if (!matchesTextFilter(asgn.classId ? resolveClassName(asgn.classId) : '', filters.class)) return false;
     }
     if (filters.gender) {
-      if (kid.info?.gender !== filters.gender) return false;
+      if (filters.gender === 'empty') {
+        if (kid.info?.gender && String(kid.info.gender).trim() !== '') return false;
+      } else {
+        if (kid.info?.gender !== filters.gender) return false;
+      }
     }
     if (filters.dob) {
-      if (!kid.info?.dob?.includes(filters.dob)) return false;
+      if (!matchesTextFilter(kid.info?.dob, filters.dob)) return false;
     }
     if (filters.school) {
-      if (!kid.info?.school?.toLowerCase().includes(filters.school.toLowerCase())) return false;
+      if (!matchesTextFilter(kid.info?.school, filters.school)) return false;
     }
     if (filters.schoolType) {
-      if (filters.schoolType === 'other') {
+      if (filters.schoolType === 'empty') {
+        if (kid.info?.schoolType && kid.info.schoolType.trim() !== '') return false;
+      } else if (filters.schoolType === 'other') {
         const st = (kid.info?.schoolType || '').toLowerCase();
         if (st === 'national' || st === 'international' || !st) return false;
       } else {
@@ -411,58 +433,58 @@ export const KidsDirectoryScreen: React.FC = () => {
       if (Boolean(kid.info?.deacon) !== isDeacon) return false;
     }
     if (filters.fatherOfConfession) {
-      if (!kid.info?.fatherOfConfession?.toLowerCase().includes(filters.fatherOfConfession.toLowerCase())) return false;
+      if (!matchesTextFilter(kid.info?.fatherOfConfession, filters.fatherOfConfession)) return false;
     }
     if (filters.street) {
-      if (!kid.address?.street?.toLowerCase().includes(filters.street.toLowerCase())) return false;
+      if (!matchesTextFilter(kid.address?.street, filters.street)) return false;
     }
     if (filters.building) {
-      if (!kid.address?.building?.toLowerCase().includes(filters.building.toLowerCase())) return false;
+      if (!matchesTextFilter(kid.address?.building, filters.building)) return false;
     }
     if (filters.floor) {
-      if (!kid.address?.floor?.toLowerCase().includes(filters.floor.toLowerCase())) return false;
+      if (!matchesTextFilter(kid.address?.floor, filters.floor)) return false;
     }
     if (filters.apartment) {
-      if (!kid.address?.apartment?.toLowerCase().includes(filters.apartment.toLowerCase())) return false;
+      if (!matchesTextFilter(kid.address?.apartment, filters.apartment)) return false;
     }
     if (filters.region) {
-      if (!kid.address?.region?.toLowerCase().includes(filters.region.toLowerCase())) return false;
+      if (!matchesTextFilter(kid.address?.region, filters.region)) return false;
     }
     if (filters.landmark) {
-      if (!kid.address?.landmark?.toLowerCase().includes(filters.landmark.toLowerCase())) return false;
+      if (!matchesTextFilter(kid.address?.landmark, filters.landmark)) return false;
     }
     if (filters.kidMob) {
-      if (!kid.contacts?.kidMob?.includes(filters.kidMob)) return false;
+      if (!matchesTextFilter(kid.contacts?.kidMob, filters.kidMob)) return false;
     }
     if (filters.fatherName) {
-      if (!kid.contacts?.fatherName?.toLowerCase().includes(filters.fatherName.toLowerCase())) return false;
+      if (!matchesTextFilter(kid.contacts?.fatherName, filters.fatherName)) return false;
     }
     if (filters.fatherProfession) {
-      if (!kid.contacts?.fatherProfession?.toLowerCase().includes(filters.fatherProfession.toLowerCase())) return false;
+      if (!matchesTextFilter(kid.contacts?.fatherProfession, filters.fatherProfession)) return false;
     }
     if (filters.fatherMob) {
-      if (!kid.contacts?.fatherMob?.includes(filters.fatherMob)) return false;
+      if (!matchesTextFilter(kid.contacts?.fatherMob, filters.fatherMob)) return false;
     }
     if (filters.fatherDOB) {
-      if (!kid.contacts?.fatherDOB?.toLowerCase().includes(filters.fatherDOB.toLowerCase())) return false;
+      if (!matchesTextFilter(kid.contacts?.fatherDOB, filters.fatherDOB)) return false;
     }
     if (filters.motherName) {
-      if (!kid.contacts?.motherName?.toLowerCase().includes(filters.motherName.toLowerCase())) return false;
+      if (!matchesTextFilter(kid.contacts?.motherName, filters.motherName)) return false;
     }
     if (filters.motherProfession) {
-      if (!kid.contacts?.motherProfession?.toLowerCase().includes(filters.motherProfession.toLowerCase())) return false;
+      if (!matchesTextFilter(kid.contacts?.motherProfession, filters.motherProfession)) return false;
     }
     if (filters.motherMob) {
-      if (!kid.contacts?.motherMob?.includes(filters.motherMob)) return false;
+      if (!matchesTextFilter(kid.contacts?.motherMob, filters.motherMob)) return false;
     }
     if (filters.motherDOB) {
-      if (!kid.contacts?.motherDOB?.toLowerCase().includes(filters.motherDOB.toLowerCase())) return false;
+      if (!matchesTextFilter(kid.contacts?.motherDOB, filters.motherDOB)) return false;
     }
     if (filters.otherMob) {
-      if (!kid.contacts?.otherMob?.includes(filters.otherMob)) return false;
+      if (!matchesTextFilter(kid.contacts?.otherMob, filters.otherMob)) return false;
     }
     if (filters.notes) {
-      if (!kid.notes?.toLowerCase().includes(filters.notes.toLowerCase())) return false;
+      if (!matchesTextFilter(kid.notes, filters.notes)) return false;
     }
 
     return true;
@@ -1311,9 +1333,20 @@ export const KidsDirectoryScreen: React.FC = () => {
                     <div className="grid grid-cols-2 gap-2 pb-2 border-b border-zinc-200/60 dark:border-zinc-700/60">
                       <div>
                         <span className="text-[10px] text-zinc-400 block">{translate('school')}</span>
-                        <span className="font-semibold text-zinc-800 dark:text-zinc-200">
-                          {kid.info.school || '-'} {kid.info.schoolType ? `(${kid.info.schoolType})` : ''}
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap font-semibold text-zinc-800 dark:text-zinc-200">
+                          <span>{kid.info.school || '-'}</span>
+                          {kid.info.schoolType && (
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${
+                              kid.info.schoolType === 'International'
+                                ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/80 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                                : kid.info.schoolType === 'National'
+                                ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/80 dark:text-sky-300 border-sky-200 dark:border-sky-800'
+                                : 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                            }`}>
+                              {kid.info.schoolType === 'National' ? translate('school_type_national') : kid.info.schoolType === 'International' ? translate('school_type_international') : kid.info.schoolType}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div>
                         <span className="text-[10px] text-zinc-400 block">{translate('father_of_confession')}</span>
@@ -1572,10 +1605,18 @@ export const KidsDirectoryScreen: React.FC = () => {
                         <td className="px-4 py-4 whitespace-nowrap text-zinc-600 dark:text-zinc-300">{kid.info.school || '-'}</td>
                         <td className="px-4 py-4 whitespace-nowrap text-zinc-600 dark:text-zinc-300">
                           {kid.info.schoolType ? (
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                              kid.info.schoolType === 'International'
+                                ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/80 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                                : kid.info.schoolType === 'National'
+                                ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/80 dark:text-sky-300 border-sky-200 dark:border-sky-800'
+                                : 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                            }`}>
                               {kid.info.schoolType === 'National' ? translate('school_type_national') : kid.info.schoolType === 'International' ? translate('school_type_international') : kid.info.schoolType}
                             </span>
-                          ) : '-'}
+                          ) : (
+                            <span className="text-zinc-400 font-mono">-</span>
+                          )}
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap">
                           {kid.info.deacon ? (

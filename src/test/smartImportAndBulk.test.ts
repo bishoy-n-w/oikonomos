@@ -641,5 +641,30 @@ describe('Smart Import & Bulk Operations Logic', () => {
       const uniqueMappedValues = new Set(mappedValues);
       expect(mappedValues.length).toBe(uniqueMappedValues.size);
     });
+
+    it('matches empty and بدون keywords for isolating blank field values', () => {
+      const matchesTextFilter = (val: string | undefined | null, filterQuery?: string): boolean => {
+        if (!filterQuery) return true;
+        const q = filterQuery.trim().toLowerCase();
+        if (!q) return true;
+        if (q === 'empty' || q === 'بدون' || q === 'فارغ') {
+          return !val || val.trim() === '';
+        }
+        return (val || '').toLowerCase().includes(q);
+      };
+
+      // Blank values should match 'empty', 'بدون', 'فارغ'
+      expect(matchesTextFilter('', 'empty')).toBe(true);
+      expect(matchesTextFilter(undefined, 'بدون')).toBe(true);
+      expect(matchesTextFilter('   ', 'فارغ')).toBe(true);
+
+      // Non-blank values should NOT match 'empty'
+      expect(matchesTextFilter('Saint Mark', 'empty')).toBe(false);
+      expect(matchesTextFilter('01221112233', 'بدون')).toBe(false);
+
+      // Standard search queries
+      expect(matchesTextFilter('Saint George', 'george')).toBe(true);
+      expect(matchesTextFilter('01221112233', '111')).toBe(true);
+    });
   });
 });
