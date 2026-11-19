@@ -254,8 +254,8 @@ export const ServiceGroupsScreen: React.FC = () => {
     if (!selectedChurchId) return;
     const groupRef = doc(db, 'churches', selectedChurchId, 'serviceGroups', groupId);
 
-    const admins = Object.entries(mistersMap).filter(([, r]) => r === 'admin').map(([e]) => e);
-    const servants = Object.entries(mistersMap).filter(([, r]) => r === 'servant').map(([e]) => e);
+    const admins = Object.entries(mistersMap).filter(([, r]) => r === 'admin').map(([e]) => e.toLowerCase().trim());
+    const servants = Object.entries(mistersMap).filter(([, r]) => r === 'servant').map(([e]) => e.toLowerCase().trim());
 
     await setDoc(groupRef, {
       displayName,
@@ -767,15 +767,30 @@ const EditServiceGroupModal: React.FC<EditServiceGroupModalProps> = ({
   const { translate } = useApp();
   const [displayName, setDisplayName] = useState(group.displayName);
   const [active, setActive] = useState(group.active !== false);
-  const [mistersMap, setMistersMap] = useState<Record<string, 'admin' | 'servant'>>({
-    ...(group.misters || {}),
+  const [mistersMap, setMistersMap] = useState<Record<string, 'admin' | 'servant'>>(() => {
+    const initial: Record<string, 'admin' | 'servant'> = { ...(group.misters || {}) };
+    (group.admins || []).forEach((e) => {
+      initial[e.toLowerCase().trim()] = 'admin';
+    });
+    (group.servants || []).forEach((e) => {
+      const k = e.toLowerCase().trim();
+      if (!initial[k]) initial[k] = 'servant';
+    });
+    return initial;
   });
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleSave = async () => {
+  // Servant picker popup state
+  const [pickerRole, setPickerRole] = useState<'admin' | 'servant' | null>(null);
+  const [pickerSearch, setPickerSearch] = useState('');
+
+  // LIFO: pressing Escape closes the servant picker first if open
+  useModalEscape(() => setPickerRole(null), Boolean(pickerRole));
+
+  const handleSave = async (overrideMisters?: Record<string, 'admin' | 'servant'>) => {
     setIsSaving(true);
     try {
-      await onSave(displayName, active, mistersMap);
+      await onSave(displayName, active, overrideMisters || mistersMap);
     } catch (err: any) {
       console.error('Save group failed:', err);
       alert(`Error saving group: ${err.message || 'Unknown error'}`);
@@ -783,10 +798,6 @@ const EditServiceGroupModal: React.FC<EditServiceGroupModalProps> = ({
       setIsSaving(false);
     }
   };
-
-  // Servant picker popup state
-  const [pickerRole, setPickerRole] = useState<'admin' | 'servant' | null>(null);
-  const [pickerSearch, setPickerSearch] = useState('');
 
   // Remove a servant from the group
   const handleRemove = (email: string) => {
@@ -948,7 +959,7 @@ const EditServiceGroupModal: React.FC<EditServiceGroupModalProps> = ({
             <button
               type="button"
               disabled={isSaving}
-              onClick={handleSave}
+              onClick={() => handleSave()}
               className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30 cursor-pointer disabled:opacity-50"
             >
               {isSaving && <RefreshCw className="w-4 h-4 animate-spin" />}
@@ -960,8 +971,17 @@ const EditServiceGroupModal: React.FC<EditServiceGroupModalProps> = ({
 
       {/* Multi-Select Servant Picker Popup */}
       {pickerRole && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[85vh] flex flex-col">
+        <div 
+          onClick={(e) => {
+            e.stopPropagation();
+            setPickerRole(null);
+          }}
+          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in cursor-pointer"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 max-h-[85vh] flex flex-col cursor-default"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
               <div>
                 <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
@@ -969,7 +989,11 @@ const EditServiceGroupModal: React.FC<EditServiceGroupModalProps> = ({
                 </h4>
                 <p className="text-[11px] text-zinc-400">Search by servant name or existing assigned group</p>
               </div>
-              <button onClick={() => setPickerRole(null)} className="p-1 text-zinc-400 hover:text-zinc-600">
+              <button 
+                type="button"
+                onClick={() => setPickerRole(null)} 
+                className="p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -991,15 +1015,20 @@ const EditServiceGroupModal: React.FC<EditServiceGroupModalProps> = ({
               {allMisters
                 .filter((m) => {
                   if (!pickerSearch.trim()) return true;
-                  const q = pickerSearch.toLowerCase();
+                  const q = pickerSearch.toLowerCase().trim();
                   return m.displayName.toLowerCase().includes(q) || m.email.toLowerCase().includes(q);
                 })
                 .map((mister) => {
-                  const isSelected = mistersMap[mister.email.toLowerCase()] === pickerRole;
+                  const mKey = mister.email.toLowerCase().trim();
+                  const isSelected = mistersMap[mKey] === pickerRole;
 
                   // Find other groups this servant is part of
                   const memberInGroups = groups
-                    .filter((g) => (g.admins || []).includes(mister.email) || (g.servants || []).includes(mister.email))
+                    .filter((g) => {
+                      const adminsList = (g.admins || []).map((e) => e.toLowerCase().trim());
+                      const servantsList = (g.servants || []).map((e) => e.toLowerCase().trim());
+                      return adminsList.includes(mKey) || servantsList.includes(mKey) || g.misters?.[mKey];
+                    })
                     .map((g) => g.displayName);
 
                   return (
@@ -1031,14 +1060,33 @@ const EditServiceGroupModal: React.FC<EditServiceGroupModalProps> = ({
                 })}
             </div>
 
-            <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 mt-3 flex justify-end">
+            <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 mt-3 flex items-center justify-between gap-2">
               <button
                 type="button"
                 onClick={() => setPickerRole(null)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 transition"
+                className="px-3 py-2 rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
               >
-                Done Selecting
+                {translate('cancel')}
               </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPickerRole(null)}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition cursor-pointer"
+                >
+                  Done
+                </button>
+                <button
+                  type="button"
+                  disabled={isSaving}
+                  onClick={() => handleSave(mistersMap)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 transition shadow-md shadow-teal-600/30 cursor-pointer disabled:opacity-50"
+                >
+                  {isSaving && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{translate('save')} & {translate('apply') || 'Apply'}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

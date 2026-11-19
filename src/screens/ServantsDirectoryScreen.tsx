@@ -177,8 +177,8 @@ export const ServantsDirectoryScreen: React.FC = () => {
 
     // Top Filter: Service Group Filter
     if (selectedServiceGroupId) {
-      const inAdmin = groups.some((g) => g.id === selectedServiceGroupId && ((g.admins || []).includes(m.email) || g.misters?.[emailKey] === 'admin'));
-      const inServant = groups.some((g) => g.id === selectedServiceGroupId && ((g.servants || []).includes(m.email) || g.misters?.[emailKey] === 'servant'));
+      const inAdmin = groups.some((g) => g.id === selectedServiceGroupId && (((g.admins || []).map((e) => e.toLowerCase().trim())).includes(emailKey) || g.misters?.[emailKey] === 'admin'));
+      const inServant = groups.some((g) => g.id === selectedServiceGroupId && (((g.servants || []).map((e) => e.toLowerCase().trim())).includes(emailKey) || g.misters?.[emailKey] === 'servant'));
       if (!inAdmin && !inServant) return false;
     }
 

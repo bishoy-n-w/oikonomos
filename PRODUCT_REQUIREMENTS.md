@@ -986,6 +986,21 @@ Enables Sunday School servants and administrators to synchronize church contact 
         *   *Father of Confession:* Isolates students without an assigned priest.
         *   *School / Phones / Address:* Isolates student records missing those attributes.
 
+---
+
+## 42. Service Group Servant Assignment Event Isolation & Direct Commit
+
+*   **Modal Event Bubbling Isolation:**
+    *   Wrapped the nested "Select Servants" picker with `e.stopPropagation()` on both the backdrop overlay and the modal card, completely preventing click events from bubbling up to the parent Edit Service Group modal.
+    *   Implemented LIFO keyboard Escape hierarchy (`useModalEscape(() => setPickerRole(null), Boolean(pickerRole))`), ensuring pressing `Escape` dismisses strictly the servant picker rather than abruptly closing the parent group editor.
+*   **1-Click Direct Commit Action (`Save & Apply`):**
+    *   Added a primary **`[ Save & Apply / حفظ وإضافة للخدمة ]`** action directly inside the servant picker footer. Clicking this button immediately commits the selected assignments to Cloud Firestore and closes the workflow cleanly with zero risk of discarded changes.
+    *   Preserved a secondary **`Done`** button for users who wish to return to the edit modal to make additional changes before saving.
+*   **Defensive State Initialization & Case-Insensitive Matching:**
+    *   Initialized `mistersMap` in `EditServiceGroupModal` by defensively merging `group.misters`, `group.admins`, and `group.servants` with lowercase trimmed emails.
+    *   Normalized email comparisons across `ServantsDirectoryScreen.tsx` group filters to ensure servants appear in their assigned service groups regardless of casing differences.
+
+
 
 
 
