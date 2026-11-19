@@ -129,10 +129,10 @@ export const SmartImportModal: React.FC<SmartImportModalProps> = ({
       const detectedHeaderIdx = autoDetectHeaderRow(rows);
       setHeaderRowIdx(detectedHeaderIdx);
 
-      // Auto-map using heuristic layer (Option 3 instant offline)
+      // Auto-map using heuristic layer (Option 3 instant offline with strict 1-to-1 uniqueness)
       if (rows.length > detectedHeaderIdx) {
         const headers = rows[detectedHeaderIdx].map((h: any) => String(h || '').trim());
-        const initialMap = autoMapHeadersHeuristically(headers);
+        const initialMap = autoMapHeadersHeuristically(headers, true);
         setColumnMapping(initialMap);
       }
     } catch (err) {
@@ -168,7 +168,7 @@ export const SmartImportModal: React.FC<SmartImportModalProps> = ({
     setHeaderRowIdx(detectedHeaderIdx);
     if (rows.length > detectedHeaderIdx) {
       const headers = rows[detectedHeaderIdx].map((h: any) => String(h || '').trim());
-      const initialMap = autoMapHeadersHeuristically(headers);
+      const initialMap = autoMapHeadersHeuristically(headers, true);
       setColumnMapping(initialMap);
     }
   };
@@ -178,7 +178,7 @@ export const SmartImportModal: React.FC<SmartImportModalProps> = ({
     setHeaderRowIdx(idx);
     if (rawRows.length > idx) {
       const headers = rawRows[idx].map((h: any) => String(h || '').trim());
-      const updatedMap = autoMapHeadersHeuristically(headers);
+      const updatedMap = autoMapHeadersHeuristically(headers, true);
       setColumnMapping(updatedMap);
     }
   };
@@ -685,34 +685,25 @@ export const SmartImportModal: React.FC<SmartImportModalProps> = ({
                         >
                           <option value="ignore">[ Ignore this column / تجاهل هذا العمود ]</option>
                           <optgroup label="Student Profile / بيانات الطالب">
-                            {TARGET_FIELDS.filter(f => f.category === 'profile').map((f) => {
-                              const alreadyMappedHdr = Object.keys(columnMapping).find(k => k !== hdr && columnMapping[k] === f.key);
-                              return (
-                                <option key={f.key} value={f.key}>
-                                  {f.label}{alreadyMappedHdr ? ` (Replaces ${alreadyMappedHdr})` : ''}
-                                </option>
-                              );
-                            })}
+                            {TARGET_FIELDS.filter(f => f.category === 'profile').map((f) => (
+                              <option key={f.key} value={f.key}>
+                                {f.label}
+                              </option>
+                            ))}
                           </optgroup>
                           <optgroup label="Family & Contacts / أرقام وبيانات الأسرة">
-                            {TARGET_FIELDS.filter(f => f.category === 'contacts').map((f) => {
-                              const alreadyMappedHdr = Object.keys(columnMapping).find(k => k !== hdr && columnMapping[k] === f.key);
-                              return (
-                                <option key={f.key} value={f.key}>
-                                  {f.label}{alreadyMappedHdr ? ` (Replaces ${alreadyMappedHdr})` : ''}
-                                </option>
-                              );
-                            })}
+                            {TARGET_FIELDS.filter(f => f.category === 'contacts').map((f) => (
+                              <option key={f.key} value={f.key}>
+                                {f.label}
+                              </option>
+                            ))}
                           </optgroup>
                           <optgroup label="Address / العنوان">
-                            {TARGET_FIELDS.filter(f => f.category === 'address').map((f) => {
-                              const alreadyMappedHdr = Object.keys(columnMapping).find(k => k !== hdr && columnMapping[k] === f.key);
-                              return (
-                                <option key={f.key} value={f.key}>
-                                  {f.label}{alreadyMappedHdr ? ` (Replaces ${alreadyMappedHdr})` : ''}
-                                </option>
-                              );
-                            })}
+                            {TARGET_FIELDS.filter(f => f.category === 'address').map((f) => (
+                              <option key={f.key} value={f.key}>
+                                {f.label}
+                              </option>
+                            ))}
                           </optgroup>
                           <optgroup label="Notes & Remarks / ملاحظات (Supports Multi-Column)">
                             {TARGET_FIELDS.filter(f => f.category === 'notes').map((f) => (

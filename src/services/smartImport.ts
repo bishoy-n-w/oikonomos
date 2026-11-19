@@ -78,12 +78,12 @@ const HEURISTIC_PATTERNS: Record<string, string[]> = {
   motherProfession: ['motherprofession', 'motherjob', 'motheroccupation', 'وظيفة الام', 'مهنة الام', 'عمل الام', 'شغل الام'],
   motherMob: ['mothermob', 'motherphone', 'موبايل الام', 'تليفون الام', 'رقم الام', 'تليفون ماما', 'موبايل ماما', 'هاتف الام', 'تليفون والدة'],
   
-  otherMob: ['othermob', 'otherphone', 'emergencyphone', 'تليفون اخر', 'موبايل اخر', 'رقم طوارئ', 'هاتف اخر'],
-  kidMob: ['kidmob', 'kidphone', 'studentmobile', 'studentphone', 'موبايل الطالب', 'تليفون الطالب', 'رقم الطالب', 'موبايل الطفل', 'هاتف الطالب', 'موبايل', 'تليفون'],
+  otherMob: ['othermob', 'otherphone', 'emergencyphone', 'تليفون اخر', 'موبايل اخر', 'رقم طوارئ', 'هاتف اخر', 'تليفون ارضي', 'التليفون الارضي', 'رقم التليفون الارضي', 'تليفون المنزل', 'التليفون المنزلي', 'هاتف المنزل', 'ارضي', 'منزل', 'تليفون بيت', 'رقم ارضي'],
+  kidMob: ['kidmob', 'kidphone', 'studentmobile', 'studentphone', 'موبايل الطالب', 'تليفون الطالب', 'رقم الطالب', 'موبايل الطفل', 'هاتف الطالب', 'موبايل الولد', 'رقم موبايل الولد', 'تليفون الولد', 'موبايل البنت', 'تليفون البنت', 'موبايل شخصي', 'تليفون شخصي', 'موبايل', 'تليفون'],
   
   // Student profile
   fullName: ['fullname', 'studentname', 'kidname', 'اسم الطالب', 'الاسم بالكامل', 'اسم الطفل', 'اسم المخدوم', 'اسم المخدوم بالكامل', 'full name', 'name', 'الاسم', 'اسم التلميذ', 'الاسم رباعي', 'الاسم ثلاثي', 'الاسم ثنائي', 'اسم الطالب/الطالبة', 'student full name'],
-  gender: ['gender', 'sex', 'النوع', 'الجنس', 'بنت ولد', 'ولد بنت', 'النوع (بنت/ولد)', 'بنت/ولد', 'نوع الطفل', 'نوع المخدوم', 'نوع التلميذ', 'نوع_الطفل', 'نوع', 'جنس الطفل', 'جنس المخدوم'],
+  gender: ['gender', 'sex', 'النوع', 'الجنس', 'بنت ولد', 'ولد بنت', 'النوع (بنت/ولد)', 'بنت/ولد', 'نوع الطفل', 'نوع المخدوم', 'نوع التلميذ', 'نوع_الطفل', 'جنس الطفل', 'جنس المخدوم'],
   dob: [
     'dob', 'birthdate', 'dateofbirth', 'birth date', 'تاريخ الميلاد', 'الميلاد', 'تاريخ ميلاد', 'تاريخ', 
     'سنة الميلاد', 'سنه الميلاد', 'سنة ميلاد', 'سنه ميلاد', 'عيد الميلاد', 'عيد ميلاد', 'تاريخ_الميلاد', 'تاريخ_ميلاد',
@@ -328,64 +328,91 @@ export function autoDetectHeaderRow(rows: any[][]): number {
 
 /**
  * Runs the heuristic mapping on a list of sheet header strings.
+ * Enforces strict 1-to-1 mapping for all target fields except 'notes' when enforceUnique is true.
  */
-export function autoMapHeadersHeuristically(sheetHeaders: string[]): Record<string, string> {
+export function autoMapHeadersHeuristically(
+  sheetHeaders: string[],
+  enforceUnique: boolean = false
+): Record<string, string> {
   const mapping: Record<string, string> = {};
+  const claimedKeys = new Set<string>();
 
+  // Pass 1: Try exact clean match across all headers first (strongest signals)
   sheetHeaders.forEach((rawHeader) => {
     if (!rawHeader) return;
     const cleaned = cleanHeader(rawHeader);
-    let matchedKey = '';
 
-    // Pass 1: Try exact clean match
     for (const [fieldKey, patterns] of Object.entries(HEURISTIC_PATTERNS)) {
+      if (enforceUnique && fieldKey !== 'notes' && claimedKeys.has(fieldKey)) {
+        continue;
+      }
+
       const exactMatch = patterns.some((p) => cleanHeader(p) === cleaned);
       if (exactMatch) {
+        mapping[rawHeader] = fieldKey;
+        if (enforceUnique && fieldKey !== 'notes') {
+          claimedKeys.add(fieldKey);
+        }
+        break;
+      }
+    }
+  });
+
+  // Pass 2: Substring matching for remaining unmapped headers
+  sheetHeaders.forEach((rawHeader) => {
+    if (!rawHeader || mapping[rawHeader]) return;
+    const cleaned = cleanHeader(rawHeader);
+    let matchedKey = '';
+
+    for (const [fieldKey, patterns] of Object.entries(HEURISTIC_PATTERNS)) {
+      if (enforceUnique && fieldKey !== 'notes' && claimedKeys.has(fieldKey)) {
+        continue;
+      }
+
+      // Prevent generic fullName from grabbing parent fields
+      if (fieldKey === 'fullName' && (cleaned.includes('اب') || cleaned.includes('ام') || cleaned.includes('father') || cleaned.includes('mother'))) {
+        continue;
+      }
+
+      // Prevent generic dob from grabbing parent birth dates
+      if (fieldKey === 'dob' && (cleaned.includes('اب') || cleaned.includes('ام') || cleaned.includes('father') || cleaned.includes('mother') || cleaned.includes('والد') || cleaned.includes('والده'))) {
+        continue;
+      }
+
+      // Prevent generic dob from grabbing academic year / grade / classroom headers unless it explicitly mentions birth (ميلاد)
+      if (fieldKey === 'dob' && !cleaned.includes('ميلاد') && (cleaned.includes('دراس') || cleaned.includes('مرحل') || cleaned.includes('صف') || cleaned.includes('فصل'))) {
+        continue;
+      }
+
+      // Prevent generic school name from grabbing school type
+      if (fieldKey === 'school' && (cleaned.includes('نوع') || cleaned.includes('type') || cleaned.includes('نظام'))) {
+        continue;
+      }
+
+      // Prevent generic kidMob from grabbing landlines, home phones, or parent phones
+      if (fieldKey === 'kidMob' && (cleaned.includes('ارضي') || cleaned.includes('اب') || cleaned.includes('ام') || cleaned.includes('منزل') || cleaned.includes('طوارئ') || cleaned.includes('بيت'))) {
+        continue;
+      }
+
+      const subMatch = patterns.some((p) => {
+        const cp = cleanHeader(p);
+        // If pattern is 'السن' (age), do not match words like 'السنة' or 'سنوات' unless it explicitly refers to age
+        if (cp === 'السن' && cleaned !== 'السن' && cleaned !== 'سن' && cleaned !== 'سنالطالب') {
+          return false;
+        }
+        return cp.length >= 3 && (cleaned.includes(cp) || cp.includes(cleaned));
+      });
+      if (subMatch) {
         matchedKey = fieldKey;
         break;
       }
     }
 
-    // Pass 2: Substring matching if no exact match found
-    if (!matchedKey) {
-      for (const [fieldKey, patterns] of Object.entries(HEURISTIC_PATTERNS)) {
-        // Prevent generic fullName from grabbing parent fields
-        if (fieldKey === 'fullName' && (cleaned.includes('اب') || cleaned.includes('ام') || cleaned.includes('father') || cleaned.includes('mother'))) {
-          continue;
-        }
-
-        // Prevent generic dob from grabbing parent birth dates
-        if (fieldKey === 'dob' && (cleaned.includes('اب') || cleaned.includes('ام') || cleaned.includes('father') || cleaned.includes('mother') || cleaned.includes('والد') || cleaned.includes('والده'))) {
-          continue;
-        }
-
-        // Prevent generic dob from grabbing academic year / grade / classroom headers unless it explicitly mentions birth (ميلاد)
-        if (fieldKey === 'dob' && !cleaned.includes('ميلاد') && (cleaned.includes('دراس') || cleaned.includes('مرحل') || cleaned.includes('صف') || cleaned.includes('فصل'))) {
-          continue;
-        }
-
-        // Prevent generic school name from grabbing school type
-        if (fieldKey === 'school' && (cleaned.includes('نوع') || cleaned.includes('type') || cleaned.includes('نظام'))) {
-          continue;
-        }
-
-        const subMatch = patterns.some((p) => {
-          const cp = cleanHeader(p);
-          // If pattern is 'السن' (age), do not match words like 'السنة' or 'سنوات' unless it explicitly refers to age
-          if (cp === 'السن' && cleaned !== 'السن' && cleaned !== 'سن' && cleaned !== 'سنالطالب') {
-            return false;
-          }
-          return cp.length >= 3 && (cleaned.includes(cp) || cp.includes(cleaned));
-        });
-        if (subMatch) {
-          matchedKey = fieldKey;
-          break;
-        }
-      }
-    }
-
     if (matchedKey) {
       mapping[rawHeader] = matchedKey;
+      if (enforceUnique && matchedKey !== 'notes') {
+        claimedKeys.add(matchedKey);
+      }
     }
   });
 

@@ -619,5 +619,23 @@ describe('Smart Import & Bulk Operations Logic', () => {
       expect(normalizeSchoolTypeValue('', 'Saint George International School', true)).toBe('International');
       expect(normalizeSchoolTypeValue('', 'مدرسة الحرية للغات', true)).toBe('National');
     });
+
+    it('maps landline headers to otherMob and enforces 1-to-1 uniqueness in auto-mapping', () => {
+      const headers = [
+        'اسم الطالب',
+        'رقم موبايل الولد',
+        'رقم التليفون الأرضي',
+        'موبايل آخر',
+      ];
+      const mapped = autoMapHeadersHeuristically(headers, true);
+
+      expect(mapped['اسم الطالب']).toBe('fullName');
+      expect(mapped['رقم موبايل الولد']).toBe('kidMob');
+      expect(mapped['رقم التليفون الأرضي']).toBe('otherMob');
+      // No two headers map to the same field (except notes)
+      const mappedValues = Object.values(mapped);
+      const uniqueMappedValues = new Set(mappedValues);
+      expect(mappedValues.length).toBe(uniqueMappedValues.size);
+    });
   });
 });

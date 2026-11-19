@@ -951,18 +951,22 @@ Enables Sunday School servants and administrators to synchronize church contact 
 
 ## 40. Smart Import Multi-Column Notes & Heuristic Auto-Mapping Enhancements
 
-*   **Bilingual Heuristic Header Mapping:**
+*   **Bilingual Heuristic Header Mapping & Strict 1-to-1 Auto-Assignment:**
     *   **Gender:** Expanded heuristic dictionary to recognize colloquial Arabic variants: `نوع الطفل`, `نوع المخدوم`, `نوع التلميذ`, `نوع_الطفل`, `جنس الطفل`, and `جنس المخدوم`, preventing column drop and male default assumption.
     *   **School Type:** Expanded heuristic dictionary to recognize Egyptian school classification terms: `نظام الدراسة`, `نظام الدراسه`, `نوع الدراسة`, `طبيعة الدراسة`, and `نظام_الدراسة`.
+    *   **Landlines & Alternate Phones (`otherMob`):** Explicitly maps `رقم التليفون الأرضي`, `تليفون ارضي`, `تليفون المنزل`, `ارضي`, and `منزل` to `Other Mobile`, preventing collision with `Kid Mobile`.
+    *   **1-to-1 Auto-Mapping Constraint:** During auto-mapping (`autoMapHeadersHeuristically(headers, true)`), each CRM target field is claimed at most once (exact matches first, followed by fuzzy matches). No two columns are ever auto-assigned to the same field (except `Notes`).
 *   **Comprehensive School Type Value Normalization:**
     *   **International:** Evaluates `International`, `انترناشونال`, `دولي`, `امريكان`, `أمريكان`, `american`, `بريطاني`, `british`, `french`, `german`, `ig`, `igcse`, `ib` $\longrightarrow$ **`International`**. Checks `International` before `National` to prevent substring collision between `انترناشونال` and `ناشونال`.
     *   **National:** Evaluates `National`, `ناشونال`, `حكومي`, `تجريبي`, `لغات`, `عربي`, `خاص`, `قومية`, `قومي`, `راهبات` $\longrightarrow$ **`National`**.
     *   **Custom School Types:** When a school type does not strictly belong to National/International (e.g., `أزهري`, `STEM`, `منازل`), the custom string is safely preserved.
-*   **Column Mapping 1-to-1 Enforcement:**
-    *   For all CRM target fields except Notes, column mapping enforces strict **1-to-1 uniqueness**. Selecting an already-mapped field automatically resets the previously mapped column to `[ Ignore ]`, preventing unintentional data overwrite.
+*   **Choice B: Seamless 1-Click Column Reassignment & Clean Dropdowns:**
+    *   Dropdown options are kept **100% clean and free of visual noise** (removed all `(Replaces ...)` text).
+    *   If a user selects a field already mapped to another column (e.g. changing `Kid Mobile` from Column A to Column B), Column B seamlessly claims the field and Column A silently resets to `[ Ignore ]`, ensuring fast 1-click reassignment without duplicate collisions.
 *   **Multi-Column Notes Concatenation with Header Prefixing:**
     *   The `Notes` field allows **multiple spreadsheet columns to be mapped simultaneously**.
     *   Values from mapped columns are automatically formatted as `[Column Header]: [Value]` and concatenated with clean line breaks (`\n`). Any default notes provided during import are appended seamlessly.
+
 
 
 
