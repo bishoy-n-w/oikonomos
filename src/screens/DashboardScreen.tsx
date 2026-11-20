@@ -47,7 +47,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
     const kidsQuery = isAdmin
       ? baseKidsRef
       : (userAssignedClassIds && userAssignedClassIds.length > 0
-          ? query(baseKidsRef, where('activeAssignment.classId', 'in', userAssignedClassIds.slice(0, 30)))
+          ? query(baseKidsRef, where('activeAssignment.classId', '==', userAssignedClassIds[0]))
           : null);
 
     let unsubKids = () => {};

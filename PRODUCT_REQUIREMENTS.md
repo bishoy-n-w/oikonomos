@@ -1054,6 +1054,19 @@ Enables Sunday School servants and administrators to synchronize church contact 
 *   **Automated Servant Document Synchronization:**
     *   In `ClassesScreen.tsx`, whenever a class is created or updated, assigned teachers have the class ID automatically synced to their `assignedClasses` / `servantInClasses` profile arrays.
 
+---
+
+## 46. Exact-Target Query Scoping & Dynamic Servant Assigned-Classes Synchronization
+
+*   **Cloud Rule Alignment for Self-Syncing Class Assignments:**
+    *   Updated `firestore.rules` under `/churches/{churchId}/misters/{misterEmail}` to include `'assignedClasses'` and `'servantInClasses'` in the allowed keys when an authenticated servant updates their profile document.
+    *   In `FilterContext.tsx`, when classroom definitions load, the application compares the user's assigned classes against their profile document and automatically pushes `{ assignedClasses: myClassIds, servantInClasses: myClassIds }` in the background.
+*   **Exact Equality Query Strategy:**
+    *   Replaced unbounded and multi-class `'in'` queries with exact equality queries (`where('activeAssignment.classId', '==', targetClassId)`) in `KidsDirectoryScreen.tsx` and `DashboardScreen.tsx`.
+    *   Ensures Cloud Firestore's security rules engine evaluates `isClassServant` and `assignedClasses` against a single, static class identifier, eliminating collection query rejection.
+    *   Automatically selects the servant's primary accessible class on initial mount, displaying their classroom roster immediately with zero delay.
+
+
 
 
 

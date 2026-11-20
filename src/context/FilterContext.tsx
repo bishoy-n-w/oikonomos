@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
-import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from './AuthContext';
 import type { DropdownItem, UserRole } from '../types';
@@ -347,13 +347,27 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const cachedClass = getFilterFromStorage('classId');
         if (cachedClass && currentClasses.some((c) => c.id === cachedClass)) return cachedClass;
 
-        // If regular servant and has exactly 1 accessible class, automatically default to it
-        if (!isChurchManager && currentClasses.length === 1) {
+        // If regular servant and has accessible classes, automatically default to the first one
+        if (!isChurchManager && currentClasses.length > 0) {
           return currentClasses[0].id;
         }
 
         return null;
       });
+
+      // Auto-sync assignedClasses to user's profile document for database-level zero-trust security
+      if (userEmail && selectedChurchId && !isChurchManager) {
+        const myClassIds = items.filter((c) => c.data?.isClassMister).map((c) => c.id);
+        const myRef = doc(db, 'churches', selectedChurchId, 'misters', userEmail);
+        setDoc(myRef, {
+          assignedClasses: myClassIds,
+          servantInClasses: myClassIds,
+          lastEditAt: new Date().toISOString(),
+          lastEditBy: userEmail,
+        }, { merge: true }).catch((err) => {
+          console.warn('Could not auto-sync servant assignedClasses:', err);
+        });
+      }
     });
 
     return () => unsubscribeClasses();

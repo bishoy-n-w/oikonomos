@@ -173,7 +173,9 @@ service cloud.firestore {
                           'displayName', 
                           'lastEditAt', 
                           'lastEditBy', 
-                          'email'
+                          'email',
+                          'assignedClasses',
+                          'servantInClasses'
                         ])
                       );
       }

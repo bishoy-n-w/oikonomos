@@ -211,19 +211,22 @@ export const KidsDirectoryScreen: React.FC = () => {
           kidsQuery = query(baseKidsRef, where('activeAssignment.serviceGroupId', '==', selectedServiceGroupId));
         }
       } else {
-        // Regular Class Servant: strictly scoped to assigned classes
+        // Regular Class Servant: strictly scoped to assigned classes via exact equality query
         if (!userAssignedClassIds || userAssignedClassIds.length === 0) {
           setKids([]);
           return;
         }
 
-        if (selectedClassId && userAssignedClassIds.includes(selectedClassId)) {
-          kidsQuery = query(baseKidsRef, where('activeAssignment.classId', '==', selectedClassId));
-        } else if (userAssignedClassIds.length === 1) {
-          kidsQuery = query(baseKidsRef, where('activeAssignment.classId', '==', userAssignedClassIds[0]));
-        } else {
-          kidsQuery = query(baseKidsRef, where('activeAssignment.classId', 'in', userAssignedClassIds.slice(0, 30)));
+        const targetClassId = (selectedClassId && userAssignedClassIds.includes(selectedClassId))
+          ? selectedClassId
+          : userAssignedClassIds[0];
+
+        if (!targetClassId) {
+          setKids([]);
+          return;
         }
+
+        kidsQuery = query(baseKidsRef, where('activeAssignment.classId', '==', targetClassId));
       }
     }
 
