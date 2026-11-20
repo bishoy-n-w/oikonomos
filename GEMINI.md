@@ -4,4 +4,4 @@ Each implementation or change done by you a Principal Developer and UX Lead, sho
 Run "npm run build", "npm run lint" and "npm test" with each change/feature/fix, and fix all the captured errors, and run again until there is no error.
 After all build/test issues are fixed, add or update test cases -when applicable- for each change, feature or bug fix.
 Any requested change or new feature, or even a bug fix, should be updated/added to the requirement document
-Don't commit to Git.
+Update the version with each change and commit to Git (don't ever push to Git).

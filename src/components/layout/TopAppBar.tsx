@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import { useFilter } from '../../context/FilterContext';
+import { APP_FULL_VERSION } from '../../config/version';
 import type { ActiveTab } from './MainShell';
 import { 
   Sun, 
@@ -285,6 +286,11 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({ activeTab, onOpenMobileFil
                   <LogOut className="w-4 h-4" />
                   <span>{translate('sign_out')}</span>
                 </button>
+              </div>
+
+              {/* Version Footer */}
+              <div className="pt-2 mt-2 border-t border-zinc-100 dark:border-zinc-700/60 text-[11px] text-zinc-400 dark:text-zinc-500 text-center font-mono">
+                {APP_FULL_VERSION}
               </div>
             </div>
           )}

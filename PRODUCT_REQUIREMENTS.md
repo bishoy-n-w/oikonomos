@@ -1125,6 +1125,17 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   Fully localized via `i18n.ts` with dedicated translations for `all_church`, `all_scope`, `all_classes`, and `all_groups`.
     *   Employs `max-w-[175px] truncate` and `font-bold` typography, preserving comfortable touch targets ($\ge 44$px) without crowding the church brand header or profile avatar.
 
+---
+
+## 51. Omnipresent Application Versioning Across Desktop and Mobile
+
+*   **Multi-Platform Version Visibility:**
+    *   Promoted the release version string (`Oikonomos Web v3.1`) from strictly desktop sidebar to omnipresent visibility across mobile viewports:
+        1.  **Mobile "More" Slide-Over Drawer (`MainShell.tsx`):** Rendered cleanly at the footer of the administrative navigation drawer, pinned safely above the mobile safe-area inset.
+        2.  **User Profile Menu (`TopAppBar.tsx`):** Positioned at the footer of the Google-style profile dropdown on both mobile and desktop views, accessible from any screen by tapping the user avatar.
+        3.  **Desktop Sidebar (`MainShell.tsx`):** Preserved at the bottom of the left navigation rail.
+
+
 
 
 

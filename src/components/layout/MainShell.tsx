@@ -4,6 +4,7 @@ import { useFilter } from '../../context/FilterContext';
 import { useApp } from '../../context/AppContext';
 import { TopAppBar } from './TopAppBar';
 import { MobileFilterSheet } from './MobileFilterSheet';
+import { APP_FULL_VERSION } from '../../config/version';
 import { 
   LayoutDashboard, 
   Users, 
@@ -121,8 +122,8 @@ export const MainShell: React.FC<MainShellProps> = ({ activeTab, onTabChange, ch
             })}
           </nav>
 
-          <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 text-xs text-zinc-400 text-center">
-            Oikonomos Web v3.1
+          <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 text-xs text-zinc-400 text-center font-mono">
+            {APP_FULL_VERSION}
           </div>
         </aside>
 
@@ -224,6 +225,11 @@ export const MainShell: React.FC<MainShellProps> = ({ activeTab, onTabChange, ch
                   );
                 })}
               </div>
+            </div>
+
+            {/* Mobile Drawer Footer with Version */}
+            <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 text-xs text-zinc-400 text-center font-mono">
+              {APP_FULL_VERSION}
             </div>
           </div>
         </div>
