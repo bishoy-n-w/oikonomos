@@ -185,12 +185,8 @@ service cloud.firestore {
       
       // Kids Directory (PII & Role-Based CRUD)
       match /kids/{kidId} {
-        // Read: Church Admin, Group Servant of student's group, or Class Servant of student's class
-        allow read: if isChurchAdmin(churchId) || 
-                       (resource.data.activeAssignment != null && (
-                         isGroupServant(churchId, resource.data.activeAssignment.serviceGroupId) ||
-                         isClassServant(churchId, resource.data.activeAssignment.classId, resource.data.activeAssignment.academicYearId)
-                       ));
+        // Read: Any active church servant can read kids directory (required for Firestore collection queries)
+        allow read: if isChurchServant(churchId);
         
         // Create: Church Admin, Group Admin of target group, or Class Servant adding to their own class
         // Audit check: request.resource.data.createdBy must match caller email
@@ -267,7 +263,8 @@ service cloud.firestore {
       match /classes/{classId} {
         allow read: if isChurchServant(churchId);
         allow write: if (request.auth != null && !exists(/databases/$(database)/documents/global_admins/_lock)) ||
-                      isChurchAdmin(churchId);
+                      isChurchAdmin(churchId) ||
+                      (request.resource.data.serviceGroupId != null && isGroupAdmin(churchId, request.resource.data.serviceGroupId));
       }
 
       // --- ACADEMIC YEAR SCOPED DATA ---

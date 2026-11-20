@@ -30,7 +30,7 @@ export const ClassesScreen: React.FC = () => {
     selectedServiceGroupId, 
     serviceGroups, 
     academicYears,
-    canEditClass,
+    canManageClassStructure,
     canViewClass
   } = useFilter();
 
@@ -140,6 +140,16 @@ export const ClassesScreen: React.FC = () => {
 
     const yearData = getYearData(cls);
     if (!yearData) return false;
+
+    // For regular servants (not church admin, not group admin): only display classes they teach
+    const userEmail = (user?.email || '').toLowerCase().trim();
+    const isAssignedTeacher = (yearData.MistersIds || yearData.servants || [])
+      .map((e: string) => e.toLowerCase().trim())
+      .includes(userEmail);
+
+    if (!canManageClassStructure(cls.id) && !isAssignedTeacher) {
+      return false;
+    }
 
     // Mobile Quick Search
     if (mobileSearchQuery.trim()) {
@@ -412,7 +422,7 @@ export const ClassesScreen: React.FC = () => {
                     <span className={`w-2 h-2 rounded-full shrink-0 ${cls.active !== false ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        {canEditClass(cls.id) ? (
+                        {canManageClassStructure(cls.id) ? (
                           <button
                             type="button"
                             onClick={() => setEditClass(cls)}
@@ -460,7 +470,7 @@ export const ClassesScreen: React.FC = () => {
                     >
                       {servantsCount} {translate('servants')}
                     </button>
-                    {canEditClass(cls.id) && (
+                    {canManageClassStructure(cls.id) && (
                       <button
                         type="button"
                         onClick={() => setEditClass(cls)}
@@ -498,7 +508,7 @@ export const ClassesScreen: React.FC = () => {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    {canEditClass(cls.id) ? (
+                    {canManageClassStructure(cls.id) ? (
                       <button
                         type="button"
                         onClick={() => setEditClass(cls)}
@@ -566,7 +576,7 @@ export const ClassesScreen: React.FC = () => {
 
               {/* Actions */}
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/80">
-                {canEditClass(cls.id) ? (
+                {canManageClassStructure(cls.id) ? (
                   <>
                     <button
                       type="button"
@@ -655,7 +665,7 @@ export const ClassesScreen: React.FC = () => {
 
                     {/* 2. DisplayName */}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {canEditClass(cls.id) ? (
+                      {canManageClassStructure(cls.id) ? (
                         <button
                           type="button"
                           onClick={() => setEditClass(cls)}
@@ -729,7 +739,7 @@ export const ClassesScreen: React.FC = () => {
                     {/* 7. Actions */}
                     <td className="px-6 py-4 text-end whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
-                        {canEditClass(cls.id) ? (
+                        {canManageClassStructure(cls.id) ? (
                           <>
                             <button
                               type="button"

@@ -23,6 +23,7 @@ interface FilterContextType {
   userRole: UserRole;
   userGroupRoles: Record<string, 'admin' | 'servant'>;
   canEditClass: (classId: string) => boolean;
+  canManageClassStructure: (classId: string) => boolean;
   canViewClass: (classId: string) => boolean;
   setChurch: (id: string) => void;
   setAcademicYear: (id: string) => void;
@@ -442,6 +443,16 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return false;
   };
 
+  const canManageClassStructure = (classId: string): boolean => {
+    if (isGlobalAdmin) return true;
+    if (selectedChurchId && (churchRolesMap[selectedChurchId] === 'Admin' || churchRolesMap[selectedChurchId] === 'owner')) return true;
+    const targetClass = classes.find((c) => c.id === classId);
+    if (!targetClass) return false;
+    const groupId = targetClass.data?.serviceGroupId;
+    if (groupId && userGroupRoles[groupId] === 'admin') return true;
+    return false;
+  };
+
   const canViewClass = (classId: string): boolean => {
     if (canEditClass(classId)) return true;
     const targetClass = classes.find((c) => c.id === classId);
@@ -465,6 +476,7 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         userRole: activeUserRole,
         userGroupRoles,
         canEditClass,
+        canManageClassStructure,
         canViewClass,
         setChurch,
         setAcademicYear,

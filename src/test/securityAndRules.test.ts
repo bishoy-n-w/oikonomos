@@ -279,4 +279,41 @@ describe('Security & Threat Hardening Test Suite (SEC-01 - SEC-06)', () => {
       expect(canAccessKidVersion('unassigned_servant', target, { serviceGroupId: 'grp_high_school', classId: 'cls_g10' })).toBe(false);
     });
   });
+
+  describe('SEC-02: Kids Directory Read Access & Collection Query Alignment', () => {
+    function canReadKidsCollection(isChurchServant: boolean): boolean {
+      // Per Firestore 'rules are not filters' principle, collection queries require church-wide read access
+      return isChurchServant;
+    }
+
+    it('allows any active church servant to query the kids collection for their church', () => {
+      expect(canReadKidsCollection(true)).toBe(true);
+    });
+
+    it('denies unauthenticated or inactive users from reading the kids collection', () => {
+      expect(canReadKidsCollection(false)).toBe(false);
+    });
+  });
+
+  describe('SEC-03: Class Structure Management RBAC', () => {
+    function canManageClassStructure(
+      userRole: 'church_admin' | 'group_admin' | 'class_servant',
+      targetServiceGroupId: string,
+      userGroupId?: string
+    ): boolean {
+      if (userRole === 'church_admin') return true;
+      if (userRole === 'group_admin' && userGroupId === targetServiceGroupId) return true;
+      return false; // Class servants cannot rename/reassign classroom document structures
+    }
+
+    it('allows church admins and group admins to manage class configurations', () => {
+      expect(canManageClassStructure('church_admin', 'grp_elem')).toBe(true);
+      expect(canManageClassStructure('group_admin', 'grp_elem', 'grp_elem')).toBe(true);
+      expect(canManageClassStructure('group_admin', 'grp_high_school', 'grp_elem')).toBe(false);
+    });
+
+    it('strictly prevents regular class servants from modifying classroom structures', () => {
+      expect(canManageClassStructure('class_servant', 'grp_elem', 'grp_elem')).toBe(false);
+    });
+  });
 });

@@ -1015,6 +1015,24 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   Styled with `hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer transition` for authorized editors.
     *   Renders as standard static text (`cursor-default`) for unauthorized/view-only roles with no dead clicks.
 
+---
+
+## 44. Kids Collection Query RBAC Alignment & Class Structure Security Partitioning
+
+*   **Firestore "Rules Are Not Filters" Query Crash Resolution:**
+    *   Updated `firestore.rules` for `/churches/{churchId}/kids` to grant read access to all active church servants (`allow read: if isChurchServant(churchId);`).
+    *   Ensures client-side collection snapshot listeners (`onSnapshot(collection(.../kids))`) succeed without throwing `Missing or insufficient permissions` errors, allowing teachers to view their students.
+    *   Strict mutation gates (`create`, `update`, `delete`) remain securely locked to Church Admins, Group Admins, and assigned Class Servants.
+*   **Class Structure Security Partitioning (`canManageClassStructure`):**
+    *   Partitioned class permissions into two distinct capabilities:
+        *   `canManageClassStructure(classId)`: Restricted to Church Admins and Group Admins. Authorizes renaming classes, moving departments, changing grades, and assigning teachers.
+        *   `canEditClass(classId)`: Preserved for Class Servants to record attendance, log pastoral visits, and update student profiles without permission crashes.
+    *   Updated `firestore.rules` for `/churches/{churchId}/classes/{classId}` to authorize writes by Church Admins and Group Admins of that class's service group.
+*   **Scoped Class Visibility for Regular Servants:**
+    *   In `ClassesScreen.tsx`, regular servants who are neither Church Admins nor Group Admins now see strictly the classes they are assigned to teach (`isAssignedTeacher`). Unassigned classes in the department are filtered out.
+    *   Assigned classes render with quick-access roster preview buttons (`[ X Kids ]`, `[ Y Servants ]`) and `[ 👁️ View Only Mode ]` tags without administrative edit buttons that would fail on save.
+
+
 
 
 
