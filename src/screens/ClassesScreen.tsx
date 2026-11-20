@@ -278,6 +278,40 @@ export const ClassesScreen: React.FC = () => {
       }
     }
 
+    // Step 2b: Update assignedClasses / servantInClasses on servant documents for database-level security
+    misterIds.forEach((mEmail) => {
+      const mKey = mEmail.toLowerCase().trim();
+      const mRef = doc(db, 'churches', selectedChurchId, 'misters', mKey);
+      const existingM = allMisters.find((m) => (m.email || m.id).toLowerCase().trim() === mKey);
+      const currentClasses = new Set<string>(existingM?.assignedClasses || existingM?.servantInClasses || []);
+      currentClasses.add(docId);
+      const list = Array.from(currentClasses);
+      batch.set(mRef, {
+        assignedClasses: list,
+        servantInClasses: list,
+        lastEditAt: new Date().toISOString(),
+        lastEditBy: user?.email,
+      }, { merge: true });
+    });
+
+    const previousMisters = targetClass?.academicYears?.[academicYearId]?.MistersIds || targetClass?.academicYears?.[academicYearId]?.servants || [];
+    previousMisters
+      .filter((mEmail: string) => !misterIds.map((e) => e.toLowerCase().trim()).includes(mEmail.toLowerCase().trim()))
+      .forEach((mEmail: string) => {
+        const mKey = mEmail.toLowerCase().trim();
+        const mRef = doc(db, 'churches', selectedChurchId, 'misters', mKey);
+        const existingM = allMisters.find((m) => (m.email || m.id).toLowerCase().trim() === mKey);
+        const currentClasses = new Set<string>(existingM?.assignedClasses || existingM?.servantInClasses || []);
+        currentClasses.delete(docId);
+        const list = Array.from(currentClasses);
+        batch.set(mRef, {
+          assignedClasses: list,
+          servantInClasses: list,
+          lastEditAt: new Date().toISOString(),
+          lastEditBy: user?.email,
+        }, { merge: true });
+      });
+
     // Step 3: Bidirectional sync with Kids collection
     const previouslyAssignedKids = allKids.filter((k) => k.activeAssignment?.classId === docId);
     

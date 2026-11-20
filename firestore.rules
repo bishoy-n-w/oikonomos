@@ -185,8 +185,22 @@ service cloud.firestore {
       
       // Kids Directory (PII & Role-Based CRUD)
       match /kids/{kidId} {
-        // Read: Any active church servant can read kids directory (required for Firestore collection queries)
-        allow read: if isChurchServant(churchId);
+        // Read: Church Admin, Group Admin of student's group, or Class Servant of student's class
+        allow read: if isChurchAdmin(churchId) || 
+                       (resource.data.activeAssignment != null && (
+                         isGroupAdmin(churchId, resource.data.activeAssignment.serviceGroupId) ||
+                         isClassServant(churchId, resource.data.activeAssignment.classId, resource.data.activeAssignment.academicYearId) ||
+                         (
+                           'assignedClasses' in getMisterData(churchId) &&
+                           getMisterData(churchId).assignedClasses != null &&
+                           resource.data.activeAssignment.classId in getMisterData(churchId).assignedClasses
+                         ) ||
+                         (
+                           'servantInClasses' in getMisterData(churchId) &&
+                           getMisterData(churchId).servantInClasses != null &&
+                           resource.data.activeAssignment.classId in getMisterData(churchId).servantInClasses
+                         )
+                       ));
         
         // Create: Church Admin, Group Admin of target group, or Class Servant adding to their own class
         // Audit check: request.resource.data.createdBy must match caller email

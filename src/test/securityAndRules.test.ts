@@ -280,18 +280,35 @@ describe('Security & Threat Hardening Test Suite (SEC-01 - SEC-06)', () => {
     });
   });
 
-  describe('SEC-02: Kids Directory Read Access & Collection Query Alignment', () => {
-    function canReadKidsCollection(isChurchServant: boolean): boolean {
-      // Per Firestore 'rules are not filters' principle, collection queries require church-wide read access
-      return isChurchServant;
+  describe('SEC-02: Kids Directory Zero-Trust Database Security & Scoped Query Alignment', () => {
+    function canReadKid(
+      userRole: 'church_admin' | 'group_admin' | 'class_servant' | 'unassigned_servant',
+      kidAssignment: { serviceGroupId: string; classId: string },
+      servantAssignedClasses: string[],
+      servantAssignedGroup?: string
+    ): boolean {
+      if (userRole === 'church_admin') return true;
+      if (userRole === 'group_admin' && servantAssignedGroup === kidAssignment.serviceGroupId) return true;
+      if (userRole === 'class_servant' && servantAssignedClasses.includes(kidAssignment.classId)) return true;
+      return false;
     }
 
-    it('allows any active church servant to query the kids collection for their church', () => {
-      expect(canReadKidsCollection(true)).toBe(true);
+    it('allows church admins full access to read any student in the church', () => {
+      expect(canReadKid('church_admin', { serviceGroupId: 'grp1', classId: 'cls1' }, [])).toBe(true);
     });
 
-    it('denies unauthenticated or inactive users from reading the kids collection', () => {
-      expect(canReadKidsCollection(false)).toBe(false);
+    it('allows group admins to read students in their own service group', () => {
+      expect(canReadKid('group_admin', { serviceGroupId: 'grp1', classId: 'cls1' }, [], 'grp1')).toBe(true);
+      expect(canReadKid('group_admin', { serviceGroupId: 'grp2', classId: 'cls2' }, [], 'grp1')).toBe(false);
+    });
+
+    it('strictly locks class servants to students belonging to their assigned class(es)', () => {
+      expect(canReadKid('class_servant', { serviceGroupId: 'grp1', classId: 'cls_elem_young' }, ['cls_elem_young'])).toBe(true);
+      expect(canReadKid('class_servant', { serviceGroupId: 'grp1', classId: 'cls_elem_old' }, ['cls_elem_young'])).toBe(false);
+    });
+
+    it('denies unassigned servants from accessing any students', () => {
+      expect(canReadKid('unassigned_servant', { serviceGroupId: 'grp1', classId: 'cls_elem_young' }, [])).toBe(false);
     });
   });
 

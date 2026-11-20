@@ -19,6 +19,7 @@ interface FilterContextType {
   academicYears: DropdownItem[];
   serviceGroups: DropdownItem[];
   classes: DropdownItem[];
+  userAssignedClassIds: string[];
   isLoading: boolean;
   userRole: UserRole;
   userGroupRoles: Record<string, 'admin' | 'servant'>;
@@ -319,10 +320,16 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         };
       });
 
-      // Filter: servants not in the group have NO access to the class
-      const accessibleClasses = isChurchManager
-        ? items
-        : items.filter((c) => c.data?.serviceGroupId && userGroupRoles[c.data.serviceGroupId] !== undefined);
+      // Filter accessible classes:
+      // - Church Managers (Owner / Church Admin): all classes
+      // - Group Admins: all classes in the groups they manage (userGroupRoles[groupId] === 'admin')
+      // - Regular Servants: strictly classes where they are an assigned teacher (c.data?.isClassMister === true)
+      const accessibleClasses = items.filter((c) => {
+        if (isChurchManager) return true;
+        const gId = c.data?.serviceGroupId;
+        if (gId && userGroupRoles[gId] === 'admin') return true;
+        return c.data?.isClassMister === true;
+      });
 
       // Filter classes by selected service group if specified
       const currentClasses = selectedServiceGroupId
@@ -339,6 +346,11 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         const cachedClass = getFilterFromStorage('classId');
         if (cachedClass && currentClasses.some((c) => c.id === cachedClass)) return cachedClass;
+
+        // If regular servant and has exactly 1 accessible class, automatically default to it
+        if (!isChurchManager && currentClasses.length === 1) {
+          return currentClasses[0].id;
+        }
 
         return null;
       });
@@ -461,6 +473,10 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return !!(groupId && userGroupRoles[groupId] !== undefined);
   };
 
+  const userAssignedClassIds = React.useMemo(() => {
+    return classes.filter((c) => c.data?.isClassMister).map((c) => c.id);
+  }, [classes]);
+
   return (
     <FilterContext.Provider
       value={{
@@ -472,6 +488,7 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         academicYears,
         serviceGroups,
         classes,
+        userAssignedClassIds,
         isLoading,
         userRole: activeUserRole,
         userGroupRoles,

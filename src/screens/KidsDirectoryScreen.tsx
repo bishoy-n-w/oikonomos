@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, setDoc, deleteDoc, writeBatch, getDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
@@ -63,7 +63,8 @@ export const KidsDirectoryScreen: React.FC = () => {
     academicYears,
     canEditClass,
     canViewClass,
-    userGroupRoles 
+    userGroupRoles,
+    userAssignedClassIds 
   } = useFilter();
 
   const [kids, setKids] = useState<Kid[]>([]);
@@ -182,11 +183,51 @@ export const KidsDirectoryScreen: React.FC = () => {
   useModalEscape(() => setSyncModalOpen(false), syncModalOpen);
   useModalEscape(() => setEditModalOpen(false), editModalOpen && !bulkModalOpen && !importModalOpen && !syncModalOpen && !bulkDeleteConfirmOpen);
 
-  // 1. Listen to Kids
+  // 1. Listen to Kids (scoped query enforced for database-level zero-trust security)
   useEffect(() => {
-    if (!selectedChurchId) return;
+    if (!selectedChurchId) {
+      setKids([]);
+      return;
+    }
 
-    const unsub = onSnapshot(collection(db, 'churches', selectedChurchId, 'kids'), (snapshot) => {
+    const baseKidsRef = collection(db, 'churches', selectedChurchId, 'kids');
+    let kidsQuery;
+
+    if (isChurchAdminOrOwner) {
+      if (selectedClassId) {
+        kidsQuery = query(baseKidsRef, where('activeAssignment.classId', '==', selectedClassId));
+      } else if (selectedServiceGroupId) {
+        kidsQuery = query(baseKidsRef, where('activeAssignment.serviceGroupId', '==', selectedServiceGroupId));
+      } else {
+        kidsQuery = baseKidsRef;
+      }
+    } else {
+      const isGroupAdmin = selectedServiceGroupId ? userGroupRoles[selectedServiceGroupId] === 'admin' : false;
+
+      if (isGroupAdmin) {
+        if (selectedClassId) {
+          kidsQuery = query(baseKidsRef, where('activeAssignment.classId', '==', selectedClassId));
+        } else {
+          kidsQuery = query(baseKidsRef, where('activeAssignment.serviceGroupId', '==', selectedServiceGroupId));
+        }
+      } else {
+        // Regular Class Servant: strictly scoped to assigned classes
+        if (!userAssignedClassIds || userAssignedClassIds.length === 0) {
+          setKids([]);
+          return;
+        }
+
+        if (selectedClassId && userAssignedClassIds.includes(selectedClassId)) {
+          kidsQuery = query(baseKidsRef, where('activeAssignment.classId', '==', selectedClassId));
+        } else if (userAssignedClassIds.length === 1) {
+          kidsQuery = query(baseKidsRef, where('activeAssignment.classId', '==', userAssignedClassIds[0]));
+        } else {
+          kidsQuery = query(baseKidsRef, where('activeAssignment.classId', 'in', userAssignedClassIds.slice(0, 30)));
+        }
+      }
+    }
+
+    const unsub = onSnapshot(kidsQuery, (snapshot) => {
       const items: Kid[] = snapshot.docs.map((docSnap) => {
         const d = docSnap.data();
         return {
@@ -226,10 +267,13 @@ export const KidsDirectoryScreen: React.FC = () => {
         };
       });
       setKids(items);
+    }, (err) => {
+      console.warn('Could not load kids for scoped query:', err);
+      setKids([]);
     });
 
     return () => unsub();
-  }, [selectedChurchId]);
+  }, [selectedChurchId, selectedServiceGroupId, selectedClassId, isChurchAdminOrOwner, userGroupRoles, userAssignedClassIds]);
 
   // 2. Listen to classes
   useEffect(() => {

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
@@ -23,7 +23,7 @@ interface DashboardScreenProps {
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) => {
   const { userRole } = useAuth();
   const { translate } = useApp();
-  const { selectedChurchId } = useFilter();
+  const { selectedChurchId, userAssignedClassIds } = useFilter();
 
   const [kidsCount, setKidsCount] = useState(0);
   const [servantsCount, setServantsCount] = useState(0);
@@ -42,11 +42,25 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
       return;
     }
 
-    // Kids count
-    const kidsRef = collection(db, 'churches', selectedChurchId, 'kids');
-    const unsubKids = onSnapshot(kidsRef, (snap) => {
-      setKidsCount(snap.docs.filter(d => d.data().active !== false).length);
-    });
+    // Kids count (scoped for database-level security)
+    const baseKidsRef = collection(db, 'churches', selectedChurchId, 'kids');
+    const kidsQuery = isAdmin
+      ? baseKidsRef
+      : (userAssignedClassIds && userAssignedClassIds.length > 0
+          ? query(baseKidsRef, where('activeAssignment.classId', 'in', userAssignedClassIds.slice(0, 30)))
+          : null);
+
+    let unsubKids = () => {};
+    if (kidsQuery) {
+      unsubKids = onSnapshot(kidsQuery, (snap) => {
+        setKidsCount(snap.docs.filter(d => d.data().active !== false).length);
+      }, (err) => {
+        console.warn('Dashboard kids count query error:', err);
+        setKidsCount(0);
+      });
+    } else {
+      setKidsCount(0);
+    }
 
     // Servants count
     const mistersRef = collection(db, 'churches', selectedChurchId, 'misters');
@@ -72,7 +86,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
       unsubMisters();
       unsubClasses();
     };
-  }, [selectedChurchId]);
+  }, [selectedChurchId, isAdmin, userAssignedClassIds]);
 
   const approveRequest = async (misterEmail: string) => {
     if (!selectedChurchId) return;

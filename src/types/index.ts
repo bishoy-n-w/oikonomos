@@ -166,6 +166,8 @@ export interface Mister {
   adminInGroups?: string[];
   servantInGroups?: string[];
   servantInClasses?: string[];
+  assignedClasses?: string[];
+  assignedGroups?: string[];
   createdAt?: string;
   createdBy?: string;
   lastEditAt?: string;

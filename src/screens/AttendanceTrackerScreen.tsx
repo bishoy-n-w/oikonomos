@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   collection, 
+  query,
+  where,
   onSnapshot, 
   doc, 
   setDoc, 
@@ -186,23 +188,21 @@ export const AttendanceTrackerScreen: React.FC = () => {
 
   // 1. Listen to Kids for the selected class
   useEffect(() => {
-    if (!selectedChurchId) {
+    if (!selectedChurchId || !selectedClassId) {
       setKids([]);
       return;
     }
 
-    const kidsRef = collection(db, 'churches', selectedChurchId, 'kids');
-    const unsubKids = onSnapshot(kidsRef, (snap) => {
+    const kidsQuery = query(
+      collection(db, 'churches', selectedChurchId, 'kids'),
+      where('activeAssignment.classId', '==', selectedClassId)
+    );
+    const unsubKids = onSnapshot(kidsQuery, (snap) => {
       const all: Kid[] = snap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
       setAllChurchKids(all);
 
       const items: Kid[] = all
-        .filter((k) => {
-          if (k.active === false) return false;
-          const asgn = k.activeAssignment || {};
-          const cId = asgn.classId || k.classId;
-          return !selectedClassId || cId === selectedClassId;
-        })
+        .filter((k) => k.active !== false)
         .sort((a, b) => (a.info?.fullName || '').localeCompare(b.info?.fullName || ''));
       setKids(items);
     });

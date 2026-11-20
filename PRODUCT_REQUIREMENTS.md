@@ -1032,6 +1032,29 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   In `ClassesScreen.tsx`, regular servants who are neither Church Admins nor Group Admins now see strictly the classes they are assigned to teach (`isAssignedTeacher`). Unassigned classes in the department are filtered out.
     *   Assigned classes render with quick-access roster preview buttons (`[ X Kids ]`, `[ Y Servants ]`) and `[ 👁️ View Only Mode ]` tags without administrative edit buttons that would fail on save.
 
+---
+
+## 45. Zero-Trust Database-Enforced Kid Security & Scoped Dropdown Access
+
+*   **Top-Bar Dropdown Scoping ("Only See My Stuff"):**
+    *   In `FilterContext.tsx`, `accessibleClasses` is strictly scoped:
+        *   *Church Admins:* See all classes in the church.
+        *   *Group Admins:* See all classes in the service group(s) they manage.
+        *   *Regular Servants:* Strictly see classes where they are an assigned teacher (`isClassMister === true`). Unrelated classes in the group/church do not appear in their dropdown.
+    *   If a regular servant serves in exactly 1 classroom, the application automatically defaults to and selects that classroom context.
+    *   `userAssignedClassIds` is exposed across the context for downstream screen query scoping.
+*   **Zero-Trust Cloud Database Security (`firestore.rules`):**
+    *   Updated `firestore.rules` for `/churches/{churchId}/kids/{kidId}` to enforce strict, database-level read/write gates:
+        *   Allowed *only* if Church Admin, Group Admin of the student's department, or Class Servant matching the student's `activeAssignment.classId`.
+        *   Any direct read or collection scrape outside the servant's assigned classes is rejected by Firestore servers with `PERMISSION_DENIED` (HTTP 403 Forbidden).
+*   **Scoped Client Queries Across All Screens:**
+    *   **Kids Directory (`KidsDirectoryScreen.tsx`):** Scopes queries using `where('activeAssignment.classId', '==', selectedClassId)` or `where('activeAssignment.classId', 'in', userAssignedClassIds)`. If unassigned, renders an empty state with zero database calls.
+    *   **Attendance Tracker (`AttendanceTrackerScreen.tsx`):** Scopes queries directly to `selectedClassId`.
+    *   **Dashboard (`DashboardScreen.tsx`):** Counts students strictly within the servant's assigned classrooms.
+*   **Automated Servant Document Synchronization:**
+    *   In `ClassesScreen.tsx`, whenever a class is created or updated, assigned teachers have the class ID automatically synced to their `assignedClasses` / `servantInClasses` profile arrays.
+
+
 
 
 
