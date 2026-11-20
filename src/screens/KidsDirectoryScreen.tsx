@@ -183,6 +183,46 @@ export const KidsDirectoryScreen: React.FC = () => {
   useModalEscape(() => setSyncModalOpen(false), syncModalOpen);
   useModalEscape(() => setEditModalOpen(false), editModalOpen && !bulkModalOpen && !importModalOpen && !syncModalOpen && !bulkDeleteConfirmOpen);
 
+  // Helper: map a Firestore document snapshot to the Kid interface
+  const mapDocToKid = (docSnap: any): Kid => {
+    const d = docSnap.data();
+    return {
+      id: docSnap.id,
+      active: d.active !== false,
+      activeAssignment: d.activeAssignment || {
+        academicYearId: d.academicYearId,
+        serviceGroupId: d.serviceGroupId,
+        classId: d.classId,
+      },
+      info: {
+        fullName: String(d.info?.fullName || d.fullName || 'Unknown'),
+        gender: (d.info?.gender || d.gender || 'male') as 'male' | 'female',
+        dob: normalizeDateStr(d.info?.dob || d.dob),
+        school: String(d.info?.school || d.school || ''),
+        schoolType: d.info?.schoolType || d.schoolType || '',
+        deacon: typeof d.info?.deacon === 'boolean' ? d.info.deacon : typeof d.deacon === 'boolean' ? d.deacon : undefined,
+        fatherOfConfession: String(d.info?.fatherOfConfession || d.fatherOfConfession || ''),
+        photoUrl: d.info?.photoUrl || d.photoUrl || '',
+      },
+      address: {
+        ...(d.address || {}),
+        landmark: d.address?.landmark || d.landmark || '',
+        geoLocation: d.address?.geoLocation || d.geoLocation || '',
+      },
+      contacts: {
+        ...(d.contacts || {}),
+        fatherDOB: normalizeDateStr(d.contacts?.fatherDOB || d.fatherDOB),
+        motherDOB: normalizeDateStr(d.contacts?.motherDOB || d.motherDOB),
+      },
+      notes: typeof d.notes === 'string' ? d.notes : '',
+      versions: d.versions || {},
+      createdAt: d.createdAt,
+      createdBy: d.createdBy,
+      lastEditAt: d.lastEditAt,
+      lastEditBy: d.lastEditBy,
+    };
+  };
+
   // 1. Listen to Kids (scoped query enforced for database-level zero-trust security)
   useEffect(() => {
     if (!selectedChurchId) {
@@ -191,9 +231,10 @@ export const KidsDirectoryScreen: React.FC = () => {
     }
 
     const baseKidsRef = collection(db, 'churches', selectedChurchId, 'kids');
-    let kidsQuery;
 
+    // Case A: Church Admin or Global Owner
     if (isChurchAdminOrOwner) {
+      let kidsQuery;
       if (selectedClassId) {
         kidsQuery = query(baseKidsRef, where('activeAssignment.classId', '==', selectedClassId));
       } else if (selectedServiceGroupId) {
@@ -201,81 +242,66 @@ export const KidsDirectoryScreen: React.FC = () => {
       } else {
         kidsQuery = baseKidsRef;
       }
-    } else {
-      const isGroupAdmin = selectedServiceGroupId ? userGroupRoles[selectedServiceGroupId] === 'admin' : false;
-
-      if (isGroupAdmin) {
-        if (selectedClassId) {
-          kidsQuery = query(baseKidsRef, where('activeAssignment.classId', '==', selectedClassId));
-        } else {
-          kidsQuery = query(baseKidsRef, where('activeAssignment.serviceGroupId', '==', selectedServiceGroupId));
-        }
-      } else {
-        // Regular Class Servant: strictly scoped to assigned classes via exact equality query
-        if (!userAssignedClassIds || userAssignedClassIds.length === 0) {
-          setKids([]);
-          return;
-        }
-
-        const targetClassId = (selectedClassId && userAssignedClassIds.includes(selectedClassId))
-          ? selectedClassId
-          : userAssignedClassIds[0];
-
-        if (!targetClassId) {
-          setKids([]);
-          return;
-        }
-
-        kidsQuery = query(baseKidsRef, where('activeAssignment.classId', '==', targetClassId));
-      }
+      const unsub = onSnapshot(kidsQuery, (snapshot) => {
+        setKids(snapshot.docs.map(mapDocToKid));
+      }, (err) => {
+        console.warn('Error loading kids for admin:', err);
+        setKids([]);
+      });
+      return () => unsub();
     }
 
-    const unsub = onSnapshot(kidsQuery, (snapshot) => {
-      const items: Kid[] = snapshot.docs.map((docSnap) => {
-        const d = docSnap.data();
-        return {
-          id: docSnap.id,
-          active: d.active !== false,
-          activeAssignment: d.activeAssignment || {
-            academicYearId: d.academicYearId,
-            serviceGroupId: d.serviceGroupId,
-            classId: d.classId,
-          },
-          info: {
-            fullName: String(d.info?.fullName || d.fullName || 'Unknown'),
-            gender: (d.info?.gender || d.gender || 'male') as 'male' | 'female',
-            dob: normalizeDateStr(d.info?.dob || d.dob),
-            school: String(d.info?.school || d.school || ''),
-            schoolType: d.info?.schoolType || d.schoolType || '',
-            deacon: typeof d.info?.deacon === 'boolean' ? d.info.deacon : typeof d.deacon === 'boolean' ? d.deacon : undefined,
-            fatherOfConfession: String(d.info?.fatherOfConfession || d.fatherOfConfession || ''),
-            photoUrl: d.info?.photoUrl || d.photoUrl || '',
-          },
-          address: {
-            ...(d.address || {}),
-            landmark: d.address?.landmark || d.landmark || '',
-            geoLocation: d.address?.geoLocation || d.geoLocation || '',
-          },
-          contacts: {
-            ...(d.contacts || {}),
-            fatherDOB: normalizeDateStr(d.contacts?.fatherDOB || d.fatherDOB),
-            motherDOB: normalizeDateStr(d.contacts?.motherDOB || d.motherDOB),
-          },
-          notes: typeof d.notes === 'string' ? d.notes : '',
-          versions: d.versions || {},
-          createdAt: d.createdAt,
-          createdBy: d.createdBy,
-          lastEditAt: d.lastEditAt,
-          lastEditBy: d.lastEditBy,
-        };
+    // Case B: Group Admin
+    const isGroupAdmin = selectedServiceGroupId ? userGroupRoles[selectedServiceGroupId] === 'admin' : false;
+    if (isGroupAdmin) {
+      let kidsQuery;
+      if (selectedClassId) {
+        kidsQuery = query(baseKidsRef, where('activeAssignment.classId', '==', selectedClassId));
+      } else {
+        kidsQuery = query(baseKidsRef, where('activeAssignment.serviceGroupId', '==', selectedServiceGroupId));
+      }
+      const unsub = onSnapshot(kidsQuery, (snapshot) => {
+        setKids(snapshot.docs.map(mapDocToKid));
+      }, (err) => {
+        console.warn('Error loading kids for group admin:', err);
+        setKids([]);
       });
-      setKids(items);
-    }, (err) => {
-      console.warn('Could not load kids for scoped query:', err);
+      return () => unsub();
+    }
+
+    // Case C: Regular Class Servant (Zero-Trust Exact Queries with Multi-Class Merging)
+    if (!userAssignedClassIds || userAssignedClassIds.length === 0) {
       setKids([]);
+      return;
+    }
+
+    // If a specific assigned class is selected:
+    if (selectedClassId && userAssignedClassIds.includes(selectedClassId)) {
+      const q = query(baseKidsRef, where('activeAssignment.classId', '==', selectedClassId));
+      const unsub = onSnapshot(q, (snapshot) => {
+        setKids(snapshot.docs.map(mapDocToKid));
+      }, (err) => {
+        console.warn('Error loading kids for class:', err);
+        setKids([]);
+      });
+      return () => unsub();
+    }
+
+    // If 'All Classes' is selected, query ALL of the servant's assigned classes in parallel and merge:
+    const classKidsMap: Record<string, Kid[]> = {};
+    const unsubs = userAssignedClassIds.map((cId) => {
+      const q = query(baseKidsRef, where('activeAssignment.classId', '==', cId));
+      return onSnapshot(q, (snapshot) => {
+        classKidsMap[cId] = snapshot.docs.map(mapDocToKid);
+        const combined = Object.values(classKidsMap).flat();
+        combined.sort((a, b) => (a.info?.fullName || '').localeCompare(b.info?.fullName || ''));
+        setKids(combined);
+      }, (err) => {
+        console.warn(`Error querying kids for assigned class ${cId}:`, err);
+      });
     });
 
-    return () => unsub();
+    return () => unsubs.forEach((unsub) => unsub());
   }, [selectedChurchId, selectedServiceGroupId, selectedClassId, isChurchAdminOrOwner, userGroupRoles, userAssignedClassIds]);
 
   // 2. Listen to classes

@@ -344,13 +344,11 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const urlClass = parseCurrentRoute().filters.classId;
         if (urlClass && currentClasses.some((c) => c.id === urlClass)) return urlClass;
 
+        // If user explicitly selected "All Classes" (null), preserve their choice!
+        if (prev === null) return null;
+
         const cachedClass = getFilterFromStorage('classId');
         if (cachedClass && currentClasses.some((c) => c.id === cachedClass)) return cachedClass;
-
-        // If regular servant and has accessible classes, automatically default to the first one
-        if (!isChurchManager && currentClasses.length > 0) {
-          return currentClasses[0].id;
-        }
 
         return null;
       });

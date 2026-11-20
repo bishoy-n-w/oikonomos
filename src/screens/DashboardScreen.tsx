@@ -44,20 +44,28 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
 
     // Kids count (scoped for database-level security)
     const baseKidsRef = collection(db, 'churches', selectedChurchId, 'kids');
-    const kidsQuery = isAdmin
-      ? baseKidsRef
-      : (userAssignedClassIds && userAssignedClassIds.length > 0
-          ? query(baseKidsRef, where('activeAssignment.classId', '==', userAssignedClassIds[0]))
-          : null);
-
     let unsubKids = () => {};
-    if (kidsQuery) {
-      unsubKids = onSnapshot(kidsQuery, (snap) => {
+
+    if (isAdmin) {
+      unsubKids = onSnapshot(baseKidsRef, (snap) => {
         setKidsCount(snap.docs.filter(d => d.data().active !== false).length);
       }, (err) => {
         console.warn('Dashboard kids count query error:', err);
         setKidsCount(0);
       });
+    } else if (userAssignedClassIds && userAssignedClassIds.length > 0) {
+      const classCountsMap: Record<string, number> = {};
+      const unsubs = userAssignedClassIds.map((cId) => {
+        const q = query(baseKidsRef, where('activeAssignment.classId', '==', cId));
+        return onSnapshot(q, (snap) => {
+          classCountsMap[cId] = snap.docs.filter(d => d.data().active !== false).length;
+          const total = Object.values(classCountsMap).reduce((sum, count) => sum + count, 0);
+          setKidsCount(total);
+        }, (err) => {
+          console.warn(`Dashboard kids count error for class ${cId}:`, err);
+        });
+      });
+      unsubKids = () => unsubs.forEach((u) => u());
     } else {
       setKidsCount(0);
     }

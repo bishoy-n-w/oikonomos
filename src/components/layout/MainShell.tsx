@@ -91,13 +91,13 @@ export const MainShell: React.FC<MainShellProps> = ({ activeTab, onTabChange, ch
   }
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
+    <div className="h-[100dvh] max-h-[100dvh] flex flex-col bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors overflow-hidden">
       {/* Top App Bar */}
       <TopAppBar activeTab={activeTab} onOpenMobileFilters={() => setMobileFiltersOpen(true)} />
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Desktop Sidebar (lg:flex) */}
-        <aside className="hidden lg:flex flex-col w-64 bg-white dark:bg-zinc-900 border-e border-zinc-200 dark:border-zinc-800 p-4 shrink-0 transition-colors">
+        <aside className="hidden lg:flex flex-col w-64 h-full bg-white dark:bg-zinc-900 border-e border-zinc-200 dark:border-zinc-800 p-4 shrink-0 transition-colors overflow-y-auto">
           <nav className="space-y-1.5 flex-1">
             {navItems.map((item) => {
               if (item.adminOnly && userRole === 'viewer') return null;

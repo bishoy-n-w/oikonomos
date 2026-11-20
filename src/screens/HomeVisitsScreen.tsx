@@ -7,7 +7,8 @@ import {
   deleteDoc, 
   query, 
   where,
-  orderBy 
+  orderBy,
+  getDocs 
 } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
@@ -21,7 +22,6 @@ import {
   captureDeviceGpsLocation 
 } from '../utils/geo';
 import { 
-  Home, 
   MapPin, 
   Plus, 
   Search, 
@@ -36,7 +36,10 @@ import {
   Sparkles,
   ExternalLink,
   Navigation,
-  Phone
+  Phone,
+  HeartHandshake,
+  Award,
+  RefreshCw
 } from 'lucide-react';
 import { MobileViewToggle } from '../components/common/MobileViewToggle';
 import * as XLSX from 'xlsx';
@@ -47,9 +50,12 @@ export const HomeVisitsScreen: React.FC = () => {
   const { 
     selectedChurchId, 
     selectedAcademicYearId, 
+    selectedServiceGroupId,
     selectedClassId, 
     classes, 
     churches,
+    serviceGroups,
+    setClass,
     canEditClass 
   } = useFilter();
 
@@ -171,6 +177,141 @@ export const HomeVisitsScreen: React.FC = () => {
 
     return () => unsub();
   }, [selectedChurchId, selectedAcademicYearId, selectedClassId]);
+
+  // Aggregate stats across all accessible classes when no specific class is selected
+  const [aggregateLoading, setAggregateLoading] = useState(false);
+  const [aggregatePastoralData, setAggregatePastoralData] = useState<Array<{
+    classId: string;
+    className: string;
+    gradeId?: string;
+    kids: Kid[];
+    visits: HomeVisit[];
+    visitedCount: number;
+    coveragePct: number;
+    overdueCount: number;
+    recentCount: number;
+    dueCount: number;
+    neverCount: number;
+    overdueKids: Array<{ kid: Kid; daysAgo: number }>;
+  }>>([]);
+
+  useEffect(() => {
+    if (selectedClassId || !selectedChurchId || !selectedAcademicYearId) {
+      setAggregatePastoralData([]);
+      return;
+    }
+
+    if (classes.length === 0) {
+      setAggregatePastoralData([]);
+      return;
+    }
+
+    setAggregateLoading(true);
+    let active = true;
+
+    const loadPastoralAggregate = async () => {
+      try {
+        const now = new Date();
+        const todayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+        const results = await Promise.all(
+          classes.map(async (cls) => {
+            // 1. Fetch active kids in this class
+            const kidsQ = query(
+              collection(db, 'churches', selectedChurchId, 'kids'),
+              where('activeAssignment.classId', '==', cls.id)
+            );
+            const kidsSnap = await getDocs(kidsQ);
+            const classKids: Kid[] = kidsSnap.docs
+              .map((d) => ({ id: d.id, ...d.data() } as any))
+              .filter((k) => k.active !== false);
+
+            // 2. Fetch visits in this class
+            const visitsQ = query(
+              collection(
+                db,
+                'churches',
+                selectedChurchId,
+                'academicYears',
+                selectedAcademicYearId,
+                'classes',
+                cls.id,
+                'visits'
+              )
+            );
+            const visitsSnap = await getDocs(visitsQ);
+            const classVisits: HomeVisit[] = visitsSnap.docs
+              .map((d) => ({ id: d.id, ...d.data() } as HomeVisit))
+              .sort((a, b) => b.visitDate.localeCompare(a.visitDate));
+
+            // 3. Compute stats
+            const latestVisitByKid: Record<string, HomeVisit> = {};
+            classVisits.forEach((v) => {
+              if (!latestVisitByKid[v.kidId]) {
+                latestVisitByKid[v.kidId] = v;
+              }
+            });
+
+            let recent = 0;
+            let due = 0;
+            let overdue = 0;
+            let never = 0;
+            const overdueKidsList: Array<{ kid: Kid; daysAgo: number }> = [];
+
+            classKids.forEach((k) => {
+              const lastV = latestVisitByKid[k.id];
+              if (!lastV) {
+                never++;
+                overdueKidsList.push({ kid: k, daysAgo: Infinity });
+              } else {
+                const diffDays = Math.floor((todayMs - new Date(lastV.visitDate).getTime()) / (1000 * 60 * 60 * 24));
+                if (diffDays <= 30) {
+                  recent++;
+                } else if (diffDays <= 60) {
+                  due++;
+                } else {
+                  overdue++;
+                  overdueKidsList.push({ kid: k, daysAgo: diffDays });
+                }
+              }
+            });
+
+            const visited = recent + due + overdue;
+            const cov = classKids.length > 0 ? Math.round((visited / classKids.length) * 100) : 0;
+
+            return {
+              classId: cls.id,
+              className: cls.displayName,
+              gradeId: cls.data?.gradeId,
+              kids: classKids,
+              visits: classVisits,
+              visitedCount: visited,
+              coveragePct: cov,
+              overdueCount: overdue + never,
+              recentCount: recent,
+              dueCount: due,
+              neverCount: never,
+              overdueKids: overdueKidsList,
+            };
+          })
+        );
+
+        if (active) {
+          setAggregatePastoralData(results);
+          setAggregateLoading(false);
+        }
+      } catch (err) {
+        console.warn('Error loading aggregate home visits data:', err);
+        if (active) setAggregateLoading(false);
+      }
+    };
+
+    loadPastoralAggregate();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedChurchId, selectedAcademicYearId, selectedClassId, classes]);
 
   // Filter kids enrolled in this classroom (combines classDoc.KidIds and activeAssignment)
   const enrolledKids = useMemo(() => {
@@ -445,26 +586,263 @@ export const HomeVisitsScreen: React.FC = () => {
 
   const activeClassName = classes.find((c) => c.id === selectedClassId)?.displayName || 'Class';
 
-  // Empty state if class is not selected
+  // Aggregate derived metrics
+  const totalKidsInPastoralScope = aggregatePastoralData.reduce((sum, c) => sum + c.kids.length, 0);
+  const totalInteractionsInScope = aggregatePastoralData.reduce((sum, c) => sum + c.visits.length, 0);
+  const totalVisitedInScope = aggregatePastoralData.reduce((sum, c) => sum + c.visitedCount, 0);
+  const totalOverdueInScope = aggregatePastoralData.reduce((sum, c) => sum + c.overdueCount, 0);
+  const overallCoveragePct = totalKidsInPastoralScope > 0 
+    ? Math.round((totalVisitedInScope / totalKidsInPastoralScope) * 100) 
+    : 0;
+
+  const rankedPastoralClasses = [...aggregatePastoralData].sort((a, b) => b.coveragePct - a.coveragePct);
+
+  // Top Servants Honor Roll across all classes in scope
+  const aggregateServantCountMap: Record<string, number> = {};
+  aggregatePastoralData.forEach((c) => {
+    c.visits.forEach((v) => {
+      v.visitorMisterIds.forEach((mId) => {
+        const k = mId.toLowerCase().trim();
+        aggregateServantCountMap[k] = (aggregateServantCountMap[k] || 0) + 1;
+      });
+    });
+  });
+
+  const rankedPastoralServants = Object.entries(aggregateServantCountMap)
+    .map(([email, count]) => {
+      const mister = misters.find((m) => (m.email || m.id).toLowerCase().trim() === email);
+      return {
+        email,
+        displayName: mister?.displayName || email,
+        photoUrl: mister?.personalInfo?.photoUrl,
+        count,
+      };
+    })
+    .sort((a, b) => b.count - a.count);
+
+  const allUrgentOverdueKids = aggregatePastoralData.flatMap((c) =>
+    c.overdueKids.map((item) => ({ ...item, className: c.className }))
+  );
+
+  // Aggregate Overview Dashboard when All Classes is selected
   if (!selectedClassId) {
+    const scopeTitle = selectedServiceGroupId 
+      ? serviceGroups.find(g => g.id === selectedServiceGroupId)?.displayName 
+      : churches.find(c => c.id === selectedChurchId)?.displayName;
+
     return (
-      <div className="space-y-4 animate-in fade-in duration-200">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-black text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-            <span>{translate('home_visits')}</span>
-          </h2>
+      <div className="space-y-6 animate-in fade-in duration-200">
+        {/* Header */}
+        <div className="p-6 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
+                <HeartHandshake className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-black text-lg text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                  <span>{translate('aggregate_overview')}</span>
+                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
+                    {classes.length} {translate('classes')}
+                  </span>
+                  {aggregateLoading && <RefreshCw className="w-3.5 h-3.5 animate-spin text-teal-600" />}
+                </h3>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  {scopeTitle} • {translate('select_class_to_drill')}
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Jump Classroom Chips */}
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+              {classes.map((cls) => (
+                <button
+                  key={cls.id}
+                  type="button"
+                  onClick={() => setClass(cls.id)}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-teal-50 hover:text-teal-700 dark:hover:bg-teal-950/60 dark:hover:text-teal-300 transition shrink-0 cursor-pointer border border-zinc-200 dark:border-zinc-700"
+                >
+                  <span>{cls.displayName}</span>
+                  <span className="text-[10px] text-zinc-400">➔</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 4 KPI Cards Grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-2 border-t border-zinc-100 dark:border-zinc-800/80">
+            <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-800">
+              <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">{translate('overall_coverage')}</p>
+              <p className="text-2xl font-black text-teal-600 dark:text-teal-400 mt-1">{overallCoveragePct}%</p>
+              <p className="text-[10px] text-zinc-400 mt-0.5">{totalVisitedInScope} / {totalKidsInPastoralScope} kids visited</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-800">
+              <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">{translate('total_visits')}</p>
+              <p className="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">{totalInteractionsInScope}</p>
+              <p className="text-[10px] text-zinc-400 mt-0.5">Total visits & phone calls</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-800">
+              <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">{translate('overdue_for_visit')}</p>
+              <p className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">{totalOverdueInScope}</p>
+              <p className="text-[10px] text-zinc-400 mt-0.5">&gt;60 days or never</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-800">
+              <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">{translate('total_students_in_scope')}</p>
+              <p className="text-2xl font-black text-violet-600 dark:text-violet-400 mt-1">{totalKidsInPastoralScope}</p>
+              <p className="text-[10px] text-zinc-400 mt-0.5">Across {classes.length} classrooms</p>
+            </div>
+          </div>
         </div>
 
-        <div className="p-12 text-center rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-3">
-          <div className="w-14 h-14 mx-auto rounded-3xl bg-teal-50 dark:bg-teal-950/80 text-teal-600 dark:text-teal-400 flex items-center justify-center">
-            <Home className="w-7 h-7" />
+        {/* 2-Column Desktop Grid / Stacked Mobile */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Classroom Pastoral Care Leaderboard (7 Cols) */}
+          <div className="lg:col-span-7 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-5 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Award className="w-5 h-5 text-teal-600" />
+                <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">{translate('pastoral_coverage_rankings')}</h4>
+              </div>
+              <span className="text-[11px] text-zinc-400">Ranked by coverage %</span>
+            </div>
+
+            <div className="space-y-2">
+              {rankedPastoralClasses.map((item, idx) => {
+                const rankBadge = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
+                return (
+                  <div
+                    key={item.classId}
+                    onClick={() => setClass(item.classId)}
+                    className="flex items-center justify-between p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 hover:border-teal-400 dark:hover:border-teal-600 hover:bg-teal-50/30 dark:hover:bg-teal-950/20 transition cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-base font-black w-7 text-center shrink-0">{rankBadge}</span>
+                      <div className="min-w-0">
+                        <p className="font-bold text-sm text-zinc-900 dark:text-zinc-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition truncate">
+                          {item.className}
+                        </p>
+                        <p className="text-[11px] text-zinc-400">
+                          {item.visitedCount} / {item.kids.length} {translate('kids')} visited • {item.visits.length} logs
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 shrink-0">
+                      <div className="hidden sm:flex flex-col items-end w-28">
+                        <span className="font-black text-sm text-zinc-900 dark:text-zinc-100">{item.coveragePct}%</span>
+                        <div className="w-full h-2 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden mt-1">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${
+                              item.coveragePct >= 75 ? 'bg-emerald-500' : item.coveragePct >= 50 ? 'bg-teal-500' : 'bg-amber-500'
+                            }`}
+                            style={{ width: `${item.coveragePct}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 group-hover:bg-teal-600 group-hover:text-white transition cursor-pointer"
+                      >
+                        {translate('open_care_roster')} ➔
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-          <h3 className="font-bold text-base text-zinc-900 dark:text-zinc-100">
-            {translate('select_class_to_view_visits')}
-          </h3>
-          <p className="text-xs text-zinc-400 max-w-sm mx-auto">
-            Select your Church, Academic Year, and Class from the top bar to track pastoral care and record home visits.
-          </p>
+
+          {/* Servants Honor Roll & Overdue Follow-up Radar (5 Cols) */}
+          <div className="lg:col-span-5 space-y-6">
+            {/* Servants Honor Roll */}
+            <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-5 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Users className="w-5 h-5 text-indigo-600" />
+                  <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">Servants Visitation Leaderboard</h4>
+                </div>
+                <span className="text-[11px] text-zinc-400">Total Visits</span>
+              </div>
+
+              {rankedPastoralServants.length === 0 ? (
+                <p className="text-xs text-zinc-400 italic text-center py-4">{translate('no_visits_logged')}</p>
+              ) : (
+                <div className="space-y-2 max-h-56 overflow-y-auto pe-1">
+                  {rankedPastoralServants.slice(0, 10).map((s, idx) => (
+                    <div
+                      key={s.email}
+                      className="flex items-center justify-between p-2.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-800 text-xs"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-bold text-zinc-400 w-5 text-center">#{idx + 1}</span>
+                        <p className="font-bold text-zinc-900 dark:text-zinc-100 truncate">{s.displayName}</p>
+                      </div>
+                      <span className="px-2.5 py-0.5 rounded-full font-black text-xs bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                        {s.count}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Urgent Follow-Up Radar */}
+            <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-5 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-rose-500" />
+                  <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">Urgent Pastoral Care Attention</h4>
+                </div>
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400">
+                  {allUrgentOverdueKids.length} {translate('kids')}
+                </span>
+              </div>
+
+              <div className="space-y-2 max-h-60 overflow-y-auto pe-1">
+                {allUrgentOverdueKids.slice(0, 10).map(({ kid, daysAgo, className }) => {
+                  const phone = kid.contacts?.fatherMob || kid.contacts?.motherMob || kid.contacts?.kidMob;
+                  return (
+                    <div
+                      key={kid.id}
+                      className="flex items-center justify-between p-2.5 rounded-2xl bg-rose-50/40 dark:bg-rose-950/20 border border-rose-200/80 dark:border-rose-900/60 text-xs"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-bold text-zinc-900 dark:text-zinc-100 truncate">{kid.info.fullName}</p>
+                        <p className="text-[10px] text-rose-600 dark:text-rose-400">
+                          {className} • {daysAgo === Infinity ? translate('never_visited') : `${daysAgo}d ago`}
+                        </p>
+                      </div>
+
+                      {phone && (
+                        <div className="flex items-center gap-1 shrink-0 ms-2">
+                          <a
+                            href={`https://wa.me/${String(phone).replace(/\+/g, '')}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white transition shadow-2xs"
+                            title="WhatsApp"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                          </a>
+                          <a
+                            href={`tel:${phone}`}
+                            className="p-1.5 rounded-xl bg-blue-500 hover:bg-blue-600 text-white transition shadow-2xs"
+                            title="Call"
+                          >
+                            <Phone className="w-3.5 h-3.5" />
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );

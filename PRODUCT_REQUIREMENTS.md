@@ -1066,6 +1066,45 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   Ensures Cloud Firestore's security rules engine evaluates `isClassServant` and `assignedClasses` against a single, static class identifier, eliminating collection query rejection.
     *   Automatically selects the servant's primary accessible class on initial mount, displaying their classroom roster immediately with zero delay.
 
+---
+
+## 47. Pinned Desktop Navigation & Multi-Class Concurrent Roster Merging
+
+*   **Permanently Pinned Desktop Navigation Sidebar & Header:**
+    *   Constrained the root application shell in `MainShell.tsx` to `h-[100dvh] max-h-[100dvh] overflow-hidden`.
+    *   Ensures the browser window body never scrolls; the `TopAppBar` and `<aside>` sidebar remain permanently visible on screen regardless of table length.
+    *   Scrollbars are isolated strictly to the `<main>` content container (`overflow-y-auto`).
+*   **Multi-Class Concurrent Roster Merging:**
+    *   When a servant assigned to multiple classes selects **"All Classes"** (`selectedClassId === null`):
+        *   `KidsDirectoryScreen.tsx` initiates concurrent, real-time snapshot listeners for each of the servant's assigned classes using exact equality queries (`where('activeAssignment.classId', '==', cId)`).
+        *   Rosters from all assigned classrooms are merged in memory and sorted by student full name.
+        *   When a specific class is picked from the top dropdown, the query switches strictly to that single class.
+    *   In `DashboardScreen.tsx`, active student metric counters aggregate across all assigned classes concurrently.
+    *   Guarantees 100% Zero-Trust Cloud Firestore compliance while delivering a complete view across all of a servant's classrooms.
+
+---
+
+## 48. Multi-Scope Aggregate Ministry Analytics & Dashboard (Attendance & Home Visits)
+
+*   **Preserved "All Classes" State Persistence:**
+    *   In `FilterContext.tsx`, updated selection synchronization so choosing **"All Classes"** (`selectedClassId === null`) is permanently preserved and never overridden by automatic single-class re-selection.
+*   **Attendance Aggregate Analytics Dashboard (`AttendanceTrackerScreen.tsx`):**
+    *   Renders an executive overview when "All Classes" is active across a Service Group or Church-Wide scope:
+        *   *Context Header & Carousel:* Scope header with horizontal 1-tap quick-drill classroom chips.
+        *   *Top 4 KPI Metrics:* Overall Average Attendance Rate (%), Total Active Students in Scope, Conducted Sessions Count, and Chronic Absentees (<50% or 2+ consecutive absences).
+        *   *Classroom Performance Leaderboard:* Ranks classrooms with Olympic medals (🥇, 🥈, 🥉, #4...), enrolled student counts, conducted sessions, and colored progress bars (`≥80% Emerald`, `60-79% Teal`, `<60% Amber`) with 1-tap `[ Open Roll-Call ➔ ]` drill-down.
+        *   *Cross-Classroom Pastoral Absence Radar:* Consolidates students who missed $\ge 2$ consecutive core sessions across all classes, complete with student name, class badge, and direct 1-tap **WhatsApp** and **Phone** shortcuts to follow up with parents.
+*   **Home Visits Pastoral Health & Coverage Dashboard (`HomeVisitsScreen.tsx`):**
+    *   Renders a comprehensive care coverage dashboard when "All Classes" is active:
+        *   *Top 4 Pastoral Health KPIs:* Overall Care Coverage Ratio (%), Total Pastoral Interactions, Overdue Students (>60 Days or Never), and Total Enrolled Students.
+        *   *Classroom Care Coverage Leaderboard:* Ranks classrooms by coverage percentage with segmented distribution bars (Recent $\le 30$d, Due $31-60$d, Overdue $>60$d, Never) and 1-tap `[ Open Care Roster ➔ ]` drill-down.
+        *   *Servants Visitation Leaderboard (Honor Roll):* Ranks servants across the department by total pastoral visits and telephone care interactions logged.
+        *   *Urgent Pastoral Attention Radar:* Displays children overdue for pastoral care with 1-tap WhatsApp and phone communication links.
+*   **Multi-Platform Responsive Design:**
+    *   Tailored for both **Windows / Desktop** (rich 2-column analytics grid, dense high-fidelity tables) and **Mobile** (thumb-friendly swipeable cards, touch targets $\ge 44$px).
+
+
+
 
 
 

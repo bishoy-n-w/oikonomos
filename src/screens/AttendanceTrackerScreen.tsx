@@ -7,7 +7,8 @@ import {
   doc, 
   setDoc, 
   deleteDoc, 
-  writeBatch 
+  writeBatch,
+  getDocs 
 } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
@@ -82,6 +83,8 @@ export const AttendanceTrackerScreen: React.FC = () => {
     selectedClassId, 
     churches,
     classes,
+    serviceGroups,
+    setClass,
     canEditClass,
     canViewClass
   } = useFilter();
@@ -303,6 +306,159 @@ export const AttendanceTrackerScreen: React.FC = () => {
     }, 150);
     return () => clearTimeout(timer);
   }, [selectedEventId]);
+
+  // Aggregate stats across all accessible classes when no specific class is selected
+  const [aggregateLoading, setAggregateLoading] = useState(false);
+  const [aggregateClassData, setAggregateClassData] = useState<Array<{
+    classId: string;
+    className: string;
+    gradeId?: string;
+    kids: Kid[];
+    events: AttendanceEvent[];
+    attendanceRate: number;
+    conductedEventsCount: number;
+    atRiskKids: Array<{ kid: Kid; consecutiveAbsences: number }>;
+  }>>([]);
+
+  useEffect(() => {
+    if (selectedClassId || !selectedChurchId || !selectedAcademicYearId) {
+      setAggregateClassData([]);
+      return;
+    }
+
+    if (classes.length === 0) {
+      setAggregateClassData([]);
+      return;
+    }
+
+    setAggregateLoading(true);
+    let active = true;
+
+    const loadAggregate = async () => {
+      try {
+        const results = await Promise.all(
+          classes.map(async (cls) => {
+            // 1. Fetch active kids in this class
+            const kidsQ = query(
+              collection(db, 'churches', selectedChurchId, 'kids'),
+              where('activeAssignment.classId', '==', cls.id)
+            );
+            const kidsSnap = await getDocs(kidsQ);
+            const classKids: Kid[] = kidsSnap.docs
+              .map((d) => ({ id: d.id, ...d.data() } as any))
+              .filter((k) => k.active !== false);
+
+            // 2. Fetch events in this class
+            const eventsQ = query(
+              collection(
+                db,
+                'churches',
+                selectedChurchId,
+                'academicYears',
+                selectedAcademicYearId,
+                'classes',
+                cls.id,
+                'attendanceEvents'
+              )
+            );
+            const eventsSnap = await getDocs(eventsQ);
+            const classEvents: AttendanceEvent[] = eventsSnap.docs
+              .map((d) => ({ id: d.id, ...d.data() } as AttendanceEvent))
+              .sort((a, b) => a.eventDate.localeCompare(b.eventDate));
+
+            // 3. Compute attendance rate
+            let totalPossible = 0;
+            let totalPresent = 0;
+            let conductedCount = 0;
+
+            classEvents.forEach((evt) => {
+              const st = evt.statuses || {};
+              const p = Object.values(st).filter((s) => s === 'present').length;
+              const a = Object.values(st).filter((s) => s === 'absent').length;
+              const e = Object.values(st).filter((s) => s === 'excused').length;
+              if (p + a + e > 0) {
+                conductedCount++;
+                totalPossible += classKids.length;
+                totalPresent += p;
+              }
+            });
+
+            const rate = totalPossible > 0 ? Math.round((totalPresent / totalPossible) * 100) : 0;
+
+            // 4. Consecutive core absences
+            const atRisk: Array<{ kid: Kid; consecutiveAbsences: number }> = [];
+            const coreEventsDesc = classEvents
+              .filter((evt) => {
+                const ct = groupEventTypes.find((t) => t.id === evt.type);
+                return ct?.isCore !== false;
+              })
+              .sort((a, b) => b.eventDate.localeCompare(a.eventDate));
+
+            classKids.forEach((kid) => {
+              let consec = 0;
+              for (const evt of coreEventsDesc) {
+                const s = evt.statuses?.[kid.id];
+                if (s === 'absent') {
+                  consec++;
+                } else if (s === 'present' || s === 'excused') {
+                  break;
+                }
+              }
+              if (consec >= 2) {
+                atRisk.push({ kid, consecutiveAbsences: consec });
+              }
+            });
+
+            return {
+              classId: cls.id,
+              className: cls.displayName,
+              gradeId: cls.data?.gradeId,
+              kids: classKids,
+              events: classEvents,
+              attendanceRate: rate,
+              conductedEventsCount: conductedCount,
+              atRiskKids: atRisk,
+            };
+          })
+        );
+
+        if (active) {
+          setAggregateClassData(results);
+          setAggregateLoading(false);
+        }
+      } catch (err) {
+        console.warn('Error loading aggregate attendance data:', err);
+        if (active) setAggregateLoading(false);
+      }
+    };
+
+    loadAggregate();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedChurchId, selectedAcademicYearId, selectedClassId, classes, groupEventTypes]);
+
+  // Aggregate derived calculations
+  const totalKidsInScope = aggregateClassData.reduce((sum, c) => sum + c.kids.length, 0);
+  const totalSessionsCount = aggregateClassData.reduce((sum, c) => sum + c.conductedEventsCount, 0);
+  const totalPresentInScope = aggregateClassData.reduce((sum, c) => {
+    return sum + c.events.reduce((eSum, evt) => {
+      return eSum + Object.values(evt.statuses || {}).filter((s) => s === 'present').length;
+    }, 0);
+  }, 0);
+  const totalPossibleInScope = aggregateClassData.reduce((sum, c) => {
+    return sum + (c.kids.length * c.conductedEventsCount);
+  }, 0);
+  const overallAggregateRate = totalPossibleInScope > 0 
+    ? Math.round((totalPresentInScope / totalPossibleInScope) * 100) 
+    : 0;
+
+  const allAtRiskKids = aggregateClassData.flatMap((c) => 
+    c.atRiskKids.map((item) => ({ ...item, className: c.className }))
+  );
+
+  const rankedClasses = [...aggregateClassData].sort((a, b) => b.attendanceRate - a.attendanceRate);
 
   // Active event
   const selectedEvent = events.find((e) => e.id === selectedEventId) || null;
@@ -906,14 +1062,198 @@ export const AttendanceTrackerScreen: React.FC = () => {
         )}
       </div>
 
-      {/* Warning if no class selected */}
+      {/* Aggregate Overview when All Classes is selected */}
       {!selectedClassId && (
-        <div className="p-8 rounded-3xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-center space-y-2">
-          <Calendar className="w-8 h-8 text-amber-600 mx-auto" />
-          <h4 className="font-bold text-sm text-amber-900 dark:text-amber-200">Please Select a Specific Class</h4>
-          <p className="text-xs text-amber-700 dark:text-amber-300 max-w-md mx-auto">
-            Use the top navigation bar to select a specific <strong>Class</strong>. Attendance events, schedules, and student rosters are managed per classroom.
-          </p>
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* 1. Header Banner & Quick Class-Drill Carousel */}
+          <div className="p-6 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
+                  <BarChart3 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-black text-lg text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                    <span>{translate('aggregate_overview')}</span>
+                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
+                      {classes.length} {translate('classes')}
+                    </span>
+                    {aggregateLoading && <RefreshCw className="w-3.5 h-3.5 animate-spin text-teal-600" />}
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {selectedServiceGroupId 
+                      ? serviceGroups.find(g => g.id === selectedServiceGroupId)?.displayName 
+                      : churches.find(c => c.id === selectedChurchId)?.displayName} • {translate('select_class_to_drill')}
+                  </p>
+                </div>
+              </div>
+
+              {/* Quick Jump Classroom Chips */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                {classes.map((cls) => (
+                  <button
+                    key={cls.id}
+                    type="button"
+                    onClick={() => setClass(cls.id)}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-teal-50 hover:text-teal-700 dark:hover:bg-teal-950/60 dark:hover:text-teal-300 transition shrink-0 cursor-pointer border border-zinc-200 dark:border-zinc-700"
+                  >
+                    <span>{cls.displayName}</span>
+                    <span className="text-[10px] text-zinc-400">➔</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 4 KPI Cards Grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-2 border-t border-zinc-100 dark:border-zinc-800/80">
+              <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-800">
+                <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">{translate('average_term_attendance')}</p>
+                <p className="text-2xl font-black text-teal-600 dark:text-teal-400 mt-1">{overallAggregateRate}%</p>
+                <p className="text-[10px] text-zinc-400 mt-0.5">{totalPresentInScope} / {totalPossibleInScope} attendances</p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-800">
+                <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">{translate('total_students_in_scope')}</p>
+                <p className="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">{totalKidsInScope}</p>
+                <p className="text-[10px] text-zinc-400 mt-0.5">Across {classes.length} classrooms</p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-800">
+                <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">{translate('conducted_sessions')}</p>
+                <p className="text-2xl font-black text-violet-600 dark:text-violet-400 mt-1">{totalSessionsCount}</p>
+                <p className="text-[10px] text-zinc-400 mt-0.5">Total sessions recorded</p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-800">
+                <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">{translate('chronic_absentees')}</p>
+                <p className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">{allAtRiskKids.length}</p>
+                <p className="text-[10px] text-zinc-400 mt-0.5">Missed 2+ consecutive sessions</p>
+              </div>
+            </div>
+          </div>
+
+          {/* 2-Column Desktop Grid / Stacked Mobile */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Classroom Rankings Table / Card List (7 Cols) */}
+            <div className="lg:col-span-7 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-5 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Award className="w-5 h-5 text-amber-500" />
+                  <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">{translate('classroom_rankings')}</h4>
+                </div>
+                <span className="text-[11px] text-zinc-400">Ranked by attendance %</span>
+              </div>
+
+              {/* Table for Desktop & Cards for Mobile */}
+              <div className="space-y-2">
+                {rankedClasses.map((item, idx) => {
+                  const rankBadge = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
+                  return (
+                    <div
+                      key={item.classId}
+                      onClick={() => setClass(item.classId)}
+                      className="flex items-center justify-between p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 hover:border-teal-400 dark:hover:border-teal-600 hover:bg-teal-50/30 dark:hover:bg-teal-950/20 transition cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="text-base font-black w-7 text-center shrink-0">{rankBadge}</span>
+                        <div className="min-w-0">
+                          <p className="font-bold text-sm text-zinc-900 dark:text-zinc-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition truncate">
+                            {item.className}
+                          </p>
+                          <p className="text-[11px] text-zinc-400">
+                            {item.kids.length} {translate('kids')} • {item.conductedEventsCount} {translate('events')}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4 shrink-0">
+                        {/* Attendance Progress Bar */}
+                        <div className="hidden sm:flex flex-col items-end w-28">
+                          <span className="font-black text-sm text-zinc-900 dark:text-zinc-100">{item.attendanceRate}%</span>
+                          <div className="w-full h-2 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden mt-1">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                item.attendanceRate >= 80 ? 'bg-emerald-500' : item.attendanceRate >= 60 ? 'bg-teal-500' : 'bg-amber-500'
+                              }`}
+                              style={{ width: `${item.attendanceRate}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          className="px-3 py-1.5 rounded-xl text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 group-hover:bg-teal-600 group-hover:text-white transition cursor-pointer"
+                        >
+                          {translate('open_roll_call')} ➔
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Cross-Classroom Pastoral Absence Radar (5 Cols) */}
+            <div className="lg:col-span-5 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-5 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-rose-500" />
+                  <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">{translate('cross_class_radar')}</h4>
+                </div>
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400">
+                  {allAtRiskKids.length} {translate('kids')}
+                </span>
+              </div>
+
+              {allAtRiskKids.length === 0 ? (
+                <div className="p-8 text-center text-zinc-400 text-xs">
+                  🎉 {translate('faithful_students')}! No students currently flagged with 2+ consecutive absences.
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[380px] overflow-y-auto pe-1">
+                  {allAtRiskKids.slice(0, 15).map(({ kid, consecutiveAbsences, className }) => {
+                    const phone = kid.contacts?.fatherMob || kid.contacts?.motherMob || kid.contacts?.kidMob;
+                    return (
+                      <div
+                        key={kid.id}
+                        className="flex items-center justify-between p-3 rounded-2xl bg-rose-50/50 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-900/60 text-xs"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-bold text-zinc-900 dark:text-zinc-100 truncate">{kid.info.fullName}</p>
+                          <p className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold">
+                            {className} • {consecutiveAbsences} {translate('consecutive_absences_warning')}
+                          </p>
+                        </div>
+
+                        {phone && (
+                          <div className="flex items-center gap-1 shrink-0 ms-2">
+                            <a
+                              href={`https://wa.me/${String(phone).replace(/\+/g, '')}?text=${encodeURIComponent(
+                                `سلام ونعمة، بنفتقد جداً ${kid.info.fullName} في مدارس الأحد، لعله بخير ومستنينه الأسبوع الجاي بنعمة ربنا!`
+                              )}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white transition shadow-2xs"
+                              title="WhatsApp"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" />
+                            </a>
+                            <a
+                              href={`tel:${phone}`}
+                              className="p-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 text-zinc-700 dark:text-zinc-300 transition"
+                              title="Call parent"
+                            >
+                              <Phone className="w-3.5 h-3.5" />
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
