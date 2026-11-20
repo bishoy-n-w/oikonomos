@@ -1130,10 +1130,28 @@ Enables Sunday School servants and administrators to synchronize church contact 
 ## 51. Omnipresent Application Versioning Across Desktop and Mobile
 
 *   **Multi-Platform Version Visibility:**
-    *   Promoted the release version string (`Oikonomos Web v3.1`) from strictly desktop sidebar to omnipresent visibility across mobile viewports:
+    *   Promoted the release version string (`Oikonomos Web v3.3`) from strictly desktop sidebar to omnipresent visibility across mobile viewports:
         1.  **Mobile "More" Slide-Over Drawer (`MainShell.tsx`):** Rendered cleanly at the footer of the administrative navigation drawer, pinned safely above the mobile safe-area inset.
         2.  **User Profile Menu (`TopAppBar.tsx`):** Positioned at the footer of the Google-style profile dropdown on both mobile and desktop views, accessible from any screen by tapping the user avatar.
         3.  **Desktop Sidebar (`MainShell.tsx`):** Preserved at the bottom of the left navigation rail.
+
+---
+
+## 52. Sunday Morning Command Center (Actionable Ministry Dashboard)
+
+*   **Transformational Concept & Purpose:**
+    *   Re-engineered the static Dashboard into an operational **Sunday Morning Command Center**, eliminating redundant counts and focusing strictly on actionable tasks, pastoral follow-ups, and student celebrations.
+*   **Dynamic Modules:**
+    1.  *Personalized Greeting & Readiness Hero Banner:* Displays contextual time-of-day greetings ("Good morning / صباح الخير", "Good afternoon", "Good evening") with user role badge.
+    2.  *Session Readiness Card:* Detects today's scheduled session with a 1-tap **`[ Start Roll-Call Now / رصد الحضور الآن ➔ ]`** shortcut, or provides an attention alert if the last session's attendance was unrecorded.
+    3.  *🎂 Birthdays This Week:* Scans students celebrating birthdays within the next 7 days, showing turning age, birthday date, celebratory badges, and a 1-tap **WhatsApp Birthday Greeting** shortcut with pre-composed congratulations.
+    4.  *🚨 Urgent Pastoral Care Radar:* Consolidates students who missed $\ge 2$ consecutive sessions or have not received pastoral care in $>60$ days, complete with direct 1-tap **WhatsApp** and **Phone** communication shortcuts.
+    5.  *Admin Pending Servant Queue:* Allows Church Admins to approve or decline pending servant join requests in 1 click.
+    6.  *Interactive Metric Cards:* Quick-access navigation to Kids Directory, Servants Roster, and Classrooms.
+*   **Responsive & Bilingual Ergonomics:**
+    *   Optimized for high-density Windows/PC widescreen displays (multi-column grid) and mobile touchscreens (thumb-friendly cards, touch targets $\ge 44$px).
+    *   100% localized in Arabic and English with natural RTL mirroring.
+
 
 
 
