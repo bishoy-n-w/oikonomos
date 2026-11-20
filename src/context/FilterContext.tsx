@@ -379,24 +379,16 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (selectedAcademicYearId) {
       saveFilterToStorage('academicYearId', selectedAcademicYearId);
     }
-    if (selectedServiceGroupId) {
-      saveFilterToStorage('serviceGroupId', selectedServiceGroupId);
-    } else if (selectedServiceGroupId === null && !parseCurrentRoute().filters.serviceGroupId) {
-      saveFilterToStorage('serviceGroupId', null);
-    }
-    if (selectedClassId) {
-      saveFilterToStorage('classId', selectedClassId);
-    } else if (selectedClassId === null && !parseCurrentRoute().filters.classId) {
-      saveFilterToStorage('classId', null);
-    }
+    saveFilterToStorage('serviceGroupId', selectedServiceGroupId);
+    saveFilterToStorage('classId', selectedClassId);
 
     const currentRoute = parseCurrentRoute();
     const currentTab = currentRoute.tab;
     syncRouteToUrl(currentTab, {
       churchId: selectedChurchId,
       academicYearId: selectedAcademicYearId || currentRoute.filters.academicYearId,
-      serviceGroupId: selectedServiceGroupId !== null ? selectedServiceGroupId : (currentRoute.filters.serviceGroupId || null),
-      classId: selectedClassId !== null ? selectedClassId : (currentRoute.filters.classId || null),
+      serviceGroupId: selectedServiceGroupId || undefined,
+      classId: selectedClassId || undefined,
     }, false);
   }, [selectedChurchId, selectedAcademicYearId, selectedServiceGroupId, selectedClassId]);
 

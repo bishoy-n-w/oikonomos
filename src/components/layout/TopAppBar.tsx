@@ -175,17 +175,28 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({ activeTab, onOpenMobileFil
         {(() => {
           const activeClassObj = classes.find((c) => c.id === selectedClassId);
           const activeGroupObj = serviceGroups.find((g) => g.id === selectedServiceGroupId);
-          const activeContextLabel = activeClassObj?.displayName || activeGroupObj?.displayName;
+          
+          let activeContextLabel: string;
+          if (activeClassObj) {
+            // 1. Specific Class selected
+            activeContextLabel = activeClassObj.displayName;
+          } else if (activeGroupObj) {
+            // 2. Specific Group selected + All Classes
+            activeContextLabel = `${activeGroupObj.displayName} ${translate('all_scope')}`;
+          } else {
+            // 3. All Groups + All Classes (Church-Wide)
+            activeContextLabel = translate('all_church');
+          }
 
           return (
             <button
               onClick={onOpenMobileFilters}
-              className="lg:hidden min-h-[44px] flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 rounded-full border border-teal-200 dark:border-teal-800 transition active:scale-95 touch-manipulation max-w-[160px]"
+              className="lg:hidden min-h-[44px] flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 rounded-full border border-teal-200 dark:border-teal-800 transition active:scale-95 touch-manipulation max-w-[175px]"
               aria-label={translate('filter')}
             >
               <FilterIcon className="w-3.5 h-3.5 shrink-0" />
               <span className="truncate">
-                {activeContextLabel ? activeContextLabel : translate('filter')}
+                {activeContextLabel}
               </span>
             </button>
           );

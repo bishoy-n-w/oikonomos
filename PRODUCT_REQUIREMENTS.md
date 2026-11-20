@@ -1103,6 +1103,30 @@ Enables Sunday School servants and administrators to synchronize church contact 
 *   **Multi-Platform Responsive Design:**
     *   Tailored for both **Windows / Desktop** (rich 2-column analytics grid, dense high-fidelity tables) and **Mobile** (thumb-friendly swipeable cards, touch targets $\ge 44$px).
 
+---
+
+## 49. Cross-Screen "All Classes" State Retention & URL Synchronization
+
+*   **Atomic Filter De-selection Synchronization:**
+    *   Resolved route parameter race condition in `FilterContext.tsx` where switching tabs previously restored a previously selected class.
+    *   When the user selects **"All Classes"** (`selectedClassId === null`), the engine immediately purges `classId` from `localStorage` (`localStorage.removeItem`) and strips the `&class=` query parameter from the active URL hash.
+    *   Switching between application tabs (e.g. from Kids Directory to Attendance Tracker or Home Visits) seamlessly preserves the "All Classes" selection, activating the Aggregate Analytics Dashboards without falling back to a specific classroom.
+
+---
+
+## 50. Mobile Context Pill Hierarchical Active Scope Display
+
+*   **Dynamic 3-State Scope Hierarchy:**
+    *   In `TopAppBar.tsx`, the mobile context filter trigger pill button (`[ 🝖 ... ]`) dynamically evaluates and renders the most specific active ministry context:
+        1.  *Specific Class Selected:* Displays the classroom name (e.g. **`أبتدائى صغار`** / **`Elem Young`**).
+        2.  *Specific Group + All Classes:* Displays the department name with the localized all-scope suffix (e.g. **`خدمة الأنبا تكلا (الكل)`** / **`St. Takla Service (All)`**).
+        3.  *All Groups + All Classes:* Displays church-wide aggregate status (e.g. **`كل الكنيسة`** / **`All Church`**).
+*   **Bilingual Precision & Ergonomics:**
+    *   Fully localized via `i18n.ts` with dedicated translations for `all_church`, `all_scope`, `all_classes`, and `all_groups`.
+    *   Employs `max-w-[175px] truncate` and `font-bold` typography, preserving comfortable touch targets ($\ge 44$px) without crowding the church brand header or profile avatar.
+
+
+
 
 
 
