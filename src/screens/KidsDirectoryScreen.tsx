@@ -13,6 +13,7 @@ import { PrintIdCardsModal } from '../components/kids/PrintIdCardsModal';
 import { KidDetailsModal } from '../components/kids/KidDetailsModal';
 import { ClassDetailsModal } from '../components/classes/ClassDetailsModal';
 import { ServiceGroupDetailsModal } from '../components/groups/ServiceGroupDetailsModal';
+import { ServantDetailsModal } from '../components/servants/ServantDetailsModal';
 import { PhoneActionGroup } from '../components/common/PhoneActionGroup';
 import { ContactPickerPopover, type ContactOption } from '../components/common/ContactPickerPopover';
 import { PhotoLightboxModal } from '../components/common/PhotoLightboxModal';
@@ -27,7 +28,7 @@ import {
   getUniversalNavigationUrl, 
   normalizeGeoInput 
 } from '../utils/geo';
-import type { Kid, ClassDoc, KidVersion } from '../types';
+import type { Kid, ClassDoc, KidVersion, Mister } from '../types';
 import { 
   Plus, 
   Phone,
@@ -126,6 +127,8 @@ export const KidsDirectoryScreen: React.FC = () => {
   const [viewingKid, setViewingKid] = useState<Kid | null>(null);
   const [viewingClass, setViewingClass] = useState<ClassDoc | null>(null);
   const [viewingGroup, setViewingGroup] = useState<{ id: string; displayName: string } | null>(null);
+  const [viewingServant, setViewingServant] = useState<Mister | null>(null);
+  const [allMisters, setAllMisters] = useState<Mister[]>([]);
   const [lightboxData, setLightboxData] = useState<{ photoUrl?: string | null; name: string; gender?: 'male' | 'female'; isDeacon?: boolean; subtitle?: string } | null>(null);
   const [contactPicker, setContactPicker] = useState<{ personName: string; actionType: 'call' | 'whatsapp' | 'copy'; contacts: ContactOption[] } | null>(null);
 
@@ -361,6 +364,18 @@ export const KidsDirectoryScreen: React.FC = () => {
     if (!selectedChurchId) return;
     const unsub = onSnapshot(collection(db, 'churches', selectedChurchId, 'classes'), (snap) => {
       setClassesList(snap.docs.map((d) => ({ id: d.id, ...d.data() } as ClassDoc)));
+    });
+    return () => unsub();
+  }, [selectedChurchId]);
+
+  // 3. Listen to misters (to resolve assigned servants when drilling down into classes or service groups)
+  useEffect(() => {
+    if (!selectedChurchId) {
+      setAllMisters([]);
+      return;
+    }
+    const unsub = onSnapshot(collection(db, 'churches', selectedChurchId, 'misters'), (snap) => {
+      setAllMisters(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Mister)));
     });
     return () => unsub();
   }, [selectedChurchId]);
@@ -2210,11 +2225,12 @@ export const KidsDirectoryScreen: React.FC = () => {
           classDoc={viewingClass}
           activeAcademicYearId={selectedAcademicYearId}
           allKids={kids}
-          allMisters={[]}
+          allMisters={allMisters}
           serviceGroups={serviceGroups}
           canEdit={false}
           onClose={() => setViewingClass(null)}
           onBack={() => setViewingClass(null)}
+          onSelectServant={(servant) => setViewingServant(servant)}
           backLabel={viewingKid?.info.fullName}
         />
       )}
@@ -2223,11 +2239,26 @@ export const KidsDirectoryScreen: React.FC = () => {
       {viewingGroup && (
         <ServiceGroupDetailsModal
           group={{ id: viewingGroup.id, displayName: viewingGroup.displayName, active: true }}
-          allMisters={[]}
+          allMisters={allMisters}
           canEdit={false}
           onClose={() => setViewingGroup(null)}
           onBack={() => setViewingGroup(null)}
+          onSelectServant={(servant) => setViewingServant(servant)}
           backLabel={viewingKid?.info.fullName}
+        />
+      )}
+
+      {/* Child Drill-Down: Servant Details Modal */}
+      {viewingServant && (
+        <ServantDetailsModal
+          mister={viewingServant}
+          allGroups={serviceGroups}
+          allClasses={classesList}
+          activeAcademicYearId={selectedAcademicYearId}
+          canEdit={false}
+          onClose={() => setViewingServant(null)}
+          onBack={() => setViewingServant(null)}
+          backLabel={(selectedAcademicYearId ? viewingClass?.academicYears?.[selectedAcademicYearId]?.displayName : undefined) || viewingGroup?.displayName}
         />
       )}
 

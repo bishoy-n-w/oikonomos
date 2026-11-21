@@ -12,6 +12,7 @@ import { db } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { useFilter } from '../context/FilterContext';
+import { KidDetailsModal } from '../components/kids/KidDetailsModal';
 import type { ActiveTab } from '../components/layout/MainShell';
 import type { Kid, AttendanceEvent, HomeVisit, Mister } from '../types';
 import { 
@@ -66,6 +67,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
     selectedChurchId, 
     selectedAcademicYearId, 
     classes, 
+    serviceGroups,
     userAssignedClassIds, 
     setClass 
   } = useFilter();
@@ -78,6 +80,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
   const [events, setEvents] = useState<AttendanceEvent[]>([]);
   const [visits, setVisits] = useState<HomeVisit[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [viewingKid, setViewingKid] = useState<Kid | null>(null);
 
   // Time of day greeting
   const greetingData = useMemo(() => {
@@ -599,22 +602,25 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
                         : 'bg-zinc-50/50 dark:bg-zinc-800/40 border-zinc-200/80 dark:border-zinc-800'
                     }`}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div 
+                      onClick={() => setViewingKid(bday.kid)}
+                      className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
+                    >
                       {bday.kid.info.photoUrl ? (
                         <img
                           src={bday.kid.info.photoUrl}
                           alt={bday.kid.info.fullName}
-                          className="w-10 h-10 rounded-full object-cover shrink-0 border border-zinc-200 dark:border-zinc-700 shadow-2xs"
+                          className="w-10 h-10 rounded-full object-cover shrink-0 border border-zinc-200 dark:border-zinc-700 shadow-2xs hover:ring-2 hover:ring-pink-400 transition"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-full bg-pink-100 dark:bg-pink-950 text-pink-700 dark:text-pink-300 flex items-center justify-center font-bold text-xs shrink-0">
+                        <div className="w-10 h-10 rounded-full bg-pink-100 dark:bg-pink-950 text-pink-700 dark:text-pink-300 flex items-center justify-center font-bold text-xs shrink-0 hover:ring-2 hover:ring-pink-400 transition">
                           {bday.kid.info.fullName.slice(0, 2).toUpperCase()}
                         </div>
                       )}
 
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="font-bold text-sm text-zinc-900 dark:text-zinc-100 truncate">
+                          <p className="font-bold text-sm text-zinc-900 dark:text-zinc-100 hover:text-pink-600 truncate">
                             {bday.kid.info.fullName}
                           </p>
                           {bday.isToday && (
@@ -682,10 +688,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
               {urgentStudents.map((item) => (
                 <div
                   key={item.kid.id}
-                  className="flex items-center justify-between p-3.5 rounded-2xl bg-rose-50/40 dark:bg-rose-950/20 border border-rose-200/80 dark:border-rose-900/60"
+                  className="flex items-center justify-between p-3.5 rounded-2xl bg-rose-50/40 dark:bg-rose-950/20 border border-rose-200/80 dark:border-rose-900/60 hover:bg-rose-100/40 dark:hover:bg-rose-950/30 transition"
                 >
-                  <div className="min-w-0">
-                    <p className="font-bold text-sm text-zinc-900 dark:text-zinc-100 truncate">
+                  <div
+                    onClick={() => setViewingKid(item.kid)}
+                    className="min-w-0 flex-1 cursor-pointer"
+                  >
+                    <p className="font-bold text-sm text-zinc-900 dark:text-zinc-100 hover:text-rose-600 truncate">
                       {item.kid.info.fullName}
                     </p>
                     <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
@@ -791,6 +800,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
           </div>
         </div>
       </div>
+
+      {/* View Kid Details Modal */}
+      {viewingKid && (
+        <KidDetailsModal
+          kid={viewingKid}
+          classes={classes}
+          serviceGroups={serviceGroups}
+          canEdit={false}
+          onClose={() => setViewingKid(null)}
+        />
+      )}
     </div>
   );
 };

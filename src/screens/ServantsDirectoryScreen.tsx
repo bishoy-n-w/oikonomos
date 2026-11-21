@@ -10,9 +10,10 @@ import { MobileViewToggle } from '../components/common/MobileViewToggle';
 import { ServantDetailsModal } from '../components/servants/ServantDetailsModal';
 import { ClassDetailsModal } from '../components/classes/ClassDetailsModal';
 import { ServiceGroupDetailsModal } from '../components/groups/ServiceGroupDetailsModal';
+import { KidDetailsModal } from '../components/kids/KidDetailsModal';
 import { normalizeDateStr, safeRender } from '../utils/formatters';
 import { useModalEscape } from '../utils/useModalEscape';
-import type { Mister, ServiceGroup, ClassDoc } from '../types';
+import type { Mister, ServiceGroup, ClassDoc, Kid } from '../types';
 import { 
   Plus, 
   Edit3, 
@@ -29,14 +30,10 @@ import {
 export const ServantsDirectoryScreen: React.FC = () => {
   const { user, userRole } = useAuth();
   const { translate, mobileViewMode } = useApp();
-  const { 
-    selectedChurchId, 
-    selectedAcademicYearId, 
-    selectedServiceGroupId, 
-    selectedClassId 
-  } = useFilter();
+  const { selectedChurchId, selectedAcademicYearId, selectedServiceGroupId, selectedClassId } = useFilter();
 
   const [servants, setServants] = useState<Mister[]>([]);
+  const [kids, setKids] = useState<Kid[]>([]);
   const [groups, setGroups] = useState<ServiceGroup[]>([]);
   const [classes, setClasses] = useState<ClassDoc[]>([]);
 
@@ -50,6 +47,7 @@ export const ServantsDirectoryScreen: React.FC = () => {
   const [viewingMister, setViewingMister] = useState<Mister | null>(null);
   const [viewingClass, setViewingClass] = useState<ClassDoc | null>(null);
   const [viewingGroup, setViewingGroup] = useState<{ id: string; displayName?: string } | null>(null);
+  const [viewingKid, setViewingKid] = useState<Kid | null>(null);
 
   const isAdmin = userRole === 'Admin' || userRole === 'owner';
   const currentUserEmail = user?.email?.toLowerCase() || '';
@@ -104,6 +102,18 @@ export const ServantsDirectoryScreen: React.FC = () => {
     }
     const unsub = onSnapshot(collection(db, 'churches', selectedChurchId, 'classes'), (snap) => {
       setClasses(snap.docs.map((d) => ({ id: d.id, ...d.data() } as ClassDoc)));
+    });
+    return () => unsub();
+  }, [selectedChurchId]);
+
+  // 4. Listen to kids (to display student rosters when drilling down into classes)
+  useEffect(() => {
+    if (!selectedChurchId) {
+      setKids([]);
+      return;
+    }
+    const unsub = onSnapshot(collection(db, 'churches', selectedChurchId, 'kids'), (snap) => {
+      setKids(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Kid)));
     });
     return () => unsub();
   }, [selectedChurchId]);
@@ -168,13 +178,13 @@ export const ServantsDirectoryScreen: React.FC = () => {
 
   // Filtered Servants list: filtered by top filters AND Header Filter Matrix
   const filteredServants = servants.filter((m) => {
-    const emailKey = m.email.toLowerCase();
+    const emailKey = (m.email || m.id || '').toLowerCase().trim();
 
     // Mobile Quick Search
     if (mobileSearchQuery.trim()) {
       const q = mobileSearchQuery.toLowerCase().trim();
-      const matchName = m.displayName.toLowerCase().includes(q);
-      const matchEmail = m.email.toLowerCase().includes(q);
+      const matchName = (m.displayName || '').toLowerCase().includes(q);
+      const matchEmail = (m.email || m.id || '').toLowerCase().includes(q);
       const matchPhone = (m.personalInfo?.phone || '').includes(q);
       const matchJob = (m.personalInfo?.job || '').toLowerCase().includes(q);
       const matchAddress = (m.personalInfo?.address || '').toLowerCase().includes(q);
@@ -183,8 +193,8 @@ export const ServantsDirectoryScreen: React.FC = () => {
 
     // Top Filter: Service Group Filter
     if (selectedServiceGroupId) {
-      const inAdmin = groups.some((g) => g.id === selectedServiceGroupId && (((g.admins || []).map((e) => e.toLowerCase().trim())).includes(emailKey) || g.misters?.[emailKey] === 'admin'));
-      const inServant = groups.some((g) => g.id === selectedServiceGroupId && (((g.servants || []).map((e) => e.toLowerCase().trim())).includes(emailKey) || g.misters?.[emailKey] === 'servant'));
+      const inAdmin = groups.some((g) => g.id === selectedServiceGroupId && (((g.admins || []).map((e) => (e || '').toLowerCase().trim())).includes(emailKey) || g.misters?.[emailKey] === 'admin'));
+      const inServant = groups.some((g) => g.id === selectedServiceGroupId && (((g.servants || []).map((e) => (e || '').toLowerCase().trim())).includes(emailKey) || g.misters?.[emailKey] === 'servant'));
       if (!inAdmin && !inServant) return false;
     }
 
@@ -192,7 +202,7 @@ export const ServantsDirectoryScreen: React.FC = () => {
     if (selectedClassId) {
       const targetClass = classes.find((c) => c.id === selectedClassId);
       const yearData = selectedAcademicYearId ? targetClass?.academicYears?.[selectedAcademicYearId] : Object.values(targetClass?.academicYears || {})[0];
-      const mistersInClass = (yearData?.MistersIds || yearData?.servants || []).map((e) => e.toLowerCase());
+      const mistersInClass = (yearData?.MistersIds || yearData?.servants || []).map((e) => (e || '').toLowerCase().trim());
       if (!mistersInClass.includes(emailKey)) return false;
     }
 
@@ -201,7 +211,7 @@ export const ServantsDirectoryScreen: React.FC = () => {
       if (String(m.active) !== filters.active) return false;
     }
     if (filters.displayName) {
-      if (!m.displayName.toLowerCase().includes(filters.displayName.toLowerCase())) return false;
+      if (!(m.displayName || '').toLowerCase().includes(filters.displayName.toLowerCase())) return false;
     }
     if (filters.churchRole) {
       if (m.churchRole !== filters.churchRole) return false;
@@ -219,7 +229,7 @@ export const ServantsDirectoryScreen: React.FC = () => {
       if (!sc.includes(filters.servantClasses.toLowerCase())) return false;
     }
     if (filters.email) {
-      if (!m.email.toLowerCase().includes(filters.email.toLowerCase())) return false;
+      if (!(m.email || m.id || '').toLowerCase().includes(filters.email.toLowerCase())) return false;
     }
     if (filters.phone) {
       if (!m.personalInfo?.phone?.includes(filters.phone)) return false;
@@ -794,7 +804,7 @@ export const ServantsDirectoryScreen: React.FC = () => {
           allGroups={groups}
           allClasses={classes}
           activeAcademicYearId={selectedAcademicYearId}
-          canEdit={isAdmin || viewingMister.email.toLowerCase() === currentUserEmail}
+          canEdit={isAdmin || (viewingMister.email || viewingMister.id || '').toLowerCase() === currentUserEmail}
           onEdit={() => {
             const target = viewingMister;
             setViewingMister(null);
@@ -811,13 +821,27 @@ export const ServantsDirectoryScreen: React.FC = () => {
         <ClassDetailsModal
           classDoc={viewingClass}
           activeAcademicYearId={selectedAcademicYearId}
-          allKids={[]}
+          allKids={kids}
           allMisters={servants}
           serviceGroups={groups}
           canEdit={false}
           onClose={() => setViewingClass(null)}
           onBack={() => setViewingClass(null)}
+          onSelectKid={(kid) => setViewingKid(kid)}
           backLabel={viewingMister?.displayName}
+        />
+      )}
+
+      {/* Child Drill-Down: Kid Details Modal */}
+      {viewingKid && (
+        <KidDetailsModal
+          kid={viewingKid}
+          classes={classes}
+          serviceGroups={groups}
+          canEdit={false}
+          onClose={() => setViewingKid(null)}
+          onBack={() => setViewingKid(null)}
+          backLabel={(selectedAcademicYearId ? viewingClass?.academicYears?.[selectedAcademicYearId]?.displayName : undefined) || viewingClass?.id}
         />
       )}
 

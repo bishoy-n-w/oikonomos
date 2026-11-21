@@ -8,6 +8,7 @@ import { getUniversalNavigationUrl } from '../../utils/geo';
 import { formatAge, safeRender } from '../../utils/formatters';
 import { PhoneActionGroup } from '../common/PhoneActionGroup';
 import { CopyableField } from '../common/CopyableField';
+import { ContactPickerPopover, type ContactOption } from '../common/ContactPickerPopover';
 import {
   X,
   Edit3,
@@ -81,6 +82,56 @@ export const KidDetailsModal: React.FC<KidDetailsModalProps> = ({
 
   const navUrl = getUniversalNavigationUrl(kid.address?.geoLocation, fullAddress);
   const calculatedAge = formatAge(kid.info?.dob);
+
+  const [contactPicker, setContactPicker] = React.useState<{ actionType: 'call' | 'whatsapp' | 'copy'; contacts: ContactOption[] } | null>(null);
+
+  const allAvailableContacts = React.useMemo<ContactOption[]>(() => {
+    const list: ContactOption[] = [];
+    if (fatherPhone) {
+      list.push({
+        role: 'father',
+        label: translate('father') || 'Father',
+        name: kid.contacts?.fatherName,
+        phone: fatherPhone,
+      });
+    }
+    if (motherPhone) {
+      list.push({
+        role: 'mother',
+        label: translate('mother') || 'Mother',
+        name: kid.contacts?.motherName,
+        phone: motherPhone,
+      });
+    }
+    if (kidPhone) {
+      list.push({
+        role: 'kid',
+        label: translate('kids') || 'Student',
+        name: kid.info.fullName,
+        phone: kidPhone,
+      });
+    }
+    return list;
+  }, [fatherPhone, motherPhone, kidPhone, kid.contacts?.fatherName, kid.contacts?.motherName, kid.info.fullName, translate]);
+
+  const handleTriggerContact = (actionType: 'call' | 'whatsapp') => {
+    if (allAvailableContacts.length === 0) return;
+    if (allAvailableContacts.length === 1) {
+      const c = allAvailableContacts[0];
+      const dial = c.phone.replace(/[^\d+]/g, '');
+      if (actionType === 'call') {
+        window.location.assign(`tel:${dial}`);
+      } else {
+        const text = encodeURIComponent(`Hello ${c.name || kid.info.fullName}, `);
+        window.open(`https://wa.me/${dial.replace(/^\+/, '')}?text=${text}`, '_blank');
+      }
+      return;
+    }
+    setContactPicker({
+      actionType,
+      contacts: allAvailableContacts,
+    });
+  };
 
   return (
     <div
@@ -195,100 +246,98 @@ export const KidDetailsModal: React.FC<KidDetailsModalProps> = ({
           </button>
         </div>
 
-        {/* Quick Contact & Action Strip (Every Phone has Call & WhatsApp) */}
-        <div className="py-2.5 flex flex-wrap items-center gap-1.5 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
-          {fatherPhone && (
-            <>
-              <a
-                href={`tel:${fatherPhone}`}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 active:scale-95 transition min-h-[40px] touch-manipulation"
-                title="Call Father"
-              >
-                <Phone className="w-3.5 h-3.5" />
-                <span>Call Father</span>
-              </a>
-              <a
-                href={`https://wa.me/${fatherPhone.replace(/[^\d]/g, '')}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 active:scale-95 transition min-h-[40px] touch-manipulation"
-                title="WhatsApp Father"
-              >
-                <MessageSquare className="w-3.5 h-3.5" />
-                <span>WA Father</span>
-              </a>
-            </>
-          )}
+        {/* Sleek Quick Actions Bar (Call, WhatsApp, Maps, ID Card) */}
+        <div className="grid grid-cols-4 gap-2 py-3 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
+          {/* 1. Quick Call */}
+          <button
+            type="button"
+            disabled={allAvailableContacts.length === 0}
+            onClick={() => handleTriggerContact('call')}
+            className="flex flex-col items-center justify-center gap-1 p-2 rounded-2xl bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 active:scale-95 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed touch-manipulation"
+          >
+            <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-xs">
+              <Phone className="w-4 h-4" />
+            </div>
+            <span className="text-[11px] font-bold text-blue-900 dark:text-blue-200">
+              {translate('call') || 'Call'}
+            </span>
+          </button>
 
-          {motherPhone && (
-            <>
-              <a
-                href={`tel:${motherPhone}`}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 active:scale-95 transition min-h-[40px] touch-manipulation"
-                title="Call Mother"
-              >
-                <Phone className="w-3.5 h-3.5" />
-                <span>Call Mother</span>
-              </a>
-              <a
-                href={`https://wa.me/${motherPhone.replace(/[^\d]/g, '')}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 active:scale-95 transition min-h-[40px] touch-manipulation"
-                title="WhatsApp Mother"
-              >
-                <MessageSquare className="w-3.5 h-3.5" />
-                <span>WA Mother</span>
-              </a>
-            </>
-          )}
+          {/* 2. Quick WhatsApp */}
+          <button
+            type="button"
+            disabled={allAvailableContacts.length === 0}
+            onClick={() => handleTriggerContact('whatsapp')}
+            className="flex flex-col items-center justify-center gap-1 p-2 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 active:scale-95 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed touch-manipulation"
+          >
+            <div className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+              <MessageSquare className="w-4 h-4" />
+            </div>
+            <span className="text-[11px] font-bold text-emerald-900 dark:text-emerald-200">
+              WhatsApp
+            </span>
+          </button>
 
-          {kidPhone && (
-            <a
-              href={`tel:${kidPhone}`}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 hover:bg-teal-100 active:scale-95 transition min-h-[40px] touch-manipulation"
-              title="Call Student"
-            >
-              <Phone className="w-3.5 h-3.5" />
-              <span>Call Kid</span>
-            </a>
-          )}
-
-          {navUrl && (
+          {/* 3. Maps / Navigation */}
+          {navUrl ? (
             <a
               href={navUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 active:scale-95 transition min-h-[40px] touch-manipulation"
-              title={translate('navigate')}
+              className="flex flex-col items-center justify-center gap-1 p-2 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 active:scale-95 transition cursor-pointer touch-manipulation"
             >
-              <Navigation className="w-3.5 h-3.5" />
-              <span>{translate('navigate') || 'Directions'}</span>
+              <div className="w-9 h-9 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+                <Navigation className="w-4 h-4" />
+              </div>
+              <span className="text-[11px] font-bold text-indigo-900 dark:text-indigo-200">
+                {translate('navigate') || 'Maps'}
+              </span>
             </a>
+          ) : (
+            <div className="flex flex-col items-center justify-center gap-1 p-2 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 opacity-40 cursor-not-allowed">
+              <div className="w-9 h-9 rounded-full bg-zinc-300 dark:bg-zinc-700 text-zinc-500 flex items-center justify-center">
+                <Navigation className="w-4 h-4" />
+              </div>
+              <span className="text-[11px] font-medium text-zinc-400">
+                {translate('navigate') || 'Maps'}
+              </span>
+            </div>
           )}
 
-          {onPrintBadge && (
+          {/* 4. ID Card / Badge or Log Visit */}
+          {onPrintBadge ? (
             <button
               type="button"
               onClick={onPrintBadge}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-95 transition cursor-pointer min-h-[40px] touch-manipulation"
-              title={translate('print_id_badge')}
+              className="flex flex-col items-center justify-center gap-1 p-2 rounded-2xl bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 active:scale-95 transition cursor-pointer touch-manipulation"
             >
-              <IdCard className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-              <span>{translate('print_id_badge') || 'ID Card'}</span>
+              <div className="w-9 h-9 rounded-full bg-amber-600 text-white flex items-center justify-center shadow-xs">
+                <IdCard className="w-4 h-4" />
+              </div>
+              <span className="text-[11px] font-bold text-amber-900 dark:text-amber-200">
+                {translate('print_id_badge') || 'ID Card'}
+              </span>
             </button>
-          )}
-
-          {onLogVisit && (
+          ) : onLogVisit ? (
             <button
               type="button"
               onClick={onLogVisit}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 active:scale-95 transition cursor-pointer min-h-[40px] touch-manipulation"
-              title={translate('log_visit')}
+              className="flex flex-col items-center justify-center gap-1 p-2 rounded-2xl bg-teal-50 dark:bg-teal-950/50 hover:bg-teal-100 active:scale-95 transition cursor-pointer touch-manipulation"
             >
-              <HeartHandshake className="w-3.5 h-3.5" />
-              <span>{translate('log_visit') || 'Log Visit'}</span>
+              <div className="w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center shadow-xs">
+                <HeartHandshake className="w-4 h-4" />
+              </div>
+              <span className="text-[11px] font-bold text-teal-900 dark:text-teal-200">
+                {translate('log_visit') || 'Visit'}
+              </span>
             </button>
+          ) : (
+            <div className="flex flex-col items-center justify-center gap-1 p-2 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 opacity-40 cursor-not-allowed">
+              <div className="w-9 h-9 rounded-full bg-zinc-300 dark:bg-zinc-700 text-zinc-500 flex items-center justify-center">
+                <IdCard className="w-4 h-4" />
+              </div>
+              <span className="text-[11px] font-medium text-zinc-400">ID Card</span>
+            </div>
           )}
         </div>
 
@@ -527,6 +576,17 @@ export const KidDetailsModal: React.FC<KidDetailsModalProps> = ({
           )}
         </div>
       </div>
+
+      {/* Contact Picker Popover */}
+      {contactPicker && (
+        <ContactPickerPopover
+          personName={kid.info.fullName}
+          actionType={contactPicker.actionType}
+          contacts={contactPicker.contacts}
+          isOpen={!!contactPicker}
+          onClose={() => setContactPicker(null)}
+        />
+      )}
     </div>
   );
 };

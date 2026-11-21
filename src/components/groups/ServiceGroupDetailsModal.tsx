@@ -92,8 +92,8 @@ export const ServiceGroupDetailsModal: React.FC<ServiceGroupDetailsModalProps> =
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
-      m.displayName.toLowerCase().includes(q) ||
-      m.email.toLowerCase().includes(q) ||
+      (m.displayName || '').toLowerCase().includes(q) ||
+      (m.email || m.id || '').toLowerCase().includes(q) ||
       (m.personalInfo?.phone || '').includes(q)
     );
   });
@@ -102,8 +102,8 @@ export const ServiceGroupDetailsModal: React.FC<ServiceGroupDetailsModalProps> =
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
-      m.displayName.toLowerCase().includes(q) ||
-      m.email.toLowerCase().includes(q) ||
+      (m.displayName || '').toLowerCase().includes(q) ||
+      (m.email || m.id || '').toLowerCase().includes(q) ||
       (m.personalInfo?.phone || '').includes(q)
     );
   });

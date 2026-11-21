@@ -831,10 +831,13 @@ export const HomeVisitsScreen: React.FC = () => {
                   return (
                     <div
                       key={kid.id}
-                      className="flex items-center justify-between p-2.5 rounded-2xl bg-rose-50/40 dark:bg-rose-950/20 border border-rose-200/80 dark:border-rose-900/60 text-xs"
+                      className="flex items-center justify-between p-2.5 rounded-2xl bg-rose-50/40 dark:bg-rose-950/20 border border-rose-200/80 dark:border-rose-900/60 text-xs hover:bg-rose-100/50 dark:hover:bg-rose-950/40 transition"
                     >
-                      <div className="min-w-0">
-                        <p className="font-bold text-zinc-900 dark:text-zinc-100 truncate">{kid.info.fullName}</p>
+                      <div
+                        onClick={() => setViewingKid(kid)}
+                        className="min-w-0 cursor-pointer flex-1"
+                      >
+                        <p className="font-bold text-zinc-900 dark:text-zinc-100 hover:text-teal-600 truncate">{kid.info.fullName}</p>
                         <p className="text-[10px] text-rose-600 dark:text-rose-400">
                           {className} • {daysAgo === Infinity ? translate('never_visited') : `${daysAgo}d ago`}
                         </p>

@@ -183,9 +183,27 @@ describe('Read-Only Entity Details Modals & Role-Gated Transitions', () => {
         </AppProvider>
       );
 
-      const badgeBtn = screen.getByRole('button', { name: /ID Badge/i });
+      const badgeBtn = screen.getByRole('button', { name: /ID/i });
+      expect(badgeBtn).toBeTruthy();
       fireEvent.click(badgeBtn);
       expect(handlePrint).toHaveBeenCalledTimes(1);
+    });
+
+    it('renders the sleek quick action bar with Call, WhatsApp, and ID Card', () => {
+      render(
+        <AppProvider>
+          <KidDetailsModal
+            kid={mockKid}
+            canEdit={false}
+            onClose={vi.fn()}
+            onPrintBadge={vi.fn()}
+          />
+        </AppProvider>
+      );
+
+      expect(screen.getByRole('button', { name: /Call/i })).toBeTruthy();
+      expect(screen.getByRole('button', { name: /WhatsApp/i })).toBeTruthy();
+      expect(screen.getByRole('button', { name: /ID/i })).toBeTruthy();
     });
   });
 
@@ -253,6 +271,42 @@ describe('Read-Only Entity Details Modals & Role-Gated Transitions', () => {
       expect(editBtn).toBeTruthy();
       fireEvent.click(editBtn);
       expect(handleEdit).toHaveBeenCalledTimes(1);
+    });
+
+    it('safely handles servants with undefined or missing email without throwing errors', () => {
+      const incompleteMister = {
+        id: 'servant-no-email',
+        displayName: 'Peter No Email',
+        active: true,
+        churchRole: 'servant' as const,
+      } as unknown as Mister;
+
+      expect(() => {
+        render(
+          <AppProvider>
+            <ClassDetailsModal
+              classDoc={{
+                ...mockClassDoc,
+                academicYears: {
+                  'ay-2026': {
+                    name: '5th Primary',
+                    displayName: '5th Primary',
+                    gradeId: '5',
+                    serviceGroupId: 'grp-primary',
+                    MistersIds: ['servant-no-email'],
+                  },
+                },
+              }}
+              activeAcademicYearId="ay-2026"
+              allKids={[mockKid]}
+              allMisters={[incompleteMister]}
+              serviceGroups={[mockGroup]}
+              canEdit={false}
+              onClose={vi.fn()}
+            />
+          </AppProvider>
+        );
+      }).not.toThrow();
     });
   });
 

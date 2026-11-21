@@ -9,7 +9,7 @@ import { MobileViewToggle } from '../components/common/MobileViewToggle';
 import { ServiceGroupDetailsModal } from '../components/groups/ServiceGroupDetailsModal';
 import { ServantDetailsModal } from '../components/servants/ServantDetailsModal';
 import { useModalEscape } from '../utils/useModalEscape';
-import { DEFAULT_EVENT_TYPES, type ServiceGroup, type Mister, type Church, type GroupEventType } from '../types';
+import { DEFAULT_EVENT_TYPES, type ServiceGroup, type Mister, type Church, type GroupEventType, type ClassDoc } from '../types';
 import { 
   Plus, 
   Edit3, 
@@ -30,6 +30,7 @@ export const ServiceGroupsScreen: React.FC = () => {
 
   const [groups, setGroups] = useState<ServiceGroup[]>([]);
   const [allMisters, setAllMisters] = useState<Mister[]>([]);
+  const [classesList, setClassesList] = useState<ClassDoc[]>([]);
   const [currentChurch, setCurrentChurch] = useState<Church | null>(null);
 
   // Header Filtering Matrix state
@@ -92,7 +93,19 @@ export const ServiceGroupsScreen: React.FC = () => {
     return () => unsub();
   }, [selectedChurchId]);
 
-  // 3. Listen to service groups in selected church
+  // 3. Listen to classes in selected church (for servant drill-down class resolution)
+  useEffect(() => {
+    if (!selectedChurchId) {
+      setClassesList([]);
+      return;
+    }
+    const unsub = onSnapshot(collection(db, 'churches', selectedChurchId, 'classes'), (snap) => {
+      setClassesList(snap.docs.map((d) => ({ id: d.id, ...d.data() } as ClassDoc)));
+    });
+    return () => unsub();
+  }, [selectedChurchId]);
+
+  // 4. Listen to service groups in selected church
   useEffect(() => {
     if (!selectedChurchId) {
       setGroups([]);
@@ -172,8 +185,9 @@ export const ServiceGroupsScreen: React.FC = () => {
     }
     if (filters.admins) {
       const adminNames = (g.admins || []).map((email) => {
-        const m = allMisters.find((mis) => mis.email.toLowerCase() === email.toLowerCase());
-        return m ? m.displayName.toLowerCase() : email.toLowerCase();
+        const targetEmail = (email || '').toLowerCase().trim();
+        const m = allMisters.find((mis) => (mis.email || mis.id || '').toLowerCase().trim() === targetEmail);
+        return m ? (m.displayName || '').toLowerCase() : targetEmail;
       }).join(' ');
       if (!adminNames.includes(filters.admins.toLowerCase())) return false;
     }
@@ -446,7 +460,8 @@ export const ServiceGroupsScreen: React.FC = () => {
                 <div className="flex flex-wrap gap-1">
                   {adminsList.length === 0 && <span className="text-zinc-400 text-xs">{translate('no_admins')}</span>}
                   {adminsList.map((adminEmail) => {
-                    const m = allMisters.find((mis) => mis.email.toLowerCase() === adminEmail.toLowerCase());
+                    const targetEmail = (adminEmail || '').toLowerCase().trim();
+                    const m = allMisters.find((mis) => (mis.email || mis.id || '').toLowerCase().trim() === targetEmail);
                     const name = m?.displayName || adminEmail;
                     return (
                       <span
@@ -560,7 +575,8 @@ export const ServiceGroupsScreen: React.FC = () => {
                       <div className="flex flex-wrap gap-1.5 max-w-xs">
                         {adminsList.length === 0 && <span className="text-zinc-400 text-[11px]">{translate('no_admins')}</span>}
                         {adminsList.map((adminEmail) => {
-                          const m = allMisters.find((mis) => mis.email.toLowerCase() === adminEmail.toLowerCase());
+                          const targetEmail = (adminEmail || '').toLowerCase().trim();
+                          const m = allMisters.find((mis) => (mis.email || mis.id || '').toLowerCase().trim() === targetEmail);
                           const name = m?.displayName || adminEmail;
                           return (
                             <span
@@ -691,7 +707,7 @@ export const ServiceGroupsScreen: React.FC = () => {
         <ServantDetailsModal
           mister={viewingServant}
           allGroups={groups}
-          allClasses={[]}
+          allClasses={classesList}
           canEdit={false}
           onClose={() => setViewingServant(null)}
           onBack={() => setViewingServant(null)}
@@ -938,7 +954,8 @@ const EditServiceGroupModal: React.FC<EditServiceGroupModalProps> = ({
             <div className="flex flex-wrap gap-1.5 min-h-[36px] p-2 rounded-xl bg-white dark:bg-zinc-900 border border-purple-200 dark:border-purple-800/60">
               {admins.length === 0 && <span className="text-zinc-400 text-xs my-auto">{translate('no_admins')}</span>}
               {admins.map((email) => {
-                const m = allMisters.find((mis) => mis.email.toLowerCase() === email.toLowerCase());
+                const targetEmail = (email || '').toLowerCase().trim();
+                const m = allMisters.find((mis) => (mis.email || mis.id || '').toLowerCase().trim() === targetEmail);
                 const name = m?.displayName || email;
                 return (
                   <span
@@ -979,7 +996,8 @@ const EditServiceGroupModal: React.FC<EditServiceGroupModalProps> = ({
             <div className="flex flex-wrap gap-1.5 min-h-[36px] p-2 rounded-xl bg-white dark:bg-zinc-900 border border-blue-200 dark:border-blue-800/60 max-h-40 overflow-y-auto">
               {servants.length === 0 && <span className="text-zinc-400 text-xs my-auto">{translate('no_servants')}</span>}
               {servants.map((email) => {
-                const m = allMisters.find((mis) => mis.email.toLowerCase() === email.toLowerCase());
+                const targetEmail = (email || '').toLowerCase().trim();
+                const m = allMisters.find((mis) => (mis.email || mis.id || '').toLowerCase().trim() === targetEmail);
                 const name = m?.displayName || email;
                 return (
                   <span
@@ -1069,10 +1087,10 @@ const EditServiceGroupModal: React.FC<EditServiceGroupModalProps> = ({
                 .filter((m) => {
                   if (!pickerSearch.trim()) return true;
                   const q = pickerSearch.toLowerCase().trim();
-                  return m.displayName.toLowerCase().includes(q) || m.email.toLowerCase().includes(q);
+                  return (m.displayName || '').toLowerCase().includes(q) || (m.email || m.id || '').toLowerCase().includes(q);
                 })
                 .map((mister) => {
-                  const mKey = mister.email.toLowerCase().trim();
+                  const mKey = (mister.email || mister.id || '').toLowerCase().trim();
                   const isSelected = mistersMap[mKey] === pickerRole;
 
                   // Find other groups this servant is part of

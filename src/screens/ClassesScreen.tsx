@@ -899,6 +899,14 @@ export const ClassesScreen: React.FC = () => {
           allKids={allKids}
           allMisters={allMisters}
           onClose={() => setRosterPreview(null)}
+          onSelectKid={(kid) => {
+            setRosterPreview(null);
+            setViewingKid(kid);
+          }}
+          onSelectServant={(servant) => {
+            setRosterPreview(null);
+            setViewingServant(servant);
+          }}
         />
       )}
     </div>
@@ -911,6 +919,8 @@ interface RosterPreviewModalProps {
   allKids: Kid[];
   allMisters: Mister[];
   onClose: () => void;
+  onSelectKid?: (kid: Kid) => void;
+  onSelectServant?: (servant: Mister) => void;
 }
 
 const RosterPreviewModal: React.FC<RosterPreviewModalProps> = ({
@@ -918,6 +928,8 @@ const RosterPreviewModal: React.FC<RosterPreviewModalProps> = ({
   allKids,
   allMisters,
   onClose,
+  onSelectKid,
+  onSelectServant,
 }) => {
   const { translate } = useApp();
   const [activeTab, setActiveTab] = useState<'kids' | 'servants'>('kids');
@@ -944,7 +956,7 @@ const RosterPreviewModal: React.FC<RosterPreviewModalProps> = ({
   const filteredServants = assignedServants.filter((m) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
-    return m.displayName.toLowerCase().includes(q) || m.email.toLowerCase().includes(q);
+    return (m.displayName || '').toLowerCase().includes(q) || (m.email || m.id || '').toLowerCase().includes(q);
   });
 
   return (
@@ -1021,9 +1033,12 @@ const RosterPreviewModal: React.FC<RosterPreviewModalProps> = ({
               filteredKids.map((kid) => (
                 <div
                   key={kid.id}
-                  className="flex items-center justify-between p-2.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-800 text-xs"
+                  className="flex items-center justify-between p-2.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 hover:bg-teal-50/50 dark:hover:bg-teal-950/30 border border-zinc-200/80 dark:border-zinc-800 transition text-xs"
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
+                  <div
+                    onClick={() => onSelectKid?.(kid)}
+                    className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
+                  >
                     <div className="w-8 h-8 rounded-xl overflow-hidden shrink-0 flex items-center justify-center border border-zinc-200 dark:border-zinc-700">
                       {kid.info.photoUrl ? (
                         <img src={kid.info.photoUrl} alt="" className="w-full h-full object-cover" />
@@ -1036,7 +1051,7 @@ const RosterPreviewModal: React.FC<RosterPreviewModalProps> = ({
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-bold text-zinc-900 dark:text-zinc-100 truncate">{kid.info.fullName}</p>
+                      <p className="font-bold text-zinc-900 dark:text-zinc-100 hover:text-teal-600 truncate">{kid.info.fullName}</p>
                       <p className="text-[10px] text-zinc-400 truncate">
                         {kid.contacts?.fatherName ? `Father: ${kid.contacts.fatherName}` : (kid.address?.region || 'Sunday School')}
                       </p>
@@ -1045,7 +1060,7 @@ const RosterPreviewModal: React.FC<RosterPreviewModalProps> = ({
                   {kid.contacts?.fatherMob && (
                     <a
                       href={`tel:${kid.contacts.fatherMob}`}
-                      className="px-2 py-1 rounded-lg bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300 font-bold text-[11px] shrink-0"
+                      className="px-2.5 py-1 rounded-xl bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300 font-bold text-[11px] shrink-0 hover:bg-teal-100 transition"
                     >
                       Call
                     </a>
@@ -1060,21 +1075,24 @@ const RosterPreviewModal: React.FC<RosterPreviewModalProps> = ({
               filteredServants.map((mister) => (
                 <div
                   key={mister.id}
-                  className="flex items-center justify-between p-2.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-800 text-xs"
+                  className="flex items-center justify-between p-2.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 border border-zinc-200/80 dark:border-zinc-800 transition text-xs"
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
+                  <div
+                    onClick={() => onSelectServant?.(mister)}
+                    className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
+                  >
                     <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 flex items-center justify-center bg-blue-50 text-blue-700 font-bold text-xs">
-                      {mister.displayName.slice(0, 2).toUpperCase()}
+                      {(mister.displayName || mister.id).slice(0, 2).toUpperCase()}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-bold text-zinc-900 dark:text-zinc-100 truncate">{mister.displayName}</p>
+                      <p className="font-bold text-zinc-900 dark:text-zinc-100 hover:text-blue-600 truncate">{mister.displayName}</p>
                       <p className="text-[10px] text-zinc-400 truncate font-mono">{mister.email}</p>
                     </div>
                   </div>
                   {mister.personalInfo?.phone && (
                     <a
                       href={`tel:${mister.personalInfo.phone}`}
-                      className="px-2 py-1 rounded-lg bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-bold text-[11px] shrink-0"
+                      className="px-2.5 py-1 rounded-xl bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-bold text-[11px] shrink-0 hover:bg-blue-100 transition"
                     >
                       Call
                     </a>
@@ -1189,7 +1207,8 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
   }, [selectedGroupId, availableGrades, selectedGradeId]);
 
   const handleToggleMister = (email: string) => {
-    const key = email.toLowerCase();
+    const key = (email || '').toLowerCase().trim();
+    if (!key) return;
     if (selectedMisterIds.includes(key)) {
       setSelectedMisterIds(selectedMisterIds.filter((e) => e !== key));
     } else {
@@ -1362,7 +1381,8 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
                 <span className="text-zinc-400 text-xs my-auto">{translate('no_servants')}</span>
               )}
               {selectedMisterIds.map((email) => {
-                const m = allMisters.find((mis) => mis.email.toLowerCase() === email.toLowerCase());
+                const targetKey = (email || '').toLowerCase().trim();
+                const m = allMisters.find((mis) => (mis.email || mis.id || '').toLowerCase().trim() === targetKey);
                 const name = m?.displayName || email;
                 return (
                   <span
@@ -1500,7 +1520,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
                   if (!pickerSearch.trim()) return true;
                   const q = pickerSearch.toLowerCase().trim();
                   const email = (m.email || m.id || '').toLowerCase();
-                  return m.displayName.toLowerCase().includes(q) || email.includes(q);
+                  return (m.displayName || '').toLowerCase().includes(q) || email.includes(q);
                 })
                 .map((mister) => {
                   const mEmail = (mister.email || mister.id || '').toLowerCase().trim();

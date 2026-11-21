@@ -1323,6 +1323,29 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   Freed over **150px of horizontal breathing room** on mobile displays, ensuring class names (e.g., `ثالثة ابتدائي صغار`, `رابعة ابتدائي ولاد كبار`) render in full with zero unreadable ellipses (`...`).
     *   Tapping the class name opens `ClassDetailsModal`, while tapping `[ 👶 {N} ]` or `[ 👥 {N} ]` directly opens the roster preview.
 
+---
+
+## 60. Holistic Crash Resilience, Complete Multi-Screen Drill-Down Connectivity & Kid Details Ergonomic Redesign
+
+*   **Defensive String & Property Crash Guards across Screens & Modals:**
+    *   Hardened all `.toLowerCase()`, `.toUpperCase()`, and `.trim()` calls across `ClassesScreen`, `ServiceGroupsScreen`, `ServantsDirectoryScreen`, `ClassDetailsModal`, and `ServiceGroupDetailsModal`.
+    *   Protected servant matching routines (`(mis.email || mis.id || '').toLowerCase() === (email || '').toLowerCase()`) to eliminate runtime `TypeError: Cannot read properties of undefined (reading 'toLowerCase')` crashes caused by incomplete Firestore servant documents.
+*   **Complete Relational Data Subscriptions (Eliminating Empty Modal Views):**
+    *   *Servants Directory:* Subscribed to `kids` collection and passed `allKids={kids}` to `ClassDetailsModal`, resolving the issue where opening a class from a servant's profile displayed `Enrolled Kids (0)`.
+    *   *Kids Directory:* Subscribed to `misters` collection and passed `allMisters={allMisters}` to `ClassDetailsModal` and `ServiceGroupDetailsModal`.
+    *   *Service Groups:* Subscribed to `classes` collection and passed `allClasses={classesList}` to `ServantDetailsModal`.
+*   **Interactive Multi-Screen Drill-Down Click Handlers:**
+    *   *Class Roster & Servants Preview (`ClassesScreen`):* Enabled interactive click handlers on every student and servant in `RosterPreviewModal`, drilling down directly into `KidDetailsModal` and `ServantDetailsModal`.
+    *   *Urgent Pastoral Care Attention (`HomeVisitsScreen`):* Wrapped overdue student rows with `onClick={() => setViewingKid(kid)}`.
+    *   *At-Risk Absenteeism Radar (`AttendanceTrackerScreen`):* Wired student rows to open `KidDetailsModal`.
+    *   *Main Dashboard Radar (`DashboardScreen`):* Wired both Birthday Celebrations and Urgent Pastoral Care cards to open `KidDetailsModal`.
+*   **Ergonomic Redesign of `KidDetailsModal` Header:**
+    *   Replaced the crowded cluster of 7 asymmetric pill buttons with a clean, centered Apple/Google Contacts pattern.
+    *   Integrated a symmetrical 4-action quick bar (`[ 📞 Call ]`, `[ 💬 WhatsApp ]`, `[ 📍 Maps ]`, `[ 🪪 ID Card ]`).
+    *   Triggering Call or WhatsApp opens `ContactPickerPopover` when multiple family phone numbers exist, and dials directly when only one number is available.
+    *   Preserved structured family cards below with distinct action groups per parent.
+
+
 
 
 
