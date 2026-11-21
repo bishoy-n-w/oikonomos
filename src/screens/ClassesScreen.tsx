@@ -463,21 +463,21 @@ export const ClassesScreen: React.FC = () => {
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <span className={`w-2 h-2 rounded-full shrink-0 ${cls.active !== false ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 flex-wrap">
+                      <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                         <button
                           type="button"
                           onClick={() => setViewingClass(cls)}
-                          className="font-bold text-xs text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start truncate"
+                          className="font-bold text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start break-words"
                         >
                           {yearData.displayName || cls.id}
                         </button>
                         {gradeItem && (
-                          <span className="text-[9px] font-mono font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950 px-1 py-0.2 rounded border border-teal-200 dark:border-teal-800 shrink-0">
+                          <span className="text-[10px] font-mono font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950 px-1.5 py-0.2 rounded-md border border-teal-200 dark:border-teal-800 shrink-0">
                             #{yearData.gradeId}
                           </span>
                         )}
                       </div>
-                      <p className="text-[10px] text-zinc-400 truncate">
+                      <p className="text-[11px] text-zinc-400 truncate mt-0.5">
                         {group?.displayName || yearData.serviceGroupId}
                       </p>
                     </div>
@@ -491,9 +491,12 @@ export const ClassesScreen: React.FC = () => {
                         kidIds: effectiveKidIds,
                         misterIds: yearData.MistersIds || yearData.servants || [],
                       })}
-                      className="px-2 py-1 rounded-lg bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 text-[11px] font-bold border border-teal-200 dark:border-teal-800 cursor-pointer"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 text-xs font-bold border border-teal-200 dark:border-teal-800 cursor-pointer hover:bg-teal-100 active:scale-95 transition touch-manipulation shadow-2xs"
+                      title={`${kidsCount} ${translate('enrolled_kids') || 'Students'}`}
+                      aria-label={`${kidsCount} ${translate('enrolled_kids') || 'Students'}`}
                     >
-                      {kidsCount} {translate('kids')}
+                      <Baby className="w-3.5 h-3.5" />
+                      <span className="tabular-nums">{kidsCount}</span>
                     </button>
                     <button
                       type="button"
@@ -502,15 +505,20 @@ export const ClassesScreen: React.FC = () => {
                         kidIds: effectiveKidIds,
                         misterIds: yearData.MistersIds || yearData.servants || [],
                       })}
-                      className="px-2 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 text-[11px] font-bold border border-blue-200 dark:border-blue-800 cursor-pointer"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 text-xs font-bold border border-blue-200 dark:border-blue-800 cursor-pointer hover:bg-blue-100 active:scale-95 transition touch-manipulation shadow-2xs"
+                      title={`${servantsCount} ${translate('servants_subtitle') || 'Servants'}`}
+                      aria-label={`${servantsCount} ${translate('servants_subtitle') || 'Servants'}`}
                     >
-                      {servantsCount} {translate('servants')}
+                      <Users className="w-3.5 h-3.5" />
+                      <span className="tabular-nums">{servantsCount}</span>
                     </button>
                     {canManageClassStructure(cls.id) && (
                       <button
                         type="button"
                         onClick={() => setEditClass(cls)}
-                        className="p-1.5 rounded-lg text-zinc-400 hover:text-teal-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+                        className="p-1.5 rounded-xl text-zinc-400 hover:text-teal-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer transition touch-manipulation"
+                        title={translate('edit')}
+                        aria-label={translate('edit')}
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                       </button>

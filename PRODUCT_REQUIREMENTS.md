@@ -1307,6 +1307,23 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   Rendered distinct, labeled contact strips for each family member (Father in Blue, Mother in Purple, Student in Teal) with 3 explicit action buttons (`[ 📞 Call ] [ 💬 WhatsApp ] [ 📋 Copy ]`).
     *   Preserved the full profile details accordion at the bottom of the card.
 
+---
+
+## 59. Mobile Header Single-Filter Streamlining & Classes List Density Optimization
+
+*   **Elimination of Redundant Double Filter Bar on Mobile (`BreadcrumbFilterBar.tsx`):**
+    *   Scoped the desktop sub-header breadcrumb ribbon strictly to screens $\ge 640$px (`hidden sm:block`).
+    *   Eliminated the stacked duplicate `[ ∇ Service Group ]` filter pill on mobile touchscreens.
+    *   Reclaimed **48px of vertical screen real estate** on mobile, allowing rosters and cards to start higher up.
+    *   Consolidated mobile filter interaction into the single persistent trigger in the `TopAppBar`.
+*   **Classes List Density & Anti-Truncation Redesign (`ClassesScreen.tsx`):**
+    *   Replaced oversized text buttons (`39 Kids Directory`, `2 Servants Directory`) with ultra-compact semantic metric chips:
+        *   **Students Count:** `[ 👶 {kidsCount} ]` (Teal pill with Baby icon).
+        *   **Servants Count:** `[ 👥 {servantsCount} ]` (Blue pill with Users icon).
+    *   Freed over **150px of horizontal breathing room** on mobile displays, ensuring class names (e.g., `ثالثة ابتدائي صغار`, `رابعة ابتدائي ولاد كبار`) render in full with zero unreadable ellipses (`...`).
+    *   Tapping the class name opens `ClassDetailsModal`, while tapping `[ 👶 {N} ]` or `[ 👥 {N} ]` directly opens the roster preview.
+
+
 
 
 
