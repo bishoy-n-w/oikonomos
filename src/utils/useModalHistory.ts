@@ -2,16 +2,20 @@ import { useEffect, useRef } from 'react';
 
 /**
  * Synchronizes a modal with the browser / device Back button.
- * When the modal is open, pressing the device back button (or browser back)
- * dismisses the modal instead of navigating away from the web app.
+ * Dismisses the modal when Back is pressed without navigating away from the web app.
  */
 export function useModalHistory(id: string, isOpen: boolean, onClose: () => void) {
+  const onCloseRef = useRef(onClose);
   const isPushedRef = useRef(false);
-  const isClosingFromPopStateRef = useRef(false);
+  const closedByPopStateRef = useRef(false);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   useEffect(() => {
     if (!isOpen) {
-      if (isPushedRef.current && !isClosingFromPopStateRef.current) {
+      if (isPushedRef.current && !closedByPopStateRef.current) {
         isPushedRef.current = false;
         if (typeof window !== 'undefined' && window.history.state?.modalId === id) {
           window.history.back();
@@ -22,28 +26,27 @@ export function useModalHistory(id: string, isOpen: boolean, onClose: () => void
 
     if (typeof window === 'undefined') return;
 
-    // Push history entry for this active modal
-    window.history.pushState({ modalId: id }, '');
-    isPushedRef.current = true;
-    isClosingFromPopStateRef.current = false;
+    // Push history entry for this active modal only once
+    if (!isPushedRef.current) {
+      window.history.pushState({ modalId: id }, '');
+      isPushedRef.current = true;
+      closedByPopStateRef.current = false;
+    }
 
     const handlePopState = () => {
-      // User pressed back button
-      isClosingFromPopStateRef.current = true;
-      isPushedRef.current = false;
-      onClose();
+      if (isPushedRef.current) {
+        closedByPopStateRef.current = true;
+        isPushedRef.current = false;
+        onCloseRef.current();
+      }
     };
 
     window.addEventListener('popstate', handlePopState);
 
     return () => {
       window.removeEventListener('popstate', handlePopState);
-      if (isPushedRef.current && !isClosingFromPopStateRef.current) {
-        isPushedRef.current = false;
-        if (typeof window !== 'undefined' && window.history.state?.modalId === id) {
-          window.history.back();
-        }
-      }
+      // NOTE: Do NOT call window.history.back() here during unmount to prevent
+      // React StrictMode or re-renders from prematurely closing the modal!
     };
-  }, [id, isOpen, onClose]);
+  }, [id, isOpen]);
 }

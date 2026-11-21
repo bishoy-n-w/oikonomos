@@ -1286,6 +1286,28 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   *Student ➔ Class & Group:* Tapping assigned class or group in `KidDetailsModal` opens their respective view modals.
     *   *LIFO Navigation Trail:* Child detail modals display an explicit **`[ ‹ Back to {Parent Title} ]`** navigation header button, allowing intuitive multi-tier exploration and effortless return navigation.
 
+---
+
+## 58. Safe Modal History Coordination, Contact Picker Popovers, Full-Screen Photo Lightbox & Semantic Cards
+
+*   **Modal Opening & History Lifecycle Fix (`useModalHistory.ts`):**
+    *   Eliminated premature unmounting caused by asynchronous `window.history.back()` calls inside React StrictMode effect cleanups.
+    *   Decoupled inline `onClose` callback references via stable ref caching (`onCloseRef.current`), ensuring modals open reliably and dismiss only on deliberate user actions (Back button, Escape key, or backdrop tap).
+*   **List View Contact Picker Popover (`ContactPickerPopover.tsx`):**
+    *   Streamlined the mobile list row into **3 clean, tactile action icons**: 📞 **Call**, 💬 **WhatsApp**, 📋 **Copy**.
+    *   Tapping any action icon opens an ergonomic bottom sheet / popover displaying all available numbers for that student clearly labeled with **Relationship and Parent Name** (`👨 Father: سعيد`, `👩 Mother: مريم`, `🧒 Student: ادم`).
+    *   Eliminates all row clutter, truncated phone number subtitles, and caller ambiguity.
+*   **Full-Screen Photo Lightbox (`PhotoLightboxModal.tsx`):**
+    *   Tapping any student avatar in List Mode or Tiles Mode opens a large, centered, high-resolution photo viewer with a dark blurred backdrop (`bg-black/85 backdrop-blur-md`).
+    *   Displays full student name, ordination deacon badge (`✠ Deacon`), and current classroom.
+    *   Dismissible by tapping anywhere on the screen, clicking the close button, or pressing the device Back button.
+*   **Semantic Relationship Strips in Tiles Mode (`KidsDirectoryScreen.tsx`):**
+    *   Replaced the top clutter of 4 generic action icons with clean metadata: active status badge, deacon badge, and assigned classroom.
+    *   Enriched the freed space with student birthday and exact computed age (`🎂 {dob} ({calculatedAge})`).
+    *   Rendered distinct, labeled contact strips for each family member (Father in Blue, Mother in Purple, Student in Teal) with 3 explicit action buttons (`[ 📞 Call ] [ 💬 WhatsApp ] [ 📋 Copy ]`).
+    *   Preserved the full profile details accordion at the bottom of the card.
+
+
 
 
 

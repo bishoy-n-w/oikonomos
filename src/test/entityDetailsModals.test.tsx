@@ -8,6 +8,8 @@ import { ServantDetailsModal } from '../components/servants/ServantDetailsModal'
 import { ChurchDetailsModal } from '../components/churches/ChurchDetailsModal';
 import { PhoneActionGroup } from '../components/common/PhoneActionGroup';
 import { CopyableField } from '../components/common/CopyableField';
+import { PhotoLightboxModal } from '../components/common/PhotoLightboxModal';
+import { ContactPickerPopover } from '../components/common/ContactPickerPopover';
 import { useModalHistory } from '../utils/useModalHistory';
 import type { Kid, ClassDoc, ServiceGroup, Mister, Church } from '../types';
 
@@ -568,6 +570,86 @@ describe('Read-Only Entity Details Modals & Role-Gated Transitions', () => {
       expect(backBtn).toBeTruthy();
       fireEvent.click(backBtn);
       expect(handleBack).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Photo Lightbox Modal (PhotoLightboxModal)', () => {
+    it('renders centered photo viewer with name and deacon badge', () => {
+      render(
+        <PhotoLightboxModal
+          photoUrl="https://example.com/photo.jpg"
+          name="Bishoy Fakhry"
+          isDeacon={true}
+          isOpen={true}
+          onClose={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText('Bishoy Fakhry')).toBeTruthy();
+      expect(screen.getByText('Deacon')).toBeTruthy();
+      expect(screen.getByRole('img', { name: /Bishoy Fakhry/i })).toBeTruthy();
+    });
+
+    it('dismisses when close button or backdrop is clicked', () => {
+      const handleClose = vi.fn();
+      render(
+        <PhotoLightboxModal
+          name="Bishoy Fakhry"
+          isOpen={true}
+          onClose={handleClose}
+        />
+      );
+
+      const closeBtn = screen.getByRole('button', { name: /Close photo/i });
+      fireEvent.click(closeBtn);
+      expect(handleClose).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Contact Picker Popover (ContactPickerPopover)', () => {
+    const mockContacts = [
+      { role: 'father' as const, label: 'Father', name: 'Fakhry', phone: '+201234567890' },
+      { role: 'mother' as const, label: 'Mother', name: 'Mary', phone: '+201098765432' },
+    ];
+
+    it('renders list of contacts with relationships for calling', () => {
+      render(
+        <ContactPickerPopover
+          personName="Bishoy"
+          actionType="call"
+          contacts={mockContacts}
+          isOpen={true}
+          onClose={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText(/Call Bishoy/i)).toBeTruthy();
+      expect(screen.getByText('+201234567890')).toBeTruthy();
+      expect(screen.getByText('+201098765432')).toBeTruthy();
+      expect(screen.getByText('(Fakhry)')).toBeTruthy();
+      expect(screen.getByText('(Mary)')).toBeTruthy();
+    });
+
+    it('copies selected phone number to clipboard when actionType is copy', async () => {
+      const writeTextMock = vi.fn().mockResolvedValue(undefined);
+      Object.assign(navigator, {
+        clipboard: { writeText: writeTextMock },
+      });
+
+      render(
+        <ContactPickerPopover
+          personName="Bishoy"
+          actionType="copy"
+          contacts={mockContacts}
+          isOpen={true}
+          onClose={vi.fn()}
+        />
+      );
+
+      const fatherOption = screen.getByText('+201234567890');
+      fireEvent.click(fatherOption);
+
+      expect(writeTextMock).toHaveBeenCalledWith('+201234567890');
     });
   });
 });

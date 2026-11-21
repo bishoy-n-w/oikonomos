@@ -14,9 +14,11 @@ import { KidDetailsModal } from '../components/kids/KidDetailsModal';
 import { ClassDetailsModal } from '../components/classes/ClassDetailsModal';
 import { ServiceGroupDetailsModal } from '../components/groups/ServiceGroupDetailsModal';
 import { PhoneActionGroup } from '../components/common/PhoneActionGroup';
+import { ContactPickerPopover, type ContactOption } from '../components/common/ContactPickerPopover';
+import { PhotoLightboxModal } from '../components/common/PhotoLightboxModal';
 import { MobileViewToggle } from '../components/common/MobileViewToggle';
 import { normalizePhoneNumber } from '../services/googleContacts';
-import { normalizeDateStr, safeRender, sanitizeExcelCell } from '../utils/formatters';
+import { normalizeDateStr, safeRender, sanitizeExcelCell, formatAge } from '../utils/formatters';
 import { useModalEscape } from '../utils/useModalEscape';
 import { exportKidsToVCard } from '../utils/vcardExport';
 import { 
@@ -28,6 +30,10 @@ import {
 import type { Kid, ClassDoc, KidVersion } from '../types';
 import { 
   Plus, 
+  Phone,
+  MessageSquare,
+  Copy,
+  Cross,
   BookUser, 
   Trash2, 
   Edit3, 
@@ -120,6 +126,47 @@ export const KidsDirectoryScreen: React.FC = () => {
   const [viewingKid, setViewingKid] = useState<Kid | null>(null);
   const [viewingClass, setViewingClass] = useState<ClassDoc | null>(null);
   const [viewingGroup, setViewingGroup] = useState<{ id: string; displayName: string } | null>(null);
+  const [lightboxData, setLightboxData] = useState<{ photoUrl?: string | null; name: string; gender?: 'male' | 'female'; isDeacon?: boolean; subtitle?: string } | null>(null);
+  const [contactPicker, setContactPicker] = useState<{ personName: string; actionType: 'call' | 'whatsapp' | 'copy'; contacts: ContactOption[] } | null>(null);
+
+  const handleOpenContactPicker = (kid: Kid, actionType: 'call' | 'whatsapp' | 'copy') => {
+    const list: ContactOption[] = [];
+    if (kid.contacts?.fatherMob?.trim()) {
+      list.push({
+        role: 'father',
+        label: 'Father',
+        name: kid.contacts.fatherName,
+        phone: kid.contacts.fatherMob.trim(),
+      });
+    }
+    if (kid.contacts?.motherMob?.trim()) {
+      list.push({
+        role: 'mother',
+        label: 'Mother',
+        name: kid.contacts.motherName,
+        phone: kid.contacts.motherMob.trim(),
+      });
+    }
+    if (kid.contacts?.kidMob?.trim()) {
+      list.push({
+        role: 'kid',
+        label: 'Student',
+        name: kid.info.fullName,
+        phone: kid.contacts.kidMob.trim(),
+      });
+    }
+
+    if (list.length === 0) {
+      alert(translate('filter_missing_phone') || 'No phone numbers recorded for this student.');
+      return;
+    }
+
+    setContactPicker({
+      personName: kid.info.fullName,
+      actionType,
+      contacts: list,
+    });
+  };
 
   const isAdmin = userRole === 'Admin' || userRole === 'owner';
   const isChurchAdminOrOwner = isAdmin;
@@ -1124,11 +1171,8 @@ export const KidsDirectoryScreen: React.FC = () => {
         {mobileViewMode === 'list' ? (
           <div className="divide-y divide-zinc-100 dark:divide-zinc-800/80 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-xs">
             {displayedKids.map((kid) => {
-              const fatherPhone = kid.contacts?.fatherMob;
-              const motherPhone = kid.contacts?.motherMob;
-              const kidPhone = kid.contacts?.kidMob;
-              const primaryPhone = fatherPhone || motherPhone || kidPhone;
               const isSelected = selectedKidIds.includes(kid.id);
+              const currentClassName = resolveClassName(kid.activeAssignment?.classId || kid.classId);
 
               return (
                 <div
@@ -1151,8 +1195,18 @@ export const KidsDirectoryScreen: React.FC = () => {
                     </button>
 
                     <div
-                      onClick={() => setViewingKid(kid)}
-                      className="w-9 h-9 rounded-xl overflow-hidden shrink-0 flex items-center justify-center border border-zinc-200 dark:border-zinc-700 shadow-2xs cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setLightboxData({
+                          photoUrl: kid.info.photoUrl,
+                          name: kid.info.fullName,
+                          gender: kid.info.gender,
+                          isDeacon: kid.info.deacon,
+                          subtitle: `${currentClassName} • ${kid.contacts?.fatherName ? `Father: ${kid.contacts.fatherName}` : 'Sunday School'}`,
+                        });
+                      }}
+                      className="w-9 h-9 rounded-xl overflow-hidden shrink-0 flex items-center justify-center border border-zinc-200 dark:border-zinc-700 shadow-2xs cursor-pointer hover:ring-2 hover:ring-teal-500/40 transition"
+                      title="View Photo"
                     >
                       {kid.info.photoUrl ? (
                         <img src={kid.info.photoUrl} alt="" className="w-full h-full object-cover" />
@@ -1176,49 +1230,53 @@ export const KidsDirectoryScreen: React.FC = () => {
                         {kid.info.deacon && <span className="text-[10px] text-amber-500 font-bold shrink-0">✠</span>}
                       </div>
                       <p className="text-[10px] text-zinc-400 truncate">
-                        {kid.contacts?.fatherName ? `${kid.contacts.fatherName}` : (kid.address?.region || 'Sunday School')}
-                        {primaryPhone && ` • ${primaryPhone}`}
+                        <span>👨 {kid.contacts?.fatherName || 'Father'}</span>
+                        <span className="mx-1">•</span>
+                        <span>{currentClassName}</span>
                       </p>
                     </div>
                   </div>
 
-                  {/* Actions Strip */}
+                  {/* Actions Strip: 3 Icons Only (Call, WhatsApp, Copy) with Tooltip Picker */}
                   <div className="flex items-center gap-1 shrink-0">
-                    {primaryPhone && (
-                      <PhoneActionGroup
-                        phone={primaryPhone}
-                        personName={kid.info.fullName}
-                        compact
-                        showNumber={false}
-                        allowCall
-                        allowWhatsApp
-                        allowCopy
-                      />
-                    )}
                     <button
                       type="button"
-                      onClick={() => {
-                        setKidsToPrint([kid]);
-                        setPrintModalOpen(true);
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenContactPicker(kid, 'call');
                       }}
-                      className="p-2 rounded-xl text-zinc-400 hover:text-teal-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition cursor-pointer"
-                      title={translate('print_id_badge')}
+                      className="p-1.5 rounded-xl text-blue-600 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 active:scale-95 transition min-h-[36px] min-w-[36px] flex items-center justify-center touch-manipulation cursor-pointer"
+                      title="Call..."
+                      aria-label="Call..."
                     >
-                      <IdCard className="w-3.5 h-3.5" />
+                      <Phone className="w-3.5 h-3.5" />
                     </button>
-                    {canManageKid(kid) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveKid(kid);
-                          setEditModalOpen(true);
-                        }}
-                        className="p-2 rounded-xl text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition cursor-pointer"
-                        title={translate('edit')}
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenContactPicker(kid, 'whatsapp');
+                      }}
+                      className="p-1.5 rounded-xl text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 active:scale-95 transition min-h-[36px] min-w-[36px] flex items-center justify-center touch-manipulation cursor-pointer"
+                      title="WhatsApp..."
+                      aria-label="WhatsApp..."
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenContactPicker(kid, 'copy');
+                      }}
+                      className="p-1.5 rounded-xl text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 active:scale-95 transition min-h-[36px] min-w-[36px] flex items-center justify-center touch-manipulation cursor-pointer"
+                      title="Copy phone..."
+                      aria-label="Copy phone..."
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               );
@@ -1228,8 +1286,11 @@ export const KidsDirectoryScreen: React.FC = () => {
           displayedKids.map((kid) => {
           const fatherPhone = kid.contacts?.fatherMob;
           const motherPhone = kid.contacts?.motherMob;
+          const kidPhone = kid.contacts?.kidMob;
           const isSelected = selectedKidIds.includes(kid.id);
           const isExpanded = !!expandedKidDetails[kid.id];
+          const calculatedAge = formatAge(kid.info.dob);
+          const currentClassName = resolveClassName(kid.activeAssignment?.classId || kid.classId);
 
           const fullAddress = [
             kid.address?.building ? `Bldg ${kid.address.building}` : '',
@@ -1249,7 +1310,7 @@ export const KidsDirectoryScreen: React.FC = () => {
               }`}
             >
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   {/* Mobile Selection Checkbox */}
                   <button
                     type="button"
@@ -1264,10 +1325,20 @@ export const KidsDirectoryScreen: React.FC = () => {
                     )}
                   </button>
 
-                  {/* Real Profile Photo Avatar */}
+                  {/* Real Profile Photo Avatar with Lightbox Click */}
                   <div
-                    onClick={() => setViewingKid(kid)}
-                    className="w-11 h-11 rounded-2xl overflow-hidden flex items-center justify-center shrink-0 border border-zinc-200 dark:border-zinc-700 shadow-2xs cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLightboxData({
+                        photoUrl: kid.info.photoUrl,
+                        name: kid.info.fullName,
+                        gender: kid.info.gender,
+                        isDeacon: kid.info.deacon,
+                        subtitle: `${currentClassName} • ${kid.contacts?.fatherName ? `Father: ${kid.contacts.fatherName}` : 'Sunday School'}`,
+                      });
+                    }}
+                    className="w-11 h-11 rounded-2xl overflow-hidden flex items-center justify-center shrink-0 border border-zinc-200 dark:border-zinc-700 shadow-2xs cursor-pointer hover:ring-2 hover:ring-teal-500/40 transition"
+                    title="Tap to view photo"
                   >
                     {kid.info.photoUrl ? (
                       <img
@@ -1286,7 +1357,7 @@ export const KidsDirectoryScreen: React.FC = () => {
                     )}
                   </div>
 
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     {/* Click on Name opens View Details Modal */}
                     <button
                       type="button"
@@ -1296,63 +1367,55 @@ export const KidsDirectoryScreen: React.FC = () => {
                       {kid.info.fullName}
                     </button>
                     <p className="text-xs text-zinc-400 truncate">
-                      {kid.contacts?.fatherName ? `${translate('father_name')}: ${kid.contacts.fatherName}` : (kid.address?.region || 'Sunday School')}
+                      {currentClassName} • {resolveGroupName(kid.activeAssignment?.serviceGroupId || kid.serviceGroupId)}
                     </p>
                   </div>
                 </div>
 
-                {canManageKid(kid) && (
-                  <div className="flex items-center gap-0.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setKidsToPrint([kid]);
-                        setPrintModalOpen(true);
-                      }}
-                      className="p-1.5 rounded-xl text-zinc-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition cursor-pointer"
-                      title={translate('print_id_badge')}
-                    >
-                      <IdCard className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        setActiveKid(kid);
-                        setEditModalOpen(true);
-                      }}
-                      className="p-1.5 rounded-xl text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition cursor-pointer"
-                      title={translate('edit')}
-                    >
-                      <Edit3 className="w-4 h-4" />
-                    </button>
-                    {kid.activeAssignment?.classId && (
-                      <button
-                        onClick={() => handleRemoveFromClass(kid)}
-                        className="p-1.5 rounded-xl text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition cursor-pointer"
-                        title={translate('remove_from_class')}
-                      >
-                        <UserMinus className="w-4 h-4" />
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleDeleteKid(kid.id, kid.info.fullName)}
-                      className="p-1.5 rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
-                      title={translate('delete')}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
+                {/* Clean Status & Deacon Badges */}
+                <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                  {kid.info.deacon && (
+                    <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                      <Cross className="w-2.5 h-2.5" />
+                      <span>Deacon</span>
+                    </span>
+                  )}
+                  <span
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                      kid.active !== false
+                        ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300'
+                        : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                    }`}
+                  >
+                    {kid.active !== false ? translate('active_badge') : translate('inactive_badge')}
+                  </span>
+                </div>
               </div>
 
-              {/* Clean Inline Contact Strip with Call, WhatsApp, and Copy */}
-              {(fatherPhone || motherPhone) && (
-                <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-zinc-100 dark:border-zinc-800/80">
+              {/* Student Metadata Strip (Birthday, Age, School) */}
+              <div className="grid grid-cols-2 gap-2 p-2.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-zinc-800 text-[11px]">
+                <div>
+                  <span className="text-zinc-400 block font-medium">🎂 {translate('dob') || 'Birthday'}</span>
+                  <span className="font-bold text-zinc-800 dark:text-zinc-200">
+                    {safeRender(kid.info.dob) || '-'} {calculatedAge && `(${calculatedAge})`}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-zinc-400 block font-medium">🏫 {translate('school')}</span>
+                  <span className="font-bold text-zinc-800 dark:text-zinc-200 truncate block">
+                    {kid.info.school || '-'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Semantic Labeled Contact Rows with Call, WhatsApp, and 1-Tap Copy */}
+              {(fatherPhone || motherPhone || kidPhone) && (
+                <div className="space-y-1.5 pt-1 border-t border-zinc-100 dark:border-zinc-800">
                   {fatherPhone && (
                     <PhoneActionGroup
                       phone={fatherPhone}
-                      label="Father"
+                      label={`👨 ${translate('father') || 'Father'}${kid.contacts?.fatherName ? `: ${kid.contacts.fatherName}` : ''}`}
                       personName={kid.contacts?.fatherName}
-                      compact
                       allowCall
                       allowWhatsApp
                       allowCopy
@@ -1361,9 +1424,18 @@ export const KidsDirectoryScreen: React.FC = () => {
                   {motherPhone && (
                     <PhoneActionGroup
                       phone={motherPhone}
-                      label="Mother"
+                      label={`👩 ${translate('mother') || 'Mother'}${kid.contacts?.motherName ? `: ${kid.contacts.motherName}` : ''}`}
                       personName={kid.contacts?.motherName}
-                      compact
+                      allowCall
+                      allowWhatsApp
+                      allowCopy
+                    />
+                  )}
+                  {kidPhone && (
+                    <PhoneActionGroup
+                      phone={kidPhone}
+                      label={`🧒 ${translate('kids') || 'Student'}: ${kid.info.fullName}`}
+                      personName={kid.info.fullName}
                       allowCall
                       allowWhatsApp
                       allowCopy
@@ -2156,6 +2228,30 @@ export const KidsDirectoryScreen: React.FC = () => {
           onClose={() => setViewingGroup(null)}
           onBack={() => setViewingGroup(null)}
           backLabel={viewingKid?.info.fullName}
+        />
+      )}
+
+      {/* Photo Lightbox Modal */}
+      {lightboxData && (
+        <PhotoLightboxModal
+          photoUrl={lightboxData.photoUrl}
+          name={lightboxData.name}
+          gender={lightboxData.gender}
+          subtitle={lightboxData.subtitle}
+          isDeacon={lightboxData.isDeacon}
+          isOpen={!!lightboxData}
+          onClose={() => setLightboxData(null)}
+        />
+      )}
+
+      {/* Contact Picker Popover for List View Actions */}
+      {contactPicker && (
+        <ContactPickerPopover
+          personName={contactPicker.personName}
+          actionType={contactPicker.actionType}
+          contacts={contactPicker.contacts}
+          isOpen={!!contactPicker}
+          onClose={() => setContactPicker(null)}
         />
       )}
 
