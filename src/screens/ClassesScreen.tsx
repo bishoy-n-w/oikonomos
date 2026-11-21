@@ -6,6 +6,7 @@ import { useApp } from '../context/AppContext';
 import { useFilter } from '../context/FilterContext';
 import { HeaderFilterMatrix, type ColumnFilterConfig } from '../components/common/HeaderFilterMatrix';
 import { MobileViewToggle } from '../components/common/MobileViewToggle';
+import { ClassDetailsModal } from '../components/classes/ClassDetailsModal';
 import { useModalEscape } from '../utils/useModalEscape';
 import type { ClassDoc, Church, Mister, Kid, ClassYearData, DropdownItem } from '../types';
 import { 
@@ -46,6 +47,7 @@ export const ClassesScreen: React.FC = () => {
   // Modals
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editClass, setEditClass] = useState<ClassDoc | null>(null);
+  const [viewingClass, setViewingClass] = useState<ClassDoc | null>(null);
   const [rosterPreview, setRosterPreview] = useState<{ className: string; kidIds: string[]; misterIds: string[] } | null>(null);
 
   const isAdmin = userRole === 'Admin' || userRole === 'owner';
@@ -456,19 +458,13 @@ export const ClassesScreen: React.FC = () => {
                     <span className={`w-2 h-2 rounded-full shrink-0 ${cls.active !== false ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        {canManageClassStructure(cls.id) ? (
-                          <button
-                            type="button"
-                            onClick={() => setEditClass(cls)}
-                            className="font-bold text-xs text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start truncate"
-                          >
-                            {yearData.displayName || cls.id}
-                          </button>
-                        ) : (
-                          <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
-                            {yearData.displayName || cls.id}
-                          </span>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => setViewingClass(cls)}
+                          className="font-bold text-xs text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start truncate"
+                        >
+                          {yearData.displayName || cls.id}
+                        </button>
                         {gradeItem && (
                           <span className="text-[9px] font-mono font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950 px-1 py-0.2 rounded border border-teal-200 dark:border-teal-800 shrink-0">
                             #{yearData.gradeId}
@@ -542,19 +538,13 @@ export const ClassesScreen: React.FC = () => {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    {canManageClassStructure(cls.id) ? (
-                      <button
-                        type="button"
-                        onClick={() => setEditClass(cls)}
-                        className="font-extrabold text-base text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start"
-                      >
-                        {yearData.displayName || cls.id}
-                      </button>
-                    ) : (
-                      <h3 className="font-extrabold text-base text-zinc-900 dark:text-zinc-100">
-                        {yearData.displayName || cls.id}
-                      </h3>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setViewingClass(cls)}
+                      className="font-extrabold text-base text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start"
+                    >
+                      {yearData.displayName || cls.id}
+                    </button>
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
                       cls.active !== false
                         ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
@@ -699,19 +689,13 @@ export const ClassesScreen: React.FC = () => {
 
                     {/* 2. DisplayName */}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {canManageClassStructure(cls.id) ? (
-                        <button
-                          type="button"
-                          onClick={() => setEditClass(cls)}
-                          className="font-bold text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer transition text-start truncate block max-w-xs"
-                        >
-                          {yearData.displayName || yearData.name || cls.id}
-                        </button>
-                      ) : (
-                        <span className="font-bold text-zinc-900 dark:text-zinc-100">
-                          {yearData.displayName || yearData.name || cls.id}
-                        </span>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => setViewingClass(cls)}
+                        className="font-bold text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer transition text-start truncate block max-w-xs"
+                      >
+                        {yearData.displayName || yearData.name || cls.id}
+                      </button>
                     </td>
 
                     {/* 3. ServiceGroupId DisplayName */}
@@ -809,6 +793,25 @@ export const ClassesScreen: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* View Class Details Modal */}
+      {viewingClass && (
+        <ClassDetailsModal
+          classDoc={viewingClass}
+          activeAcademicYearId={selectedAcademicYearId}
+          allKids={allKids}
+          allMisters={allMisters}
+          serviceGroups={serviceGroups}
+          currentChurch={currentChurch}
+          canEdit={canManageClassStructure(viewingClass.id)}
+          onEdit={() => {
+            const target = viewingClass;
+            setViewingClass(null);
+            setEditClass(target);
+          }}
+          onClose={() => setViewingClass(null)}
+        />
+      )}
 
       {/* Class Modal (Add & Edit) */}
       {(addModalOpen || editClass) && (

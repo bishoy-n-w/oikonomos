@@ -7,6 +7,7 @@ import { useFilter } from '../context/FilterContext';
 import { HeaderFilterMatrix, type ColumnFilterConfig } from '../components/common/HeaderFilterMatrix';
 import { ProfilePhotoUploader } from '../components/common/ProfilePhotoUploader';
 import { MobileViewToggle } from '../components/common/MobileViewToggle';
+import { ServantDetailsModal } from '../components/servants/ServantDetailsModal';
 import { normalizeDateStr, safeRender } from '../utils/formatters';
 import { useModalEscape } from '../utils/useModalEscape';
 import type { Mister, ServiceGroup, ClassDoc } from '../types';
@@ -44,6 +45,7 @@ export const ServantsDirectoryScreen: React.FC = () => {
   // Modals
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editMister, setEditMister] = useState<Mister | null>(null);
+  const [viewingMister, setViewingMister] = useState<Mister | null>(null);
 
   const isAdmin = userRole === 'Admin' || userRole === 'owner';
   const currentUserEmail = user?.email?.toLowerCase() || '';
@@ -348,7 +350,10 @@ export const ServantsDirectoryScreen: React.FC = () => {
                   className="flex items-center justify-between p-3 gap-2.5 transition hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40"
                 >
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                    <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 flex items-center justify-center border border-zinc-200 dark:border-zinc-700 shadow-2xs">
+                    <div
+                      onClick={() => setViewingMister(mister)}
+                      className="w-9 h-9 rounded-xl overflow-hidden shrink-0 flex items-center justify-center border border-zinc-200 dark:border-zinc-700 shadow-2xs cursor-pointer"
+                    >
                       {mister.personalInfo?.photoUrl ? (
                         <img src={mister.personalInfo.photoUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
@@ -360,7 +365,7 @@ export const ServantsDirectoryScreen: React.FC = () => {
 
                     <div
                       className="min-w-0 flex-1 cursor-pointer"
-                      onClick={() => (isAdmin || isSelf) && setEditMister(mister)}
+                      onClick={() => setViewingMister(mister)}
                     >
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
@@ -433,32 +438,31 @@ export const ServantsDirectoryScreen: React.FC = () => {
               {/* Top row: Avatar, Name, Role & Status */}
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  {mister.personalInfo?.photoUrl ? (
-                    <img
-                      src={mister.personalInfo.photoUrl}
-                      alt={mister.displayName}
-                      className="w-11 h-11 rounded-2xl object-cover shrink-0 shadow-xs border border-zinc-200 dark:border-zinc-700"
-                    />
-                  ) : (
-                    <div className="w-11 h-11 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 font-bold text-base flex items-center justify-center shrink-0">
-                      {mister.displayName.slice(0, 2).toUpperCase()}
-                    </div>
-                  )}
+                  <div
+                    onClick={() => setViewingMister(mister)}
+                    className="w-11 h-11 rounded-2xl overflow-hidden shrink-0 cursor-pointer shadow-xs border border-zinc-200 dark:border-zinc-700 flex items-center justify-center"
+                  >
+                    {mister.personalInfo?.photoUrl ? (
+                      <img
+                        src={mister.personalInfo.photoUrl}
+                        alt={mister.displayName}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 font-bold text-base flex items-center justify-center">
+                        {mister.displayName.slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      {(isAdmin || isSelf) ? (
-                        <button
-                          type="button"
-                          onClick={() => setEditMister(mister)}
-                          className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start truncate"
-                        >
-                          {mister.displayName}
-                        </button>
-                      ) : (
-                        <span className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 truncate">
-                          {mister.displayName}
-                        </span>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => setViewingMister(mister)}
+                        className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start truncate"
+                      >
+                        {mister.displayName}
+                      </button>
                       {isSelf && (
                         <span className="text-[10px] font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/80 px-1.5 py-0.2 rounded-full border border-teal-200 dark:border-teal-800">
                           You
@@ -643,59 +647,33 @@ export const ServantsDirectoryScreen: React.FC = () => {
 
                     {/* 2. DisplayName */}
                     <td className="px-5 py-4 whitespace-nowrap">
-                      {(isAdmin || isSelf) ? (
-                        <button
-                          type="button"
-                          onClick={() => setEditMister(mister)}
-                          className="flex items-center gap-2.5 text-start hover:text-teal-600 dark:hover:text-teal-400 group cursor-pointer transition"
-                        >
-                          {mister.personalInfo?.photoUrl ? (
-                            <img
-                              src={mister.personalInfo.photoUrl}
-                              alt={mister.displayName}
-                              className="w-7 h-7 rounded-full object-cover shrink-0 shadow-xs border border-zinc-200 dark:border-zinc-700 group-hover:ring-2 group-hover:ring-teal-500/30"
-                            />
-                          ) : (
-                            <div className="w-7 h-7 rounded-full bg-teal-100 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 flex items-center justify-center font-bold text-[10px] shrink-0 group-hover:bg-teal-200">
-                              {mister.displayName.slice(0, 2).toUpperCase()}
-                            </div>
-                          )}
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 group-hover:underline">
-                              {mister.displayName}
-                            </span>
-                            {isSelf && (
-                              <span className="text-[10px] font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/80 px-1.5 py-0.2 rounded-full border border-teal-200 dark:border-teal-800">
-                                You
-                              </span>
-                            )}
+                      <button
+                        type="button"
+                        onClick={() => setViewingMister(mister)}
+                        className="flex items-center gap-2.5 text-start hover:text-teal-600 dark:hover:text-teal-400 group cursor-pointer transition"
+                      >
+                        {mister.personalInfo?.photoUrl ? (
+                          <img
+                            src={mister.personalInfo.photoUrl}
+                            alt={mister.displayName}
+                            className="w-7 h-7 rounded-full object-cover shrink-0 shadow-xs border border-zinc-200 dark:border-zinc-700 group-hover:ring-2 group-hover:ring-teal-500/30"
+                          />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-teal-100 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 flex items-center justify-center font-bold text-[10px] shrink-0 group-hover:bg-teal-200">
+                            {mister.displayName.slice(0, 2).toUpperCase()}
                           </div>
-                        </button>
-                      ) : (
-                        <div className="flex items-center gap-2.5">
-                          {mister.personalInfo?.photoUrl ? (
-                            <img
-                              src={mister.personalInfo.photoUrl}
-                              alt={mister.displayName}
-                              className="w-7 h-7 rounded-full object-cover shrink-0 shadow-xs border border-zinc-200 dark:border-zinc-700"
-                            />
-                          ) : (
-                            <div className="w-7 h-7 rounded-full bg-teal-100 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 flex items-center justify-center font-bold text-[10px] shrink-0">
-                              {mister.displayName.slice(0, 2).toUpperCase()}
-                            </div>
-                          )}
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-zinc-900 dark:text-zinc-100">
-                              {mister.displayName}
+                        )}
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 group-hover:underline">
+                            {mister.displayName}
+                          </span>
+                          {isSelf && (
+                            <span className="text-[10px] font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/80 px-1.5 py-0.2 rounded-full border border-teal-200 dark:border-teal-800">
+                              You
                             </span>
-                            {isSelf && (
-                              <span className="text-[10px] font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/80 px-1.5 py-0.2 rounded-full border border-teal-200 dark:border-teal-800">
-                                You
-                              </span>
-                            )}
-                          </div>
+                          )}
                         </div>
-                      )}
+                      </button>
                     </td>
 
                     {/* 3. ChurchRole */}
@@ -804,6 +782,23 @@ export const ServantsDirectoryScreen: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* View Servant Details Modal */}
+      {viewingMister && (
+        <ServantDetailsModal
+          mister={viewingMister}
+          allGroups={groups}
+          allClasses={classes}
+          activeAcademicYearId={selectedAcademicYearId}
+          canEdit={isAdmin || viewingMister.email.toLowerCase() === currentUserEmail}
+          onEdit={() => {
+            const target = viewingMister;
+            setViewingMister(null);
+            setEditMister(target);
+          }}
+          onClose={() => setViewingMister(null)}
+        />
+      )}
 
       {/* Add / Edit Mister Modal */}
       {(addModalOpen || editMister) && (

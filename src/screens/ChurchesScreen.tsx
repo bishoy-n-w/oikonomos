@@ -6,6 +6,7 @@ import { useApp } from '../context/AppContext';
 import { useFilter } from '../context/FilterContext';
 import { HeaderFilterMatrix, type ColumnFilterConfig } from '../components/common/HeaderFilterMatrix';
 import { MobileViewToggle } from '../components/common/MobileViewToggle';
+import { ChurchDetailsModal } from '../components/churches/ChurchDetailsModal';
 import { normalizeDateStr } from '../utils/formatters';
 import { useModalEscape } from '../utils/useModalEscape';
 import { DEFAULT_EVENT_TYPES, type Church, type AcademicYear, type GradeItem } from '../types';
@@ -45,6 +46,7 @@ export const ChurchesScreen: React.FC = () => {
   // Modals
   const [addChurchOpen, setAddChurchOpen] = useState(false);
   const [editChurch, setEditChurch] = useState<Church | null>(null);
+  const [viewingChurch, setViewingChurch] = useState<Church | null>(null);
   const [gradesModalChurch, setGradesModalChurch] = useState<Church | null>(null);
 
   // Mobile quick search
@@ -407,7 +409,10 @@ export const ChurchesScreen: React.FC = () => {
                   key={church.id}
                   className="flex items-center justify-between p-3 gap-2.5 transition hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40"
                 >
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <div
+                    onClick={() => setViewingChurch(church)}
+                    className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
+                  >
                     {church.logoUrl ? (
                       <img
                         src={church.logoUrl}
@@ -421,22 +426,9 @@ export const ChurchesScreen: React.FC = () => {
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        {isAdmin ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditChurch(church);
-                              setEditLogoUrl(church.logoUrl);
-                            }}
-                            className="font-bold text-xs text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start truncate"
-                          >
-                            {church.displayName}
-                          </button>
-                        ) : (
-                          <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
-                            {church.displayName}
-                          </span>
-                        )}
+                        <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 truncate">
+                          {church.displayName}
+                        </span>
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${church.active ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
                       </div>
                       <p className="text-[10px] text-zinc-400 truncate">
@@ -483,7 +475,10 @@ export const ChurchesScreen: React.FC = () => {
               className="p-4 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-3"
             >
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
+                <div
+                  onClick={() => setViewingChurch(church)}
+                  className="flex items-center gap-2.5 cursor-pointer"
+                >
                   {church.logoUrl ? (
                     <img
                       src={church.logoUrl}
@@ -496,22 +491,9 @@ export const ChurchesScreen: React.FC = () => {
                     </div>
                   )}
                   <div>
-                    {isAdmin ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditChurch(church);
-                          setEditLogoUrl(church.logoUrl);
-                        }}
-                        className="font-bold text-sm text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start"
-                      >
-                        {church.displayName}
-                      </button>
-                    ) : (
-                      <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
-                        {church.displayName}
-                      </h3>
-                    )}
+                    <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400">
+                      {church.displayName}
+                    </h3>
                     <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
                       church.active
                         ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
@@ -623,46 +605,26 @@ export const ChurchesScreen: React.FC = () => {
 
                     {/* 2. DisplayName with Logo */}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {isAdmin ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditChurch(church);
-                            setEditLogoUrl(church.logoUrl);
-                          }}
-                          className="flex items-center gap-2.5 text-start hover:text-teal-600 dark:hover:text-teal-400 group cursor-pointer transition"
-                        >
-                          {church.logoUrl ? (
-                            <img
-                              src={church.logoUrl}
-                              alt={church.displayName}
-                              className="w-8 h-8 rounded-xl object-cover border border-zinc-200 dark:border-zinc-700 shrink-0 shadow-2xs group-hover:ring-2 group-hover:ring-teal-500/30"
-                            />
-                          ) : (
-                            <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold text-xs shrink-0 group-hover:bg-teal-100">
-                              {church.displayName.slice(0, 2).toUpperCase()}
-                            </div>
-                          )}
-                          <span className="font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 group-hover:underline">
-                            {church.displayName}
-                          </span>
-                        </button>
-                      ) : (
-                        <div className="flex items-center gap-2.5 font-bold text-zinc-900 dark:text-zinc-100">
-                          {church.logoUrl ? (
-                            <img
-                              src={church.logoUrl}
-                              alt={church.displayName}
-                              className="w-8 h-8 rounded-xl object-cover border border-zinc-200 dark:border-zinc-700 shrink-0 shadow-2xs"
-                            />
-                          ) : (
-                            <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold text-xs shrink-0">
-                              {church.displayName.slice(0, 2).toUpperCase()}
-                            </div>
-                          )}
-                          <span>{church.displayName}</span>
-                        </div>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => setViewingChurch(church)}
+                        className="flex items-center gap-2.5 text-start hover:text-teal-600 dark:hover:text-teal-400 group cursor-pointer transition"
+                      >
+                        {church.logoUrl ? (
+                          <img
+                            src={church.logoUrl}
+                            alt={church.displayName}
+                            className="w-8 h-8 rounded-xl object-cover border border-zinc-200 dark:border-zinc-700 shrink-0 shadow-2xs group-hover:ring-2 group-hover:ring-teal-500/30"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold text-xs shrink-0 group-hover:bg-teal-100">
+                            {church.displayName.slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 group-hover:underline">
+                          {church.displayName}
+                        </span>
+                      </button>
                     </td>
 
                     {/* 3. ActiveAcademicYear DisplayName */}
@@ -724,6 +686,32 @@ export const ChurchesScreen: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* View Church Details Modal */}
+      {viewingChurch && (
+        <ChurchDetailsModal
+          church={viewingChurch}
+          activeAcademicYearName={
+            (academicYearsMap[viewingChurch.id] || []).find(
+              (y) => y.id === viewingChurch.activeAcademicYearId
+            )?.displayName
+          }
+          academicYears={academicYearsMap[viewingChurch.id] || []}
+          canEdit={isAdmin}
+          onEdit={() => {
+            const target = viewingChurch;
+            setViewingChurch(null);
+            setEditChurch(target);
+            setEditLogoUrl(target.logoUrl);
+          }}
+          onClose={() => setViewingChurch(null)}
+          onManageGrades={() => {
+            const target = viewingChurch;
+            setViewingChurch(null);
+            setGradesModalChurch(target);
+          }}
+        />
+      )}
 
       {/* Edit Church Modal (with in-place Academic Years management) */}
       {editChurch && (

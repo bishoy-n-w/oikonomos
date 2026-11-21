@@ -17,6 +17,7 @@ import { useFilter } from '../context/FilterContext';
 import { NewEventModal } from '../components/attendance/NewEventModal';
 import { RecurringEventModal } from '../components/attendance/RecurringEventModal';
 import { QrAttendanceScannerModal } from '../components/attendance/QrAttendanceScannerModal';
+import { KidDetailsModal } from '../components/kids/KidDetailsModal';
 import { MobileViewToggle } from '../components/common/MobileViewToggle';
 import { useModalEscape } from '../utils/useModalEscape';
 import { computeConsecutiveAbsences, buildPastoralWhatsAppUrl } from '../utils/pastoralCare';
@@ -108,6 +109,7 @@ export const AttendanceTrackerScreen: React.FC = () => {
   // Kids Roster
   const [kids, setKids] = useState<Kid[]>([]);
   const [allChurchKids, setAllChurchKids] = useState<Kid[]>([]);
+  const [viewingKid, setViewingKid] = useState<Kid | null>(null);
   
   // Events state
   const [events, setEvents] = useState<AttendanceEvent[]>([]);
@@ -1796,7 +1798,10 @@ export const AttendanceTrackerScreen: React.FC = () => {
                           key={kid.id}
                           className="flex items-center justify-between p-2.5 px-3 gap-2.5 transition hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40"
                         >
-                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div
+                            onClick={() => setViewingKid(kid)}
+                            className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
+                          >
                             <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 flex items-center justify-center border border-zinc-200 dark:border-zinc-700 shadow-2xs">
                               {kid.info.photoUrl ? (
                                 <img src={kid.info.photoUrl} alt="" className="w-full h-full object-cover" />
@@ -1810,7 +1815,7 @@ export const AttendanceTrackerScreen: React.FC = () => {
                             </div>
 
                             <div className="min-w-0 flex-1">
-                              <p className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
+                              <p className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate hover:text-teal-600">
                                 {kid.info.fullName}
                               </p>
                               <p className="text-[10px] text-zinc-400 truncate">
@@ -1899,7 +1904,10 @@ export const AttendanceTrackerScreen: React.FC = () => {
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         {/* Student Name & Avatar with floating mini badge */}
-                        <div className="flex items-center gap-3">
+                        <div
+                          onClick={() => setViewingKid(kid)}
+                          className="flex items-center gap-3 cursor-pointer group"
+                        >
                           <div className="relative shrink-0">
                             {kid.info.photoUrl ? (
                               <img
@@ -2784,6 +2792,16 @@ export const AttendanceTrackerScreen: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* View Kid Details Modal */}
+      {viewingKid && (
+        <KidDetailsModal
+          kid={viewingKid}
+          canEdit={false}
+          onClose={() => setViewingKid(null)}
+          classes={classes}
+        />
       )}
     </div>
   );

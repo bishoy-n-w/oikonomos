@@ -6,6 +6,7 @@ import { useApp } from '../context/AppContext';
 import { useFilter } from '../context/FilterContext';
 import { HeaderFilterMatrix, type ColumnFilterConfig } from '../components/common/HeaderFilterMatrix';
 import { MobileViewToggle } from '../components/common/MobileViewToggle';
+import { ServiceGroupDetailsModal } from '../components/groups/ServiceGroupDetailsModal';
 import { useModalEscape } from '../utils/useModalEscape';
 import { DEFAULT_EVENT_TYPES, type ServiceGroup, type Mister, type Church, type GroupEventType } from '../types';
 import { 
@@ -37,6 +38,7 @@ export const ServiceGroupsScreen: React.FC = () => {
   // Modals
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editGroup, setEditGroup] = useState<ServiceGroup | null>(null);
+  const [viewingGroup, setViewingGroup] = useState<ServiceGroup | null>(null);
   const [eventTypesModalGroup, setEventTypesModalGroup] = useState<ServiceGroup | null>(null);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
 
@@ -344,19 +346,13 @@ export const ServiceGroupsScreen: React.FC = () => {
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <span className={`w-2 h-2 rounded-full shrink-0 ${group.active ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
                     <div className="min-w-0 flex-1">
-                      {canEditGroup(group) ? (
-                        <button
-                          type="button"
-                          onClick={() => setEditGroup(group)}
-                          className="font-bold text-xs text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start truncate"
-                        >
-                          {group.displayName}
-                        </button>
-                      ) : (
-                        <p className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
-                          {group.displayName}
-                        </p>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => setViewingGroup(group)}
+                        className="font-bold text-xs text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start truncate"
+                      >
+                        {group.displayName}
+                      </button>
                       <p className="text-[10px] text-zinc-400 truncate">
                         {adminsList.length} Admins • {servantsCount} Servants
                       </p>
@@ -399,19 +395,13 @@ export const ServiceGroupsScreen: React.FC = () => {
             >
               <div className="flex items-center justify-between">
                 <div>
-                  {canEditGroup(group) ? (
-                    <button
-                      type="button"
-                      onClick={() => setEditGroup(group)}
-                      className="font-bold text-sm text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start"
-                    >
-                      {group.displayName}
-                    </button>
-                  ) : (
-                    <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
-                      {group.displayName}
-                    </h3>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setViewingGroup(group)}
+                    className="font-bold text-sm text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start"
+                  >
+                    {group.displayName}
+                  </button>
                   <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
                     group.active
                       ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
@@ -554,19 +544,13 @@ export const ServiceGroupsScreen: React.FC = () => {
 
                     {/* 2. DisplayName */}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {canEditGroup(group) ? (
-                        <button
-                          type="button"
-                          onClick={() => setEditGroup(group)}
-                          className="font-bold text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer transition text-start truncate block max-w-xs"
-                        >
-                          {group.displayName}
-                        </button>
-                      ) : (
-                        <span className="font-bold text-zinc-900 dark:text-zinc-100">
-                          {group.displayName}
-                        </span>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => setViewingGroup(group)}
+                        className="font-bold text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer transition text-start truncate block max-w-xs"
+                      >
+                        {group.displayName}
+                      </button>
                     </td>
 
                     {/* 3. Admins (Stacked chips) */}
@@ -677,6 +661,27 @@ export const ServiceGroupsScreen: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* View Group Details Modal */}
+      {viewingGroup && (
+        <ServiceGroupDetailsModal
+          group={viewingGroup}
+          allMisters={allMisters}
+          churchGrades={currentChurch?.grades}
+          canEdit={canEditGroup(viewingGroup)}
+          onEdit={() => {
+            const target = viewingGroup;
+            setViewingGroup(null);
+            setEditGroup(target);
+          }}
+          onClose={() => setViewingGroup(null)}
+          onManageEvents={() => {
+            const target = viewingGroup;
+            setViewingGroup(null);
+            setEventTypesModalGroup(target);
+          }}
+        />
+      )}
 
       {/* Edit Group Modal (Admins and Servants chips editor with '+' picker) */}
       {editGroup && (

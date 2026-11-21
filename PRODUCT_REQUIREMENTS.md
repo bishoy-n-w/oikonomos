@@ -1152,6 +1152,61 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   Optimized for high-density Windows/PC widescreen displays (multi-column grid) and mobile touchscreens (thumb-friendly cards, touch targets $\ge 44$px).
     *   100% localized in Arabic and English with natural RTL mirroring.
 
+---
+
+## 53. Universal Mobile Read-Only View Modals & Role-Gated Transition Architecture
+
+*   **Transformational Concept & UX Problem Solved:**
+    *   Previously, tapping an entity item (student, classroom, service group, servant, church) immediately launched the heavy **Edit Form Modal**, causing accidental form edits, unexpected virtual keyboard popups, and broken interaction for users without write permissions.
+    *   Introduced dedicated, lightweight, tactile **Read-Only View Modals** (rendered as bottom sheets on mobile devices `< 640px` and centered floating dialogs on larger displays `sm:`). Tapping an entity now reliably displays its complete profile in view-only mode first.
+*   **Preservation of Rapid Fast-Action Buttons:**
+    *   Row and card fast-action shortcuts remain directly operable in both List and Tiles modes without opening any dialog:
+        *   **Phone (`Phone`):** One-tap native dialer (`tel:${phone}`) for fathers, mothers, and students.
+        *   **WhatsApp (`MessageSquare`):** Instant chat launching (`https://wa.me/...`).
+        *   **GPS Directions (`Navigation`):** Universal navigation launcher via Google Maps / Apple Maps.
+        *   **QR Badges (`IdCard`):** Instant ID badge generation modal.
+        *   **Rapid Attendance Controller (`[P] [A] [E]`):** Zero-friction 1-tap attendance marking.
+        *   **Log Visit (`HeartHandshake`):** Pastoral visitation logging.
+*   **Dedicated Entity View-Only Modals:**
+    1.  **Kid Details (`KidDetailsModal.tsx`):**
+        *   *Header & Identity:* High-resolution photo or gender-tinted avatar, full student name, ordained deacon cross badge (`✠ Deacon`), gender chip, active status.
+        *   *Quick Communication Strip:* Instant direct buttons to Call Father, Call Mother, Call Student, WhatsApp, Open Directions, Print ID Badge, and Log Home Visit.
+        *   *Academic & Ministry Enrollment:* School name, school type badge (National, International, etc.), assigned class, service group, and academic year.
+        *   *Family & Personal Contacts:* Father details (name, profession, phone, DOB), Mother details (name, profession, phone, DOB), Student details (phone, DOB, exact computed age in years and months via `formatAge`).
+        *   *Residence & Address:* Formatted physical address (building, floor, apartment, street, region, landmark) and direct GPS navigation link.
+        *   *Spiritual & Pastoral Care:* Deacon ordination status, Father of Confession, and pastoral notes.
+        *   *Role-Gated Action:* Prominent **"Edit Student"** button rendered strictly when `canManageKid` is true; cleanly transitions into `KidFormModal`.
+    2.  **Class Details (`ClassDetailsModal.tsx`):**
+        *   *Header:* Class display name, active status, grade badge (`#gradeId` with grade title), service group.
+        *   *Tabs:*
+            *   *Enrolled Students:* Full roster with search bar, student avatars, parent names, and quick phone/WhatsApp buttons.
+            *   *Assigned Servants:* Full servant roster with search bar, photos/initials, emails, and phone/WhatsApp shortcuts.
+            *   *Overview:* Church, academic year, department, registered student count, and assigned servant count.
+        *   *Role-Gated Action:* **"Edit Class"** button rendered strictly when `canManageClassStructure(classId)` is true; transitions into `ClassFormModal`.
+    3.  **Service Group Details (`ServiceGroupDetailsModal.tsx`):**
+        *   *Header:* Department display name, church, active status badge, admin and servant count badges.
+        *   *Tabs:*
+            *   *Overview & Events:* Covered Sunday School grades chips (`#gradeId` with names), and configured event types with core indicators.
+            *   *Administrators:* Searchable list of group admins with direct phone and WhatsApp contact shortcuts.
+            *   *Servants:* Searchable list of department servants with direct communication shortcuts.
+        *   *Role-Gated Action:* **"Edit Service Group"** button rendered strictly when `canEditGroup(group)` is true; transitions into `EditServiceGroupModal`.
+    4.  **Servant Details (`ServantDetailsModal.tsx`):**
+        *   *Header:* Profile photo or initials avatar, full name, church role (`admin` or `viewer`), active status, "You" indicator if inspecting self.
+        *   *Quick Actions:* Phone call, WhatsApp chat, and Email (`mailto:`).
+        *   *Ministry Roles & Assignments:* Administered service groups chips, assigned classes chips.
+        *   *Personal Details:* Profession/job, mobile phone, DOB, computed age (`formatAge`), physical address, and personal notes.
+        *   *Role-Gated Action:* **"Edit Profile"** button rendered strictly when `isAdmin || isSelf` is true; transitions into `MisterFormModal`.
+    5.  **Church Details (`ChurchDetailsModal.tsx`):**
+        *   *Header:* Church logo or initials avatar, church display name, active status badge.
+        *   *Sections:* Active academic year status, configured grades grid (#1 to #12) with mapped service groups, and shortcut to configure grades.
+        *   *Role-Gated Action:* **"Edit Church"** button rendered strictly when `isAdmin` is true; transitions into `ChurchEditModal`.
+*   **Accessibility & Ergonomic Standards (WCAG 2.2 AA):**
+    *   *Semantic Markup:* Explicit `role="dialog"`, `aria-modal="true"`, and `aria-labelledby`.
+    *   *Touch Targets:* All interactive buttons, chips, tabs, and close controls satisfy minimum touch targets of $\ge 44 \times 44$px (`touch-manipulation`).
+    *   *LIFO Modal Escape:* Fully integrated with `useModalEscape` global stack for seamless dismissal via `Escape` key.
+    *   *Bilingual RTL Mirroring:* Complete support for English (LTR) and Arabic (RTL) with logical spacing (`ms-`, `me-`) and `<bdi>` script isolation.
+
+
 
 
 

@@ -16,6 +16,7 @@ import { useApp } from '../context/AppContext';
 import { useFilter } from '../context/FilterContext';
 import type { Kid, Mister, HomeVisit, ClassDoc } from '../types';
 import { LogVisitModal } from '../components/visits/LogVisitModal';
+import { KidDetailsModal } from '../components/kids/KidDetailsModal';
 import { sanitizeExcelCell } from '../utils/formatters';
 import { 
   getUniversalNavigationUrl, 
@@ -76,6 +77,7 @@ export const HomeVisitsScreen: React.FC = () => {
   const [preselectedKidId, setPreselectedKidId] = useState<string | undefined>(undefined);
   const [editingVisit, setEditingVisit] = useState<HomeVisit | null>(null);
   const [pinningKidId, setPinningKidId] = useState<string | null>(null);
+  const [viewingKid, setViewingKid] = useState<Kid | null>(null);
 
   const canEdit = selectedClassId ? canEditClass(selectedClassId) : false;
 
@@ -1040,11 +1042,7 @@ export const HomeVisitsScreen: React.FC = () => {
                   >
                     <div 
                       className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
-                      onClick={() => {
-                        setPreselectedKidId(kid.id);
-                        setEditingVisit(null);
-                        setLogModalOpen(true);
-                      }}
+                      onClick={() => setViewingKid(kid)}
                     >
                       <div className={`w-10 h-10 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center border border-zinc-200 dark:border-zinc-700 shadow-2xs ${statusColorRing}`}>
                         {kid.info.photoUrl ? (
@@ -1159,7 +1157,10 @@ export const HomeVisitsScreen: React.FC = () => {
                   <div className="space-y-3">
                     {/* Top Row: Avatar, Name & Care Status Pill */}
                     <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-2.5 min-w-0">
+                      <div
+                        onClick={() => setViewingKid(kid)}
+                        className="flex items-center gap-2.5 min-w-0 cursor-pointer group"
+                      >
                         {kid.info.photoUrl ? (
                           <img
                             src={kid.info.photoUrl}
@@ -1578,6 +1579,24 @@ export const HomeVisitsScreen: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* View Kid Details Modal */}
+      {viewingKid && (
+        <KidDetailsModal
+          kid={viewingKid}
+          canEdit={false}
+          onClose={() => setViewingKid(null)}
+          onLogVisit={() => {
+            const targetId = viewingKid.id;
+            setViewingKid(null);
+            setPreselectedKidId(targetId);
+            setEditingVisit(null);
+            setLogModalOpen(true);
+          }}
+          classes={classes}
+          serviceGroups={serviceGroups}
+        />
       )}
 
       {/* Log Visit Modal */}

@@ -10,6 +10,7 @@ import { GoogleContactsSyncModal } from '../components/kids/GoogleContactsSyncMo
 import { BulkAssignmentModal } from '../components/kids/BulkAssignmentModal';
 import { SmartImportModal } from '../components/kids/SmartImportModal';
 import { PrintIdCardsModal } from '../components/kids/PrintIdCardsModal';
+import { KidDetailsModal } from '../components/kids/KidDetailsModal';
 import { MobileViewToggle } from '../components/common/MobileViewToggle';
 import { normalizePhoneNumber } from '../services/googleContacts';
 import { normalizeDateStr, safeRender, sanitizeExcelCell } from '../utils/formatters';
@@ -115,6 +116,7 @@ export const KidsDirectoryScreen: React.FC = () => {
   const [mobileActionsSheetOpen, setMobileActionsSheetOpen] = useState(false);
   const [kidsToPrint, setKidsToPrint] = useState<Kid[]>([]);
   const [activeKid, setActiveKid] = useState<Kid | null>(null);
+  const [viewingKid, setViewingKid] = useState<Kid | null>(null);
 
   const isAdmin = userRole === 'Admin' || userRole === 'owner';
   const isChurchAdminOrOwner = isAdmin;
@@ -1145,7 +1147,10 @@ export const KidsDirectoryScreen: React.FC = () => {
                       )}
                     </button>
 
-                    <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 flex items-center justify-center border border-zinc-200 dark:border-zinc-700 shadow-2xs">
+                    <div
+                      onClick={() => setViewingKid(kid)}
+                      className="w-9 h-9 rounded-xl overflow-hidden shrink-0 flex items-center justify-center border border-zinc-200 dark:border-zinc-700 shadow-2xs cursor-pointer"
+                    >
                       {kid.info.photoUrl ? (
                         <img src={kid.info.photoUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
@@ -1159,10 +1164,7 @@ export const KidsDirectoryScreen: React.FC = () => {
 
                     <div
                       className="min-w-0 cursor-pointer flex-1"
-                      onClick={() => {
-                        setActiveKid(kid);
-                        setEditModalOpen(true);
-                      }}
+                      onClick={() => setViewingKid(kid)}
                     >
                       <div className="flex items-center gap-1.5">
                         <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
@@ -1271,7 +1273,10 @@ export const KidsDirectoryScreen: React.FC = () => {
                   </button>
 
                   {/* Real Profile Photo Avatar */}
-                  <div className="w-11 h-11 rounded-2xl overflow-hidden flex items-center justify-center shrink-0 border border-zinc-200 dark:border-zinc-700 shadow-2xs">
+                  <div
+                    onClick={() => setViewingKid(kid)}
+                    className="w-11 h-11 rounded-2xl overflow-hidden flex items-center justify-center shrink-0 border border-zinc-200 dark:border-zinc-700 shadow-2xs cursor-pointer"
+                  >
                     {kid.info.photoUrl ? (
                       <img
                         src={kid.info.photoUrl}
@@ -1290,14 +1295,11 @@ export const KidsDirectoryScreen: React.FC = () => {
                   </div>
 
                   <div className="min-w-0">
-                    {/* Click on Name opens Edit */}
+                    {/* Click on Name opens View Details Modal */}
                     <button
                       type="button"
-                      onClick={() => {
-                        setActiveKid(kid);
-                        setEditModalOpen(true);
-                      }}
-                      className="font-bold text-sm text-zinc-900 dark:text-zinc-100 hover:text-teal-600 text-start truncate block max-w-[170px] sm:max-w-xs"
+                      onClick={() => setViewingKid(kid)}
+                      className="font-bold text-sm text-zinc-900 dark:text-zinc-100 hover:text-teal-600 text-start truncate block max-w-[170px] sm:max-w-xs cursor-pointer"
                     >
                       {kid.info.fullName}
                     </button>
@@ -1643,12 +1645,9 @@ export const KidsDirectoryScreen: React.FC = () => {
                         )}
                         <button
                           type="button"
-                          onClick={() => {
-                            setActiveKid(kid);
-                            setEditModalOpen(true);
-                          }}
+                          onClick={() => setViewingKid(kid)}
                           className="hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start font-bold"
-                          title="Click to edit student profile"
+                          title="Click to view student details"
                         >
                           {kid.info.fullName}
                         </button>
@@ -2118,6 +2117,27 @@ export const KidsDirectoryScreen: React.FC = () => {
         className={activeClassName}
         yearName={activeYearName}
       />
+
+      {/* View Kid Details Modal */}
+      {viewingKid && (
+        <KidDetailsModal
+          kid={viewingKid}
+          canEdit={canManageKid(viewingKid)}
+          onEdit={() => {
+            const target = viewingKid;
+            setViewingKid(null);
+            setActiveKid(target);
+            setEditModalOpen(true);
+          }}
+          onClose={() => setViewingKid(null)}
+          onPrintBadge={() => {
+            setKidsToPrint([viewingKid]);
+            setPrintModalOpen(true);
+          }}
+          classes={classes}
+          serviceGroups={serviceGroups}
+        />
+      )}
 
       {/* Add / Edit Kid Modal */}
       {editModalOpen && (

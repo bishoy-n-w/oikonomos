@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { normalizeDateStr, safeRender, sanitizeExcelCell } from '../utils/formatters';
+import { formatAge, normalizeDateStr, safeRender, sanitizeExcelCell } from '../utils/formatters';
 import { useModalEscape } from '../utils/useModalEscape';
 import { renderHook } from '@testing-library/react';
 
@@ -97,6 +97,22 @@ describe('Formatters, Security & Modal Escape LIFO Stack', () => {
       };
       const rendered = safeRender(mockTimestamp);
       expect(rendered).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+  });
+
+  describe('Age Formatter (formatAge)', () => {
+    it('returns empty string for empty or invalid DOB', () => {
+      expect(formatAge('')).toBe('');
+      expect(formatAge(undefined)).toBe('');
+      expect(formatAge('invalid-date')).toBe('');
+    });
+
+    it('calculates human readable age string from date string', () => {
+      const tenYearsAgo = new Date();
+      tenYearsAgo.setFullYear(tenYearsAgo.getFullYear() - 10);
+      const dobStr = tenYearsAgo.toISOString().split('T')[0];
+      const ageStr = formatAge(dobStr);
+      expect(ageStr).toContain('10 yrs');
     });
   });
 

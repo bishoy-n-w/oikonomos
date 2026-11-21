@@ -69,3 +69,34 @@ export function sanitizeExcelCell(val: any): string {
   }
   return raw.trim();
 }
+
+/**
+ * Computes an exact readable age string from a YYYY-MM-DD birthdate.
+ * E.g., "11 yrs, 4 mos", "6 mos", or "8 yrs".
+ */
+export function formatAge(dobStr?: string): string {
+  if (!dobStr) return '';
+  const normalized = normalizeDateStr(dobStr);
+  if (!normalized) return '';
+  const birthDate = new Date(`${normalized}T00:00:00`);
+  if (isNaN(birthDate.getTime())) return '';
+  const now = new Date();
+  let years = now.getFullYear() - birthDate.getFullYear();
+  let months = now.getMonth() - birthDate.getMonth();
+  if (now.getDate() < birthDate.getDate()) {
+    months--;
+  }
+  if (months < 0) {
+    years--;
+    months += 12;
+  }
+  if (years < 0) return '';
+  if (years === 0) {
+    return months === 1 ? '1 mo' : `${months} mos`;
+  }
+  if (months === 0) {
+    return years === 1 ? '1 yr' : `${years} yrs`;
+  }
+  return `${years} yrs, ${months} mos`;
+}
+
