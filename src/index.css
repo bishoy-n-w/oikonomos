@@ -4,12 +4,23 @@
   :root {
     --color-primary: #0f766e;
     --color-primary-hover: #115e59;
+    --font-latin: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-arabic: 'Cairo', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
 }
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--font-latin);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+[dir="rtl"],
+[dir="rtl"] body {
+  font-family: var(--font-arabic);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }

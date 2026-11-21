@@ -2,6 +2,7 @@ import React from 'react';
 import { useApp } from '../../context/AppContext';
 import { useFilter } from '../../context/FilterContext';
 import { useModalEscape } from '../../utils/useModalEscape';
+import { useBottomSheetDrag } from '../../utils/useBottomSheetDrag';
 import type { ActiveTab } from './MainShell';
 import { X, Check } from 'lucide-react';
 
@@ -14,6 +15,7 @@ interface MobileFilterSheetProps {
 export const MobileFilterSheet: React.FC<MobileFilterSheetProps> = ({ activeTab, isOpen, onClose }) => {
   const { translate } = useApp();
   useModalEscape(onClose, isOpen);
+  const { dragHandleProps, sheetStyle } = useBottomSheetDrag({ onClose });
   const {
     churches,
     academicYears,
@@ -43,10 +45,19 @@ export const MobileFilterSheet: React.FC<MobileFilterSheetProps> = ({ activeTab,
     >
       <div 
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 animate-in slide-in-from-bottom duration-200 max-h-[90dvh] pb-[max(1.5rem,env(safe-area-inset-bottom))] overflow-y-auto cursor-default"
+        style={sheetStyle}
+        className="w-full max-w-lg bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 animate-in slide-in-from-bottom duration-200 max-h-[90dvh] pb-[max(1.5rem,env(safe-area-inset-bottom))] overflow-y-auto cursor-default touch-manipulation"
         role="dialog"
         aria-modal="true"
       >
+        {/* Mobile Pull Indicator */}
+        <div
+          {...dragHandleProps}
+          className="w-full py-2 -mt-3 mb-2 sm:hidden cursor-grab active:cursor-grabbing flex justify-center touch-none"
+        >
+          <div className="w-12 h-1.5 bg-zinc-300 dark:bg-zinc-700 rounded-full" />
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800">
           <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">

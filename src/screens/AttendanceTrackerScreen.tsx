@@ -1059,6 +1059,47 @@ export const AttendanceTrackerScreen: React.FC = () => {
                   </button>
                 )}
               </div>
+
+              {/* Sticky Mobile Live Attendance Progress Capsule */}
+              {selectedEventId && totalRoster > 0 && (
+                <div className="sticky top-0 z-20 px-3 py-2 rounded-2xl bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800 shadow-xs space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-extrabold text-zinc-900 dark:text-zinc-100 tabular-nums">
+                        {attendancePercent}%
+                      </span>
+                      <span className="text-zinc-500 dark:text-zinc-400 font-medium text-[11px] tabular-nums">
+                        ({presentCount}/{totalRoster} {translate('present')})
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-[10px] font-bold tabular-nums">
+                      <span className="text-emerald-600 dark:text-emerald-400">✓ {presentCount}</span>
+                      <span className="text-rose-600 dark:text-rose-400">✕ {absentCount}</span>
+                      <span className="text-amber-600 dark:text-amber-400">⏱ {excusedCount}</span>
+                      {totalRoster - recordedCount > 0 && (
+                        <span className="text-zinc-400">? {totalRoster - recordedCount}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Multi-segment mini progress bar */}
+                  <div className="w-full h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden flex">
+                    <div
+                      style={{ width: `${(presentCount / totalRoster) * 100}%` }}
+                      className="h-full bg-emerald-500 transition-all duration-300"
+                    />
+                    <div
+                      style={{ width: `${(absentCount / totalRoster) * 100}%` }}
+                      className="h-full bg-rose-500 transition-all duration-300"
+                    />
+                    <div
+                      style={{ width: `${(excusedCount / totalRoster) * 100}%` }}
+                      className="h-full bg-amber-500 transition-all duration-300"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { DEFAULT_EVENT_TYPES, type ServiceGroup, type Mister, type GradeItem } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { useModalEscape } from '../../utils/useModalEscape';
+import { useBottomSheetDrag } from '../../utils/useBottomSheetDrag';
 import {
   X,
   Edit3,
@@ -38,6 +39,7 @@ export const ServiceGroupDetailsModal: React.FC<ServiceGroupDetailsModalProps> =
   const [search, setSearch] = useState('');
 
   useModalEscape(onClose, true);
+  const { dragHandleProps, sheetStyle } = useBottomSheetDrag({ onClose });
 
   const groupMistersMap = group.misters || {};
   const adminEmails = Array.from(
@@ -108,11 +110,17 @@ export const ServiceGroupDetailsModal: React.FC<ServiceGroupDetailsModalProps> =
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full sm:max-w-xl bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl border-t sm:border border-zinc-200 dark:border-zinc-800 max-h-[90dvh] flex flex-col cursor-default text-start"
+        style={sheetStyle}
+        className="w-full sm:max-w-xl bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl border-t sm:border border-zinc-200 dark:border-zinc-800 max-h-[90dvh] flex flex-col cursor-default text-start touch-manipulation"
         dir={isRtl ? 'rtl' : 'ltr'}
       >
         {/* Mobile Pull Indicator */}
-        <div className="w-12 h-1.5 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-auto mb-3 sm:hidden" />
+        <div
+          {...dragHandleProps}
+          className="w-full py-2 -mt-2 mb-1 sm:hidden cursor-grab active:cursor-grabbing flex justify-center touch-none"
+        >
+          <div className="w-12 h-1.5 bg-zinc-300 dark:bg-zinc-700 rounded-full" />
+        </div>
 
         {/* Modal Header */}
         <div className="flex items-start justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800 gap-3 shrink-0">

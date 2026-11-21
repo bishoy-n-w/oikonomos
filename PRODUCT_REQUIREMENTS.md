@@ -1206,6 +1206,27 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   *LIFO Modal Escape:* Fully integrated with `useModalEscape` global stack for seamless dismissal via `Escape` key.
     *   *Bilingual RTL Mirroring:* Complete support for English (LTR) and Arabic (RTL) with logical spacing (`ms-`, `me-`) and `<bdi>` script isolation.
 
+---
+
+## 54. Phase 1 UI/UX Enhancements: Typography Elevation, Bottom-Sheet Drag Physics, Sticky Headers & Mobile Attendance Capsule
+
+*   **Bilingual Typography Elevation (`Inter` & `Cairo`):**
+    *   Preconnected to Google Fonts to load variable weights (400 to 900) of **`Inter`** for Latin scripts and **`Cairo`** for Arabic scripts.
+    *   Configured CSS-first typography stacks with directional font selection:
+        *   `[dir="ltr"]` renders `Inter` with modern letter spacing and crisp optical readability.
+        *   `[dir="rtl"]` renders `Cairo` with generous Arabic line-height and harmonious glyph contours.
+    *   Added `.tabular-nums` class ensuring numeric alignment across attendance statistics, age calculations, dates, and phone numbers.
+*   **Fluid Mobile Bottom-Sheet Drag Physics (`useBottomSheetDrag.ts`):**
+    *   Engineered native touch drag gesture tracking for all mobile bottom sheet dialogs (`KidDetailsModal`, `ClassDetailsModal`, `ServiceGroupDetailsModal`, `ServantDetailsModal`, `ChurchDetailsModal`, and `MobileFilterSheet`).
+    *   Provides tactile touch handle indicators with natural finger-following physics (`translateY`), momentum velocity dismissal, and spring snap-back animation when released below the threshold.
+*   **Sticky Mobile Attendance Progress Bar & Live Roll-Call Capsule:**
+    *   Mounted a persistent, glassmorphic capsule (`sticky top-0 z-20 backdrop-blur-md`) during mobile roll-call in `AttendanceTrackerScreen.tsx`.
+    *   Displays real-time live percentage present, breakdown counters (✓ Present, ✕ Absent, ⏱ Excused, ? Unrecorded), and an animated multi-segment progress bar that updates smoothly as attendance pills are marked.
+*   **Desktop Sticky Table Headers & Scroll Elevation:**
+    *   Upgraded all high-density DataTable views across `KidsDirectoryScreen`, `ClassesScreen`, `ServiceGroupsScreen`, `ServantsDirectoryScreen`, and `ChurchesScreen`.
+    *   Pinned `thead` with `sticky top-0 z-10 backdrop-blur-md shadow-2xs` over vertical scrolling containers (`max-h-[75vh]`), ensuring column headers and filtering matrix remain visible without table header flicker.
+
+
 
 
 

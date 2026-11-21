@@ -1507,9 +1507,9 @@ export const KidsDirectoryScreen: React.FC = () => {
 
       {/* 2. DESKTOP HIGH-DENSITY 22-COLUMN TABLE (>= md) */}
       <div className="hidden md:block bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[75vh] overflow-y-auto">
           <table className="w-full text-start text-xs text-zinc-700 dark:text-zinc-300">
-            <thead className="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider text-[11px] border-b border-zinc-200 dark:border-zinc-800">
+            <thead className="sticky top-0 z-10 bg-zinc-50/95 dark:bg-zinc-800/95 backdrop-blur-md text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider text-[11px] border-b border-zinc-200 dark:border-zinc-800 shadow-2xs">
               <tr>
                 {/* 1. Active + Master Checkbox */}
                 <th className="px-4 py-3.5 text-start w-28">
