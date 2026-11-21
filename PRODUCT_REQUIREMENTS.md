@@ -1372,6 +1372,18 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   *iOS Safari:* Renders an intuitive 3-step graphic instruction sheet illustrating the Safari Share menu (*Share* ➔ *Add to Home Screen* ➔ *Add*).
     *   *Header & Dropdown Triggers:* Displays a clean, amber install pill in `TopAppBar` and within the user profile dropdown, automatically hiding itself once running in standalone mode (`display-mode: standalone`).
 
+---
+
+## 63. Split-Screen Student Card Architecture with Dedicated Square Photo (Solution B)
+
+*   **Split-Screen Card Architecture in Mobile Tiles Mode (`KidsDirectoryScreen.tsx`):**
+    *   *Dedicated High-Impact Square Photo:* The student image occupies a prominent, dedicated $112\text{px} \times 112\text{px}$ (`w-28 h-28`) square frame on mobile (expanding to $128\text{px} \times 128\text{px}$ on `sm:` viewports), nearly $3\times$ larger than the previous thumbnail avatar.
+    *   *Zero Empty Side Space:* Configured with `object-cover` within a rounded card container (`rounded-2xl border shadow-xs`), eliminating empty letterboxing or side pillar bars regardless of whether photos are taken in landscape, square, or vertical portrait.
+    *   *Tap-to-Enlarge Lightbox Integration:* Tapping the large photo triggers `PhotoLightboxModal` (`z-60`) for full-screen inspection with deacon insignia.
+    *   *Structured Trailing Information Column:* Side-by-side with the photo, the card renders selection checkbox, full student name (tapping opens `KidDetailsModal`), deacon badge (`✠ Deacon`), active status, class and group names, and birthday/age and school tags.
+    *   *Direct Family Contact Strips:* Preserves dedicated, labeled contact strips for Father, Mother, and Student with direct 1-tap Call, WhatsApp, and Copy actions.
+
+
 
 
 

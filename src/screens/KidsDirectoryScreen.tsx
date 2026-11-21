@@ -1318,114 +1318,123 @@ export const KidsDirectoryScreen: React.FC = () => {
           return (
             <div
               key={kid.id}
-              className={`p-4 rounded-3xl bg-white dark:bg-zinc-900 border transition shadow-xs space-y-3 ${
+              className={`p-3.5 sm:p-4 rounded-3xl bg-white dark:bg-zinc-900 border transition shadow-xs space-y-3 ${
                 isSelected 
                   ? 'border-purple-500 ring-2 ring-purple-500/20 bg-purple-50/20 dark:bg-purple-950/20' 
                   : 'border-zinc-200 dark:border-zinc-800'
               }`}
             >
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  {/* Mobile Selection Checkbox */}
-                  <button
-                    type="button"
-                    onClick={() => toggleSelectKid(kid.id)}
-                    className="p-1 -ms-1 text-zinc-400 hover:text-purple-600 dark:hover:text-purple-400 cursor-pointer"
-                    title="Select student"
-                  >
-                    {isSelected ? (
-                      <CheckSquare className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                    ) : (
-                      <Square className="w-5 h-5 text-zinc-300 dark:text-zinc-600" />
-                    )}
-                  </button>
-
-                  {/* Real Profile Photo Avatar with Lightbox Click */}
-                  <div
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setLightboxData({
-                        photoUrl: kid.info.photoUrl,
-                        name: kid.info.fullName,
-                        gender: kid.info.gender,
-                        isDeacon: kid.info.deacon,
-                        subtitle: `${currentClassName} • ${kid.contacts?.fatherName ? `Father: ${kid.contacts.fatherName}` : 'Sunday School'}`,
-                      });
-                    }}
-                    className="w-11 h-11 rounded-2xl overflow-hidden flex items-center justify-center shrink-0 border border-zinc-200 dark:border-zinc-700 shadow-2xs cursor-pointer hover:ring-2 hover:ring-teal-500/40 transition"
-                    title="Tap to view photo"
-                  >
-                    {kid.info.photoUrl ? (
-                      <img
-                        src={kid.info.photoUrl}
-                        alt={kid.info.fullName}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className={`w-full h-full flex items-center justify-center font-bold text-base ${
-                        kid.info.gender === 'female' 
-                          ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400' 
-                          : 'bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400'
-                      }`}>
-                        {kid.info.fullName.charAt(0)}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    {/* Click on Name opens View Details Modal */}
-                    <button
-                      type="button"
-                      onClick={() => setViewingKid(kid)}
-                      className="font-bold text-sm text-zinc-900 dark:text-zinc-100 hover:text-teal-600 text-start truncate block max-w-[170px] sm:max-w-xs cursor-pointer"
-                    >
-                      {kid.info.fullName}
-                    </button>
-                    <p className="text-xs text-zinc-400 truncate">
-                      {currentClassName} • {resolveGroupName(kid.activeAssignment?.serviceGroupId || kid.serviceGroupId)}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Clean Status & Deacon Badges */}
-                <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
-                  {kid.info.deacon && (
-                    <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                      <Cross className="w-2.5 h-2.5" />
-                      <span>Deacon</span>
-                    </span>
+              {/* Split Top Section: Large Square Photo on leading side + Student Header & Metadata */}
+              <div className="flex items-start gap-3 sm:gap-4">
+                {/* Large Dedicated Photo (w-28 h-28 sm:w-32 sm:h-32) - ~3x larger, zero empty space */}
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxData({
+                      photoUrl: kid.info.photoUrl,
+                      name: kid.info.fullName,
+                      gender: kid.info.gender,
+                      isDeacon: kid.info.deacon,
+                      subtitle: `${currentClassName} • ${kid.contacts?.fatherName ? `Father: ${kid.contacts.fatherName}` : 'Sunday School'}`,
+                    });
+                  }}
+                  className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl overflow-hidden shrink-0 border border-zinc-200 dark:border-zinc-700 shadow-xs cursor-pointer hover:ring-2 hover:ring-teal-500/50 transition relative group"
+                  title="Tap to view photo"
+                >
+                  {kid.info.photoUrl ? (
+                    <img
+                      src={kid.info.photoUrl}
+                      alt={kid.info.fullName}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                    />
+                  ) : (
+                    <div className={`w-full h-full flex flex-col items-center justify-center font-black text-3xl ${
+                      kid.info.gender === 'female' 
+                        ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400' 
+                        : 'bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400'
+                    }`}>
+                      <span>{kid.info.fullName.charAt(0)}</span>
+                      {kid.info.deacon && <span className="text-[11px] text-amber-500 mt-1">✠ Deacon</span>}
+                    </div>
                   )}
-                  <span
-                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                      kid.active !== false
-                        ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300'
-                        : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
-                    }`}
-                  >
-                    {kid.active !== false ? translate('active_badge') : translate('inactive_badge')}
-                  </span>
+                  {/* Subtle tap-to-expand overlay hint */}
+                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold">
+                    🔍 View
+                  </div>
                 </div>
-              </div>
 
-              {/* Student Metadata Strip (Birthday, Age, School) */}
-              <div className="grid grid-cols-2 gap-2 p-2.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-zinc-800 text-[11px]">
-                <div>
-                  <span className="text-zinc-400 block font-medium">🎂 {translate('dob') || 'Birthday'}</span>
-                  <span className="font-bold text-zinc-800 dark:text-zinc-200">
-                    {safeRender(kid.info.dob) || '-'} {calculatedAge && `(${calculatedAge})`}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-zinc-400 block font-medium">🏫 {translate('school')}</span>
-                  <span className="font-bold text-zinc-800 dark:text-zinc-200 truncate block">
-                    {kid.info.school || '-'}
-                  </span>
+                {/* Trailing Column: Selection, Name, Badges & Class/Birthday Metadata */}
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="flex items-start justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                      {/* Selection Checkbox */}
+                      <button
+                        type="button"
+                        onClick={() => toggleSelectKid(kid.id)}
+                        className="p-1 -ms-1 text-zinc-400 hover:text-purple-600 dark:hover:text-purple-400 cursor-pointer shrink-0"
+                        title="Select student"
+                      >
+                        {isSelected ? (
+                          <CheckSquare className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                        ) : (
+                          <Square className="w-5 h-5 text-zinc-300 dark:text-zinc-600" />
+                        )}
+                      </button>
+
+                      {/* Student Full Name */}
+                      <button
+                        type="button"
+                        onClick={() => setViewingKid(kid)}
+                        className="font-bold text-sm sm:text-base text-zinc-900 dark:text-zinc-100 hover:text-teal-600 text-start truncate block cursor-pointer"
+                      >
+                        {kid.info.fullName}
+                      </button>
+                    </div>
+
+                    {/* Status & Deacon Badges */}
+                    <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                      {kid.info.deacon && (
+                        <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                          <Cross className="w-2.5 h-2.5" />
+                          <span>Deacon</span>
+                        </span>
+                      )}
+                      <span
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                          kid.active !== false
+                            ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300'
+                            : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                        }`}
+                      >
+                        {kid.active !== false ? translate('active_badge') : translate('inactive_badge')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Class & Service Group */}
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium truncate">
+                    {currentClassName} • {resolveGroupName(kid.activeAssignment?.serviceGroupId || kid.serviceGroupId)}
+                  </p>
+
+                  {/* Birthday & School Badges */}
+                  <div className="flex flex-wrap gap-1.5 pt-0.5 text-[11px]">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-semibold">
+                      <span>🎂</span>
+                      <span>{safeRender(kid.info.dob) || '-'} {calculatedAge && `(${calculatedAge})`}</span>
+                    </span>
+                    {kid.info.school && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 truncate max-w-[150px]">
+                        <span>🏫</span>
+                        <span className="truncate">{kid.info.school}</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
               {/* Semantic Labeled Contact Rows with Call, WhatsApp, and 1-Tap Copy */}
               {(fatherPhone || motherPhone || kidPhone) && (
-                <div className="space-y-1.5 pt-1 border-t border-zinc-100 dark:border-zinc-800">
+                <div className="space-y-1.5 pt-2 border-t border-zinc-100 dark:border-zinc-800">
                   {fatherPhone && (
                     <PhoneActionGroup
                       phone={fatherPhone}
