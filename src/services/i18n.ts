@@ -365,7 +365,15 @@ export const translations: Record<Language, Record<string, string>> = {
     share_location: 'Share Location',
     save_gps_with_visit: 'Save current GPS location as student home',
     remove_from_class: 'Remove from Class',
-    remove_from_class_confirm: 'Remove this student from the class? The student profile will remain in the church directory.'
+    remove_from_class_confirm: 'Remove this student from the class? The student profile will remain in the church directory.',
+
+    // PWA & Installation
+    install_app: 'Install App',
+    install_app_desc: 'Install Oikonomos on your phone for full-screen offline access and instant loading.',
+    install_now: 'Install Now',
+    ios_install_step1: 'Tap the Share button at the bottom of Safari',
+    ios_install_step2: 'Scroll down and tap "Add to Home Screen"',
+    ios_install_step3: 'Tap "Add" in the top-right corner'
   },
   ar: {
     dashboard: 'لوحة التحكم',
@@ -731,7 +739,15 @@ export const translations: Record<Language, Record<string, string>> = {
     share_location: 'مشاركة اللوكيشن',
     save_gps_with_visit: 'حفظ الموقع الحالي كموقع لمنزل الطالب',
     remove_from_class: 'إلغاء التسكين من الفصل',
-    remove_from_class_confirm: 'هل أنت متأكد من إلغاء تسكين الطالب من هذا الفصل؟ سيظل ملف الطالب محفوظاً.'
+    remove_from_class_confirm: 'هل أنت متأكد من إلغاء تسكين الطالب من هذا الفصل؟ سيظل ملف الطالب محفوظاً.',
+
+    // PWA & Installation
+    install_app: 'تثبيت التطبيق',
+    install_app_desc: 'تثبيت أويكونوموس على هاتفك للعمل بملء الشاشة، سرعة فائقة، وبدون إنترنت.',
+    install_now: 'تثبيت الآن',
+    ios_install_step1: 'اضغط على زر المشاركة (Share) في أسفل شاشة سفاري',
+    ios_install_step2: 'مرر لأسفل واختر "إضافة إلى الصفحة الرئيسية"',
+    ios_install_step3: 'اضغط على "إضافة" في أعلى يمين الشاشة'
   }
 };
 

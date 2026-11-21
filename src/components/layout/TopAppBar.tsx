@@ -3,6 +3,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import { useFilter } from '../../context/FilterContext';
 import { APP_FULL_VERSION } from '../../config/version';
+import { usePwaInstall } from '../../utils/usePwaInstall';
+import { PwaInstallPromptModal } from '../common/PwaInstallPromptModal';
 import type { ActiveTab } from './MainShell';
 import { 
   Sun, 
@@ -12,7 +14,8 @@ import {
   UserCheck, 
   Filter as FilterIcon, 
   Church as ChurchIcon,
-  ChevronDown
+  ChevronDown,
+  Smartphone
 } from 'lucide-react';
 
 interface TopAppBarProps {
@@ -40,6 +43,8 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({ activeTab, onOpenMobileFil
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { isInstallable, hasDeferredPrompt, isIos, triggerInstall } = usePwaInstall();
+  const [pwaModalOpen, setPwaModalOpen] = useState(false);
 
   // Context-aware dimming rules as mandated by specs:
   // - Church Admin: dim church, academic year, class group, and class
@@ -203,6 +208,20 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({ activeTab, onOpenMobileFil
           );
         })()}
 
+        {/* Install PWA Button (Visible when site is not installed) */}
+        {isInstallable && (
+          <button
+            type="button"
+            onClick={() => setPwaModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] text-xs font-bold text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/60 rounded-full border border-amber-200 dark:border-amber-800 transition active:scale-95 touch-manipulation cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/40 shadow-2xs"
+            title={translate('install_app')}
+            aria-label={translate('install_app')}
+          >
+            <Smartphone className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            <span className="hidden sm:inline">{translate('install_app')}</span>
+          </button>
+        )}
+
         {/* Profile Avatar & Dropdown */}
         <div className="relative" ref={menuRef}>
           <button
@@ -261,6 +280,25 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({ activeTab, onOpenMobileFil
                   </span>
                   <span className="text-zinc-400 uppercase font-semibold">{language === 'en' ? 'العربية' : 'English'}</span>
                 </button>
+
+                {/* Install App Link */}
+                {isInstallable && (
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setPwaModalOpen(true);
+                    }}
+                    className="w-full flex items-center justify-between px-4 py-2 text-xs font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Smartphone className="w-4 h-4 text-amber-600" />
+                      <span>{translate('install_app')}</span>
+                    </span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200">
+                      PWA
+                    </span>
+                  </button>
+                )}
               </div>
 
               {/* Account Actions */}
@@ -296,6 +334,17 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({ activeTab, onOpenMobileFil
           )}
         </div>
       </div>
+
+      {/* PWA Install Guide & Trigger Modal */}
+      {pwaModalOpen && (
+        <PwaInstallPromptModal
+          isOpen={pwaModalOpen}
+          onClose={() => setPwaModalOpen(false)}
+          hasDeferredPrompt={hasDeferredPrompt}
+          isIos={isIos}
+          onTriggerInstall={triggerInstall}
+        />
+      )}
     </header>
   );
 };

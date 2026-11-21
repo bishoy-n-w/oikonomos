@@ -1356,6 +1356,23 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   Elevated `PrintIdCardsModal` to `z-60`, guaranteeing that tapping the **ID Badge** action button from within `KidDetailsModal` renders the badge preview and print sheet directly on top of the student profile rather than behind it.
     *   Reordered DOM mount placement in `KidsDirectoryScreen.tsx` so child modal overlays mount sequentially after base view modals, satisfying both CSS stacking context priority and DOM traversal order.
 
+---
+
+## 62. Progressive Web App (PWA) Mobile Installation & Offline Shell Architecture
+
+*   **PWA Manifest & High-Resolution Icon Assets (`manifest.json`):**
+    *   Configured multi-density app icon pipeline (`/icon-192.png`, `/icon-512.png`) with `any maskable` purposes.
+    *   Set `"display": "standalone"`, `"theme_color": "#0d9488"`, and `"background_color": "#09090b"`.
+    *   Configured Apple mobile web app capabilities (`apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style: black-translucent`, and `apple-touch-icon`).
+*   **Lightweight Network-First Service Worker (`public/sw.js`):**
+    *   Installed and registered service worker caching core shell assets (`index.html`, `manifest.json`, icons, fonts, CSS, JS).
+    *   Employs network-first caching with graceful offline fallback to local cached responses.
+*   **Dual-Platform Mobile Installation Experience (`usePwaInstall.ts` & `PwaInstallPromptModal.tsx`):**
+    *   *Android / Chromium:* Captures `beforeinstallprompt` event and exposes a 1-tap **[ 📲 Install App Now ]** system prompt launcher.
+    *   *iOS Safari:* Renders an intuitive 3-step graphic instruction sheet illustrating the Safari Share menu (*Share* ➔ *Add to Home Screen* ➔ *Add*).
+    *   *Header & Dropdown Triggers:* Displays a clean, amber install pill in `TopAppBar` and within the user profile dropdown, automatically hiding itself once running in standalone mode (`display-mode: standalone`).
+
+
 
 
 
