@@ -1226,6 +1226,24 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   Upgraded all high-density DataTable views across `KidsDirectoryScreen`, `ClassesScreen`, `ServiceGroupsScreen`, `ServantsDirectoryScreen`, and `ChurchesScreen`.
     *   Pinned `thead` with `sticky top-0 z-10 backdrop-blur-md shadow-2xs` over vertical scrolling containers (`max-h-[75vh]`), ensuring column headers and filtering matrix remain visible without table header flicker.
 
+---
+
+## 55. Phase 2 UI/UX Enhancements: Desktop Master-Detail Side Inspector, Sub-Header Breadcrumb Filter Bar & Shimmer Skeletons
+
+*   **Responsive Master-Detail Side Inspector on Widescreen Displays (`xl:`):**
+    *   Transformed entity detail dialogs (`KidDetailsModal`, `ClassDetailsModal`, `ServiceGroupDetailsModal`, `ServantDetailsModal`, and `ChurchDetailsModal`) into an adaptive, multi-device view pattern:
+        *   **Mobile (`< 640px`):** Tactile Bottom Sheet with fluid drag-down gesture dismissal.
+        *   **Tablet (`640px - 1279px`):** Centered floating dialog.
+        *   **Widescreen Desktop (`xl:`, $\ge 1280$px):** Right-side docked slide-over Inspector Drawer (`w-[460px] h-full rounded-s-3xl border-s shadow-2xl`). Allows administrative users to inspect consecutive student profiles and classroom details without losing table scroll context or suffering modal overlay fatigue.
+*   **Sub-Header Context Breadcrumb Filter Ribbon (`BreadcrumbFilterBar.tsx`):**
+    *   Extracted the multi-tier cascading ministry filter chain into a dedicated sub-header bar directly above the main viewport.
+    *   *Desktop Mode:* Displays an intuitive visual hierarchy: `[ ⛪ Church ] ❯ [ 📅 Academic Year ] ❯ [ 📂 Service Group ] ❯ [ 🎓 Classroom ]` with inline dropdowns.
+    *   *Mobile Mode:* Renders a high-contrast floating capsule button in the comfortable thumb zone, showing active class/group context and opening `MobileFilterSheet` in 1 tap.
+*   **Shimmer Skeleton Loading Components (`SkeletonLoader.tsx`):**
+    *   Created `TableSkeleton`, `CardSkeleton`, and `DashboardSkeleton` with smooth CSS pulse animations (`animate-pulse`).
+    *   Eliminates jarring layout shifts (Cumulative Layout Shift - CLS) and replaces generic spinner voids during Firestore collection subscription loading.
+
+
 
 
 

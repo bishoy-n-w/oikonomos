@@ -57,12 +57,12 @@ export const ChurchDetailsModal: React.FC<ChurchDetailsModalProps> = ({
       aria-modal="true"
       aria-labelledby="church-details-title"
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in cursor-pointer"
+      className="fixed inset-0 z-50 flex items-end sm:items-center xl:items-stretch xl:justify-end justify-center p-0 sm:p-4 xl:p-0 bg-black/60 xl:bg-black/25 backdrop-blur-xs animate-in fade-in cursor-pointer"
     >
       <div
         onClick={(e) => e.stopPropagation()}
         style={sheetStyle}
-        className="w-full sm:max-w-xl bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl border-t sm:border border-zinc-200 dark:border-zinc-800 max-h-[90dvh] flex flex-col cursor-default text-start touch-manipulation"
+        className="w-full sm:max-w-xl xl:max-w-[460px] xl:w-[460px] bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-3xl xl:rounded-none xl:rounded-s-3xl p-5 sm:p-6 shadow-2xl border-t sm:border xl:border-s xl:border-t-0 xl:border-b-0 border-zinc-200 dark:border-zinc-800 max-h-[90dvh] xl:max-h-full xl:h-full flex flex-col cursor-default text-start touch-manipulation animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 xl:slide-in-from-right duration-200"
         dir={isRtl ? 'rtl' : 'ltr'}
       >
         {/* Mobile Pull Indicator */}

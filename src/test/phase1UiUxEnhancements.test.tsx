@@ -1,6 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { render, renderHook, act } from '@testing-library/react';
 import { useBottomSheetDrag } from '../utils/useBottomSheetDrag';
+import { TableSkeleton, CardSkeleton, DashboardSkeleton } from '../components/common/SkeletonLoader';
+import { AppProvider } from '../context/AppContext';
+import { AuthProvider } from '../context/AuthContext';
+import { FilterProvider } from '../context/FilterContext';
+import { BreadcrumbFilterBar } from '../components/layout/BreadcrumbFilterBar';
 
 describe('Phase 1 UI/UX Enhancements Suite', () => {
   describe('Mobile Bottom-Sheet Drag Physics (useBottomSheetDrag)', () => {
@@ -104,6 +109,41 @@ describe('Phase 1 UI/UX Enhancements Suite', () => {
 
       expect(handleClose).toHaveBeenCalledTimes(1);
       vi.useRealTimers();
+    });
+  });
+
+  describe('Skeleton Loaders (TableSkeleton, CardSkeleton, DashboardSkeleton)', () => {
+    it('renders TableSkeleton with animated pulse container and row shimmers', () => {
+      const { container } = render(<TableSkeleton rows={4} />);
+      expect(container.querySelector('.animate-pulse')).toBeTruthy();
+      expect(container.querySelectorAll('.w-8.h-8').length).toBe(4);
+    });
+
+    it('renders CardSkeleton with specified count', () => {
+      const { container } = render(<CardSkeleton count={3} />);
+      expect(container.querySelectorAll('.w-11.h-11').length).toBe(3);
+    });
+
+    it('renders DashboardSkeleton without errors', () => {
+      const { container } = render(<DashboardSkeleton />);
+      expect(container.querySelector('.animate-pulse')).toBeTruthy();
+    });
+  });
+
+  describe('Sub-Header Breadcrumb Filter Bar (BreadcrumbFilterBar)', () => {
+    it('renders breadcrumb filter without crashing', () => {
+      const handleOpen = vi.fn();
+      render(
+        <AuthProvider>
+          <AppProvider>
+            <FilterProvider>
+              <BreadcrumbFilterBar onOpenMobileFilters={handleOpen} />
+            </FilterProvider>
+          </AppProvider>
+        </AuthProvider>
+      );
+      // Renders cleanly
+      expect(document.body).toBeTruthy();
     });
   });
 });

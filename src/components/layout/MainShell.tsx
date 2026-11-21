@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useFilter } from '../../context/FilterContext';
 import { useApp } from '../../context/AppContext';
 import { TopAppBar } from './TopAppBar';
+import { BreadcrumbFilterBar } from './BreadcrumbFilterBar';
 import { MobileFilterSheet } from './MobileFilterSheet';
 import { APP_FULL_VERSION } from '../../config/version';
 import { 
@@ -127,12 +128,15 @@ export const MainShell: React.FC<MainShellProps> = ({ activeTab, onTabChange, ch
           </div>
         </aside>
 
-        {/* Main Content Viewport */}
-        <main className="flex-1 overflow-y-auto pb-28 lg:pb-6">
-          <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
-            {children}
-          </div>
-        </main>
+        {/* Main Content Area with Sub-Header Breadcrumb */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <BreadcrumbFilterBar onOpenMobileFilters={() => setMobileFiltersOpen(true)} />
+          <main className="flex-1 overflow-y-auto pb-28 lg:pb-6">
+            <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
+              {children}
+            </div>
+          </main>
+        </div>
       </div>
 
       {/* Mobile Floating Bottom Navigation (< lg) */}
