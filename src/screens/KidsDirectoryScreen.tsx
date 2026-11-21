@@ -2165,21 +2165,6 @@ export const KidsDirectoryScreen: React.FC = () => {
         />
       )}
 
-      {/* Batch Print ID Badges Modal */}
-      {printModalOpen && selectedChurchId && (
-        <PrintIdCardsModal
-          kids={kidsToPrint}
-          churchId={selectedChurchId}
-          churchName={activeChurchName}
-          churchLogoUrl={churches.find((c) => c.id === selectedChurchId)?.logoUrl}
-          classes={classes}
-          serviceGroups={serviceGroups}
-          yearName={activeYearName}
-          yearBadgeColor={academicYears.find((y) => y.id === selectedAcademicYearId)?.badgeColor}
-          onClose={() => setPrintModalOpen(false)}
-        />
-      )}
-
       {/* Google Contacts Sync Modal */}
       <GoogleContactsSyncModal
         isOpen={syncModalOpen}
@@ -2259,6 +2244,21 @@ export const KidsDirectoryScreen: React.FC = () => {
           onClose={() => setViewingServant(null)}
           onBack={() => setViewingServant(null)}
           backLabel={(selectedAcademicYearId ? viewingClass?.academicYears?.[selectedAcademicYearId]?.displayName : undefined) || viewingGroup?.displayName}
+        />
+      )}
+
+      {/* Batch Print ID Badges Modal (Rendered on top of detail modals with z-60) */}
+      {printModalOpen && selectedChurchId && (
+        <PrintIdCardsModal
+          kids={kidsToPrint}
+          churchId={selectedChurchId}
+          churchName={activeChurchName}
+          churchLogoUrl={churches.find((c) => c.id === selectedChurchId)?.logoUrl}
+          classes={classes}
+          serviceGroups={serviceGroups}
+          yearName={activeYearName}
+          yearBadgeColor={academicYears.find((y) => y.id === selectedAcademicYearId)?.badgeColor}
+          onClose={() => setPrintModalOpen(false)}
         />
       )}
 

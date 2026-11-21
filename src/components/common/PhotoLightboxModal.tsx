@@ -33,7 +33,7 @@ export const PhotoLightboxModal: React.FC<PhotoLightboxModalProps> = ({
       aria-modal="true"
       aria-label={`Photo of ${name}`}
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+      className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
     >
       <div
         onClick={(e) => e.stopPropagation()}

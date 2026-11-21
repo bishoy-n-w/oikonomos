@@ -1345,6 +1345,18 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   Triggering Call or WhatsApp opens `ContactPickerPopover` when multiple family phone numbers exist, and dials directly when only one number is available.
     *   Preserved structured family cards below with distinct action groups per parent.
 
+---
+
+## 61. Multi-Tier Modal Z-Index Stacking Architecture & Print ID Cards Overlay Coordination
+
+*   **Z-Index Hierarchy and Stacking Context Hardening:**
+    *   *Base Modals & Bottom Sheets (`z-50`):* First-tier view dialogs (`KidDetailsModal`, `ClassDetailsModal`, `ServiceGroupDetailsModal`, `ServantDetailsModal`, and `ChurchDetailsModal`).
+    *   *Secondary Overlays & Action Popovers (`z-60`):* Child dialogs launched from within a base modal (`PrintIdCardsModal`, `ContactPickerPopover`, and `PhotoLightboxModal`).
+*   **Resolution of Print ID Cards Stacking Occlusion:**
+    *   Elevated `PrintIdCardsModal` to `z-60`, guaranteeing that tapping the **ID Badge** action button from within `KidDetailsModal` renders the badge preview and print sheet directly on top of the student profile rather than behind it.
+    *   Reordered DOM mount placement in `KidsDirectoryScreen.tsx` so child modal overlays mount sequentially after base view modals, satisfying both CSS stacking context priority and DOM traversal order.
+
+
 
 
 

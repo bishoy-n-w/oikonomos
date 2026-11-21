@@ -49,7 +49,7 @@ export const PrintIdCardsModal: React.FC<PrintIdCardsModalProps> = ({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in cursor-pointer"
+      className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in cursor-pointer"
     >
       <div
         onClick={(e) => e.stopPropagation()}
