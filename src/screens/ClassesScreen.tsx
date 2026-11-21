@@ -7,6 +7,9 @@ import { useFilter } from '../context/FilterContext';
 import { HeaderFilterMatrix, type ColumnFilterConfig } from '../components/common/HeaderFilterMatrix';
 import { MobileViewToggle } from '../components/common/MobileViewToggle';
 import { ClassDetailsModal } from '../components/classes/ClassDetailsModal';
+import { KidDetailsModal } from '../components/kids/KidDetailsModal';
+import { ServantDetailsModal } from '../components/servants/ServantDetailsModal';
+import { ServiceGroupDetailsModal } from '../components/groups/ServiceGroupDetailsModal';
 import { useModalEscape } from '../utils/useModalEscape';
 import type { ClassDoc, Church, Mister, Kid, ClassYearData, DropdownItem } from '../types';
 import { 
@@ -48,6 +51,9 @@ export const ClassesScreen: React.FC = () => {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editClass, setEditClass] = useState<ClassDoc | null>(null);
   const [viewingClass, setViewingClass] = useState<ClassDoc | null>(null);
+  const [viewingKid, setViewingKid] = useState<Kid | null>(null);
+  const [viewingServant, setViewingServant] = useState<Mister | null>(null);
+  const [viewingGroup, setViewingGroup] = useState<DropdownItem | null>(null);
   const [rosterPreview, setRosterPreview] = useState<{ className: string; kidIds: string[]; misterIds: string[] } | null>(null);
 
   const isAdmin = userRole === 'Admin' || userRole === 'owner';
@@ -810,6 +816,52 @@ export const ClassesScreen: React.FC = () => {
             setEditClass(target);
           }}
           onClose={() => setViewingClass(null)}
+          onSelectKid={(kid) => setViewingKid(kid)}
+          onSelectServant={(servant) => setViewingServant(servant)}
+          onSelectServiceGroup={(groupId) => {
+            const grp = serviceGroups.find((g) => g.id === groupId);
+            if (grp) setViewingGroup(grp);
+          }}
+        />
+      )}
+
+      {/* Child Drill-Down: Kid Details Modal */}
+      {viewingKid && (
+        <KidDetailsModal
+          kid={viewingKid}
+          canEdit={false}
+          onClose={() => setViewingKid(null)}
+          onBack={() => setViewingKid(null)}
+          backLabel={viewingClass?.academicYears[selectedAcademicYearId || '']?.displayName || viewingClass?.id}
+          classes={classes.map((c) => ({ id: c.id, displayName: c.academicYears[selectedAcademicYearId || '']?.displayName || c.id }))}
+          serviceGroups={serviceGroups}
+        />
+      )}
+
+      {/* Child Drill-Down: Servant Details Modal */}
+      {viewingServant && (
+        <ServantDetailsModal
+          mister={viewingServant}
+          allGroups={serviceGroups}
+          allClasses={classes}
+          activeAcademicYearId={selectedAcademicYearId}
+          canEdit={false}
+          onClose={() => setViewingServant(null)}
+          onBack={() => setViewingServant(null)}
+          backLabel={viewingClass?.academicYears[selectedAcademicYearId || '']?.displayName || viewingClass?.id}
+        />
+      )}
+
+      {/* Child Drill-Down: Service Group Details Modal */}
+      {viewingGroup && (
+        <ServiceGroupDetailsModal
+          group={{ id: viewingGroup.id, displayName: viewingGroup.displayName, active: true }}
+          allMisters={allMisters}
+          churchGrades={currentChurch?.grades}
+          canEdit={false}
+          onClose={() => setViewingGroup(null)}
+          onBack={() => setViewingGroup(null)}
+          backLabel={viewingClass?.academicYears[selectedAcademicYearId || '']?.displayName || viewingClass?.id}
         />
       )}
 

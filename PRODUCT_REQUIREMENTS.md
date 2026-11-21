@@ -1262,6 +1262,31 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   Aggregates student address neighborhoods (e.g., Heliopolis, Nasr City, Shubra, Maadi) with real-time student counts per region.
     *   Allows visiting servants to plan geographic visitation rounds in 1 tap, clustering visits by neighborhood to save travel time.
 
+---
+
+## 57. Universal Communications, 1-Tap Copying, Device Back Navigation & Relational Cross-Entity Drill-Down
+
+*   **Universal Communications Action Groups (`PhoneActionGroup.tsx`):**
+    *   Eliminated disparate single-channel links. Every phone number throughout the application (Father, Mother, Student, Servant) now uniformly provides:
+        *   📞 **Phone Call:** Native dialer protocol launcher (`tel:${phone}`).
+        *   💬 **WhatsApp Direct Chat:** Instant WhatsApp conversation trigger (`https://wa.me/...`) with optional pre-filled greeting.
+        *   📋 **1-Tap Clipboard Copy:** High-speed text copying with instant tactile checkmark (`✓ Copied!`) and haptic device vibration.
+    *   *RTL Directional Isolation:* All numerals and dial codes are strictly wrapped inside `<bdi dir="ltr">` elements, guaranteeing that `+` signs, country codes, and digits are never inverted in Arabic RTL mode.
+*   **Universal 1-Tap Data Copying (`CopyableField.tsx`):**
+    *   Enabled 1-tap clipboard copying across all informational fields, including physical addresses, landmarks, pastoral notes, spiritual confession father, school name, and servant email.
+    *   Integrated optional secondary action launchers (such as opening full GPS navigation in Google Maps / Apple Maps).
+*   **Native Device Back Button & Popstate Dismissal (`useModalHistory.ts`):**
+    *   Synchronized all modal sheets and dialogs with the browser / device HTML5 History API (`pushState` + `popstate`).
+    *   Pressing the Android hardware/gesture Back button, browser Back button, or swiping back on mobile Safari/Chrome smoothly dismisses the active modal sheet instead of navigating away from the web application.
+*   **Relational Cross-Entity Drill-Down Navigation:**
+    *   *Class ➔ Student:* Tapping an enrolled student in `ClassDetailsModal` immediately opens their `KidDetailsModal`.
+    *   *Class ➔ Servant:* Tapping an assigned servant in `ClassDetailsModal` opens their `ServantDetailsModal`.
+    *   *Service Group ➔ Servant:* Tapping a department administrator or servant in `ServiceGroupDetailsModal` opens their `ServantDetailsModal`.
+    *   *Servant ➔ Class & Group:* Tapping assigned classes or groups in `ServantDetailsModal` opens their respective view modals.
+    *   *Student ➔ Class & Group:* Tapping assigned class or group in `KidDetailsModal` opens their respective view modals.
+    *   *LIFO Navigation Trail:* Child detail modals display an explicit **`[ ‹ Back to {Parent Title} ]`** navigation header button, allowing intuitive multi-tier exploration and effortless return navigation.
+
+
 
 
 

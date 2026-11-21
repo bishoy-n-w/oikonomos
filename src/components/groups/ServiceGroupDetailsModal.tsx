@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { DEFAULT_EVENT_TYPES, type ServiceGroup, type Mister, type GradeItem } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { useModalEscape } from '../../utils/useModalEscape';
+import { useModalHistory } from '../../utils/useModalHistory';
 import { useBottomSheetDrag } from '../../utils/useBottomSheetDrag';
+import { PhoneActionGroup } from '../common/PhoneActionGroup';
 import {
   X,
   Edit3,
@@ -10,9 +12,8 @@ import {
   Shield,
   Users,
   Award,
-  Phone,
-  MessageSquare,
   Search,
+  ChevronLeft,
 } from 'lucide-react';
 
 export interface ServiceGroupDetailsModalProps {
@@ -22,6 +23,9 @@ export interface ServiceGroupDetailsModalProps {
   canEdit?: boolean;
   onEdit?: () => void;
   onClose: () => void;
+  onBack?: () => void;
+  backLabel?: string;
+  onSelectServant?: (servant: Mister) => void;
   onManageEvents?: () => void;
 }
 
@@ -32,6 +36,9 @@ export const ServiceGroupDetailsModal: React.FC<ServiceGroupDetailsModalProps> =
   canEdit = false,
   onEdit,
   onClose,
+  onBack,
+  backLabel,
+  onSelectServant,
   onManageEvents,
 }) => {
   const { translate, isRtl } = useApp();
@@ -39,6 +46,7 @@ export const ServiceGroupDetailsModal: React.FC<ServiceGroupDetailsModalProps> =
   const [search, setSearch] = useState('');
 
   useModalEscape(onClose, true);
+  useModalHistory(`group-${group.id}`, true, onClose);
   const { dragHandleProps, sheetStyle } = useBottomSheetDrag({ onClose });
 
   const groupMistersMap = group.misters || {};
@@ -122,6 +130,20 @@ export const ServiceGroupDetailsModal: React.FC<ServiceGroupDetailsModalProps> =
           <div className="w-12 h-1.5 bg-zinc-300 dark:bg-zinc-700 rounded-full" />
         </div>
 
+        {/* Back Button Navigation if opened from another entity */}
+        {onBack && (
+          <div className="pb-2">
+            <button
+              type="button"
+              onClick={onBack}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition cursor-pointer touch-manipulation"
+            >
+              <ChevronLeft className={`w-4 h-4 ${isRtl ? 'rotate-180' : ''}`} />
+              <span>{backLabel ? `Back to ${backLabel}` : 'Back'}</span>
+            </button>
+          </div>
+        )}
+
         {/* Modal Header */}
         <div className="flex items-start justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800 gap-3 shrink-0">
           <div className="min-w-0 flex-1">
@@ -197,7 +219,7 @@ export const ServiceGroupDetailsModal: React.FC<ServiceGroupDetailsModalProps> =
           </button>
         </div>
 
-        {/* Tab Content Body */}
+        {/* Tab Content Body with Drill-Down Links and Universal Phone Actions */}
         <div className="overflow-y-auto flex-1 min-h-0 space-y-3.5 pr-1 text-xs">
           {/* TAB: OVERVIEW */}
           {activeTab === 'overview' && (
@@ -285,8 +307,11 @@ export const ServiceGroupDetailsModal: React.FC<ServiceGroupDetailsModalProps> =
                   {filteredAdmins.map((m) => {
                     const phone = m.personalInfo?.phone;
                     return (
-                      <div key={m.id} className="p-2.5 flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div key={m.id} className="p-2.5 flex items-center justify-between gap-2 hover:bg-zinc-100/60 dark:hover:bg-zinc-800/60 transition">
+                        <div
+                          onClick={() => onSelectServant?.(m)}
+                          className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer group"
+                        >
                           <div className="w-8 h-8 rounded-xl overflow-hidden shrink-0 flex items-center justify-center border border-zinc-200 dark:border-zinc-700">
                             {m.personalInfo?.photoUrl ? (
                               <img src={m.personalInfo.photoUrl} alt="" className="w-full h-full object-cover" />
@@ -297,8 +322,8 @@ export const ServiceGroupDetailsModal: React.FC<ServiceGroupDetailsModalProps> =
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
-                              {m.displayName}
+                            <p className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate group-hover:text-purple-600 group-hover:underline">
+                              {m.displayName} ➔
                             </p>
                             <p className="text-[10px] text-zinc-400 truncate">
                               {m.email}
@@ -307,24 +332,14 @@ export const ServiceGroupDetailsModal: React.FC<ServiceGroupDetailsModalProps> =
                         </div>
 
                         {phone && (
-                          <div className="flex items-center gap-1 shrink-0">
-                            <a
-                              href={`tel:${phone}`}
-                              className="p-1.5 rounded-lg text-blue-600 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 transition min-h-[36px] min-w-[36px] flex items-center justify-center touch-manipulation"
-                              title={translate('phone')}
-                            >
-                              <Phone className="w-3.5 h-3.5" />
-                            </a>
-                            <a
-                              href={`https://wa.me/${phone.replace(/\+/g, '')}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="p-1.5 rounded-lg text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 transition min-h-[36px] min-w-[36px] flex items-center justify-center touch-manipulation"
-                              title="WhatsApp"
-                            >
-                              <MessageSquare className="w-3.5 h-3.5" />
-                            </a>
-                          </div>
+                          <PhoneActionGroup
+                            phone={phone}
+                            personName={m.displayName}
+                            compact
+                            allowCall
+                            allowWhatsApp
+                            allowCopy
+                          />
                         )}
                       </div>
                     );
@@ -357,8 +372,11 @@ export const ServiceGroupDetailsModal: React.FC<ServiceGroupDetailsModalProps> =
                   {filteredServants.map((m) => {
                     const phone = m.personalInfo?.phone;
                     return (
-                      <div key={m.id} className="p-2.5 flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div key={m.id} className="p-2.5 flex items-center justify-between gap-2 hover:bg-zinc-100/60 dark:hover:bg-zinc-800/60 transition">
+                        <div
+                          onClick={() => onSelectServant?.(m)}
+                          className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer group"
+                        >
                           <div className="w-8 h-8 rounded-xl overflow-hidden shrink-0 flex items-center justify-center border border-zinc-200 dark:border-zinc-700">
                             {m.personalInfo?.photoUrl ? (
                               <img src={m.personalInfo.photoUrl} alt="" className="w-full h-full object-cover" />
@@ -369,8 +387,8 @@ export const ServiceGroupDetailsModal: React.FC<ServiceGroupDetailsModalProps> =
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
-                              {m.displayName}
+                            <p className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate group-hover:text-blue-600 group-hover:underline">
+                              {m.displayName} ➔
                             </p>
                             <p className="text-[10px] text-zinc-400 truncate">
                               {m.email}
@@ -379,24 +397,14 @@ export const ServiceGroupDetailsModal: React.FC<ServiceGroupDetailsModalProps> =
                         </div>
 
                         {phone && (
-                          <div className="flex items-center gap-1 shrink-0">
-                            <a
-                              href={`tel:${phone}`}
-                              className="p-1.5 rounded-lg text-blue-600 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 transition min-h-[36px] min-w-[36px] flex items-center justify-center touch-manipulation"
-                              title={translate('phone')}
-                            >
-                              <Phone className="w-3.5 h-3.5" />
-                            </a>
-                            <a
-                              href={`https://wa.me/${phone.replace(/\+/g, '')}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="p-1.5 rounded-lg text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 transition min-h-[36px] min-w-[36px] flex items-center justify-center touch-manipulation"
-                              title="WhatsApp"
-                            >
-                              <MessageSquare className="w-3.5 h-3.5" />
-                            </a>
-                          </div>
+                          <PhoneActionGroup
+                            phone={phone}
+                            personName={m.displayName}
+                            compact
+                            allowCall
+                            allowWhatsApp
+                            allowCopy
+                          />
                         )}
                       </div>
                     );

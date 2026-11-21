@@ -17,6 +17,7 @@ import { useFilter } from '../context/FilterContext';
 import type { Kid, Mister, HomeVisit, ClassDoc } from '../types';
 import { LogVisitModal } from '../components/visits/LogVisitModal';
 import { KidDetailsModal } from '../components/kids/KidDetailsModal';
+import { PhoneActionGroup } from '../components/common/PhoneActionGroup';
 import { sanitizeExcelCell } from '../utils/formatters';
 import { 
   getUniversalNavigationUrl, 
@@ -35,7 +36,6 @@ import {
   Users, 
   MessageSquare,
   Sparkles,
-  ExternalLink,
   Navigation,
   Phone,
   HeartHandshake,
@@ -1140,26 +1140,17 @@ export const HomeVisitsScreen: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0">
                       {targetPhone && (
-                        <a
-                          href={`tel:${targetPhone}`}
-                          className="p-2 rounded-xl text-blue-600 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 active:scale-95 transition"
-                          title={translate('call_parent')}
-                        >
-                          <Phone className="w-3.5 h-3.5" />
-                        </a>
-                      )}
-                      {targetPhone && (
-                        <a
-                          href={`https://wa.me/${targetPhone.replace(/\+/g, '')}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="p-2 rounded-xl text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 active:scale-95 transition"
-                          title="WhatsApp"
-                        >
-                          <MessageSquare className="w-3.5 h-3.5" />
-                        </a>
+                        <PhoneActionGroup
+                          phone={targetPhone}
+                          personName={kid.info.fullName}
+                          compact
+                          showNumber={false}
+                          allowCall
+                          allowWhatsApp
+                          allowCopy
+                        />
                       )}
                       {kid.address?.geoLocation && (
                         <a
@@ -1191,9 +1182,6 @@ export const HomeVisitsScreen: React.FC = () => {
               ].filter(Boolean);
 
               const fullAddress = addressParts.join(', ');
-              const mapsQuery = [kid.address?.landmark, fullAddress].filter(Boolean).join(', ');
-              const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`;
-
               const isHistoryOpen = !!expandedKidHistories[kid.id];
 
               return (
@@ -1283,44 +1271,33 @@ export const HomeVisitsScreen: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Parents Contact shortcuts */}
-                    <div className="flex items-center gap-2 pt-0.5">
-                      {kid.contacts?.fatherMob && (
-                        <a
-                          href={`https://wa.me/${kid.contacts.fatherMob.replace(/\+/g, '')}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="min-h-[44px] sm:min-h-0 flex-1 flex items-center justify-center gap-1.5 py-2 sm:py-1.5 px-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 text-xs sm:text-[11px] font-bold transition touch-manipulation"
-                          title="WhatsApp Father"
-                        >
-                          <MessageSquare className="w-3.5 h-3.5 shrink-0" />
-                          <span>{translate('call_father')}</span>
-                        </a>
-                      )}
-                      {kid.contacts?.motherMob && (
-                        <a
-                          href={`https://wa.me/${kid.contacts.motherMob.replace(/\+/g, '')}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="min-h-[44px] sm:min-h-0 flex-1 flex items-center justify-center gap-1.5 py-2 sm:py-1.5 px-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 text-xs sm:text-[11px] font-bold transition touch-manipulation"
-                          title="WhatsApp Mother"
-                        >
-                          <MessageSquare className="w-3.5 h-3.5 shrink-0" />
-                          <span>{translate('call_mother')}</span>
-                        </a>
-                      )}
-                      {mapsQuery && (
-                        <a
-                          href={mapsUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center p-2 sm:p-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 text-blue-700 dark:text-blue-300 transition touch-manipulation"
-                          title={translate('directions_map')}
-                        >
-                          <ExternalLink className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-                        </a>
-                      )}
-                    </div>
+                    {/* Parents Contact shortcuts with Call, WhatsApp, and Copy */}
+                    {(kid.contacts?.fatherMob || kid.contacts?.motherMob) && (
+                      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                        {kid.contacts?.fatherMob && (
+                          <PhoneActionGroup
+                            phone={kid.contacts.fatherMob}
+                            label={translate('father') || 'Father'}
+                            personName={kid.contacts?.fatherName}
+                            compact
+                            allowCall
+                            allowWhatsApp
+                            allowCopy
+                          />
+                        )}
+                        {kid.contacts?.motherMob && (
+                          <PhoneActionGroup
+                            phone={kid.contacts.motherMob}
+                            label={translate('mother') || 'Mother'}
+                            personName={kid.contacts?.motherName}
+                            compact
+                            allowCall
+                            allowWhatsApp
+                            allowCopy
+                          />
+                        )}
+                      </div>
+                    )}
 
                     {/* GPS Navigation & Pinning Bar */}
                     {kid.address?.geoLocation ? (

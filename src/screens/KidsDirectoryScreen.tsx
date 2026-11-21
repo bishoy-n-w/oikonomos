@@ -11,6 +11,9 @@ import { BulkAssignmentModal } from '../components/kids/BulkAssignmentModal';
 import { SmartImportModal } from '../components/kids/SmartImportModal';
 import { PrintIdCardsModal } from '../components/kids/PrintIdCardsModal';
 import { KidDetailsModal } from '../components/kids/KidDetailsModal';
+import { ClassDetailsModal } from '../components/classes/ClassDetailsModal';
+import { ServiceGroupDetailsModal } from '../components/groups/ServiceGroupDetailsModal';
+import { PhoneActionGroup } from '../components/common/PhoneActionGroup';
 import { MobileViewToggle } from '../components/common/MobileViewToggle';
 import { normalizePhoneNumber } from '../services/googleContacts';
 import { normalizeDateStr, safeRender, sanitizeExcelCell } from '../utils/formatters';
@@ -25,8 +28,6 @@ import {
 import type { Kid, ClassDoc, KidVersion } from '../types';
 import { 
   Plus, 
-  Phone, 
-  MessageSquare, 
   BookUser, 
   Trash2, 
   Edit3, 
@@ -117,6 +118,8 @@ export const KidsDirectoryScreen: React.FC = () => {
   const [kidsToPrint, setKidsToPrint] = useState<Kid[]>([]);
   const [activeKid, setActiveKid] = useState<Kid | null>(null);
   const [viewingKid, setViewingKid] = useState<Kid | null>(null);
+  const [viewingClass, setViewingClass] = useState<ClassDoc | null>(null);
+  const [viewingGroup, setViewingGroup] = useState<{ id: string; displayName: string } | null>(null);
 
   const isAdmin = userRole === 'Admin' || userRole === 'owner';
   const isChurchAdminOrOwner = isAdmin;
@@ -1182,24 +1185,15 @@ export const KidsDirectoryScreen: React.FC = () => {
                   {/* Actions Strip */}
                   <div className="flex items-center gap-1 shrink-0">
                     {primaryPhone && (
-                      <a
-                        href={`tel:${primaryPhone}`}
-                        className="p-2 rounded-xl text-blue-600 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 active:scale-95 transition"
-                        title={translate('phone')}
-                      >
-                        <Phone className="w-3.5 h-3.5" />
-                      </a>
-                    )}
-                    {primaryPhone && (
-                      <a
-                        href={`https://wa.me/${String(primaryPhone).replace(/\+/g, '')}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="p-2 rounded-xl text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 active:scale-95 transition"
-                        title="WhatsApp"
-                      >
-                        <MessageSquare className="w-3.5 h-3.5" />
-                      </a>
+                      <PhoneActionGroup
+                        phone={primaryPhone}
+                        personName={kid.info.fullName}
+                        compact
+                        showNumber={false}
+                        allowCall
+                        allowWhatsApp
+                        allowCopy
+                      />
                     )}
                     <button
                       type="button"
@@ -1234,8 +1228,6 @@ export const KidsDirectoryScreen: React.FC = () => {
           displayedKids.map((kid) => {
           const fatherPhone = kid.contacts?.fatherMob;
           const motherPhone = kid.contacts?.motherMob;
-          const kidPhone = kid.contacts?.kidMob;
-          const primaryPhone = fatherPhone || motherPhone || kidPhone;
           const isSelected = selectedKidIds.includes(kid.id);
           const isExpanded = !!expandedKidDetails[kid.id];
 
@@ -1352,37 +1344,30 @@ export const KidsDirectoryScreen: React.FC = () => {
                 )}
               </div>
 
-              {/* Clean Inline Contact Strip (Only renders channels that actually exist!) */}
-              {(fatherPhone || motherPhone || primaryPhone) && (
+              {/* Clean Inline Contact Strip with Call, WhatsApp, and Copy */}
+              {(fatherPhone || motherPhone) && (
                 <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-zinc-100 dark:border-zinc-800/80">
                   {fatherPhone && (
-                    <a
-                      href={`tel:${fatherPhone}`}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 active:scale-95 transition"
-                    >
-                      <Phone className="w-3.5 h-3.5 shrink-0" />
-                      <span>{translate('father') || 'Father'}</span>
-                    </a>
+                    <PhoneActionGroup
+                      phone={fatherPhone}
+                      label="Father"
+                      personName={kid.contacts?.fatherName}
+                      compact
+                      allowCall
+                      allowWhatsApp
+                      allowCopy
+                    />
                   )}
                   {motherPhone && (
-                    <a
-                      href={`tel:${motherPhone}`}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 active:scale-95 transition"
-                    >
-                      <Phone className="w-3.5 h-3.5 shrink-0" />
-                      <span>{translate('mother') || 'Mother'}</span>
-                    </a>
-                  )}
-                  {primaryPhone && (
-                    <a
-                      href={`https://wa.me/${String(primaryPhone).replace(/\+/g, '')}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 active:scale-95 transition"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5 shrink-0" />
-                      <span>WhatsApp</span>
-                    </a>
+                    <PhoneActionGroup
+                      phone={motherPhone}
+                      label="Mother"
+                      personName={kid.contacts?.motherName}
+                      compact
+                      allowCall
+                      allowWhatsApp
+                      allowCopy
+                    />
                   )}
                 </div>
               )}
@@ -2134,8 +2119,43 @@ export const KidsDirectoryScreen: React.FC = () => {
             setKidsToPrint([viewingKid]);
             setPrintModalOpen(true);
           }}
+          onSelectClass={(classId) => {
+            const found = classesList.find((c) => c.id === classId);
+            if (found) setViewingClass(found);
+          }}
+          onSelectServiceGroup={(groupId) => {
+            const grp = serviceGroups.find((g) => g.id === groupId);
+            if (grp) setViewingGroup(grp);
+          }}
           classes={classes}
           serviceGroups={serviceGroups}
+        />
+      )}
+
+      {/* Child Drill-Down: Class Details Modal */}
+      {viewingClass && (
+        <ClassDetailsModal
+          classDoc={viewingClass}
+          activeAcademicYearId={selectedAcademicYearId}
+          allKids={kids}
+          allMisters={[]}
+          serviceGroups={serviceGroups}
+          canEdit={false}
+          onClose={() => setViewingClass(null)}
+          onBack={() => setViewingClass(null)}
+          backLabel={viewingKid?.info.fullName}
+        />
+      )}
+
+      {/* Child Drill-Down: Service Group Details Modal */}
+      {viewingGroup && (
+        <ServiceGroupDetailsModal
+          group={{ id: viewingGroup.id, displayName: viewingGroup.displayName, active: true }}
+          allMisters={[]}
+          canEdit={false}
+          onClose={() => setViewingGroup(null)}
+          onBack={() => setViewingGroup(null)}
+          backLabel={viewingKid?.info.fullName}
         />
       )}
 

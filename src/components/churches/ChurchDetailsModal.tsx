@@ -2,6 +2,7 @@ import React from 'react';
 import type { Church, AcademicYear, ServiceGroup } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { useModalEscape } from '../../utils/useModalEscape';
+import { useModalHistory } from '../../utils/useModalHistory';
 import { useBottomSheetDrag } from '../../utils/useBottomSheetDrag';
 import {
   X,
@@ -9,6 +10,7 @@ import {
   Calendar,
   Award,
   Settings,
+  ChevronLeft,
 } from 'lucide-react';
 
 export interface ChurchDetailsModalProps {
@@ -19,6 +21,8 @@ export interface ChurchDetailsModalProps {
   canEdit?: boolean;
   onEdit?: () => void;
   onClose: () => void;
+  onBack?: () => void;
+  backLabel?: string;
   onManageGrades?: () => void;
 }
 
@@ -30,11 +34,14 @@ export const ChurchDetailsModal: React.FC<ChurchDetailsModalProps> = ({
   canEdit = false,
   onEdit,
   onClose,
+  onBack,
+  backLabel,
   onManageGrades,
 }) => {
   const { translate, isRtl } = useApp();
 
   useModalEscape(onClose, true);
+  useModalHistory(`church-${church.id}`, true, onClose);
   const { dragHandleProps, sheetStyle } = useBottomSheetDrag({ onClose });
 
   const grades = church.grades || {};
@@ -72,6 +79,20 @@ export const ChurchDetailsModal: React.FC<ChurchDetailsModalProps> = ({
         >
           <div className="w-12 h-1.5 bg-zinc-300 dark:bg-zinc-700 rounded-full" />
         </div>
+
+        {/* Back Button Navigation if opened from another entity */}
+        {onBack && (
+          <div className="pb-2">
+            <button
+              type="button"
+              onClick={onBack}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition cursor-pointer touch-manipulation"
+            >
+              <ChevronLeft className={`w-4 h-4 ${isRtl ? 'rotate-180' : ''}`} />
+              <span>{backLabel ? `Back to ${backLabel}` : 'Back'}</span>
+            </button>
+          </div>
+        )}
 
         {/* Modal Header */}
         <div className="flex items-start justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800 gap-3 shrink-0">

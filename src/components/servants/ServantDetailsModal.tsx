@@ -2,27 +2,33 @@ import React from 'react';
 import type { Mister, ServiceGroup, ClassDoc } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { useModalEscape } from '../../utils/useModalEscape';
+import { useModalHistory } from '../../utils/useModalHistory';
 import { useBottomSheetDrag } from '../../utils/useBottomSheetDrag';
 import { formatAge, safeRender } from '../../utils/formatters';
+import { PhoneActionGroup } from '../common/PhoneActionGroup';
+import { CopyableField } from '../common/CopyableField';
 import {
   X,
   Edit3,
-  Phone,
-  MessageSquare,
   Mail,
   Briefcase,
   Shield,
   BookOpen,
+  ChevronLeft,
 } from 'lucide-react';
 
 export interface ServantDetailsModalProps {
   mister: Mister;
-  allGroups?: ServiceGroup[];
+  allGroups?: Array<Partial<ServiceGroup> & { id: string; displayName?: string }>;
   allClasses?: ClassDoc[];
   activeAcademicYearId?: string | null;
   canEdit?: boolean;
   onEdit?: () => void;
   onClose: () => void;
+  onBack?: () => void;
+  backLabel?: string;
+  onSelectClass?: (classDoc: ClassDoc) => void;
+  onSelectGroup?: (group: Partial<ServiceGroup> & { id: string; displayName?: string }) => void;
 }
 
 export const ServantDetailsModal: React.FC<ServantDetailsModalProps> = ({
@@ -33,49 +39,43 @@ export const ServantDetailsModal: React.FC<ServantDetailsModalProps> = ({
   canEdit = false,
   onEdit,
   onClose,
+  onBack,
+  backLabel,
+  onSelectClass,
+  onSelectGroup,
 }) => {
   const { translate, isRtl } = useApp();
 
   useModalEscape(onClose, true);
+  useModalHistory(`servant-${mister.id}`, true, onClose);
   const { dragHandleProps, sheetStyle } = useBottomSheetDrag({ onClose });
 
   const emailKey = (mister.email || mister.id || '').toLowerCase().trim();
   const phone = mister.personalInfo?.phone?.trim();
 
   // Find groups where mister is Admin
-  const adminGroups = allGroups
-    .filter((g) => {
-      if (g.misters && g.misters[emailKey] === 'admin') return true;
-      return (g.admins || []).map((e) => e.toLowerCase().trim()).includes(emailKey);
-    })
-    .map((g) => g.displayName);
+  const adminGroups = allGroups.filter((g) => {
+    if (g.misters && g.misters[emailKey] === 'admin') return true;
+    return (g.admins || []).map((e) => e.toLowerCase().trim()).includes(emailKey);
+  });
 
   // Find groups where mister is Servant
-  const servantGroups = allGroups
-    .filter((g) => {
-      if (g.misters && g.misters[emailKey] === 'servant') return true;
-      return (g.servants || []).map((e) => e.toLowerCase().trim()).includes(emailKey);
-    })
-    .map((g) => g.displayName);
+  const servantGroups = allGroups.filter((g) => {
+    if (g.misters && g.misters[emailKey] === 'servant') return true;
+    return (g.servants || []).map((e) => e.toLowerCase().trim()).includes(emailKey);
+  });
 
   // Find classes where mister is Servant
-  const assignedClasses = allClasses
-    .filter((cls) => {
-      const yearData = activeAcademicYearId
-        ? cls.academicYears?.[activeAcademicYearId]
-        : Object.values(cls.academicYears || {})[0];
-      if (!yearData) return false;
-      const misters = (yearData.MistersIds || yearData.servants || []).map((e) =>
-        e.toLowerCase().trim()
-      );
-      return misters.includes(emailKey);
-    })
-    .map((cls) => {
-      const yearData = activeAcademicYearId
-        ? cls.academicYears?.[activeAcademicYearId]
-        : Object.values(cls.academicYears || {})[0];
-      return yearData?.displayName || yearData?.name || cls.id;
-    });
+  const assignedClasses = allClasses.filter((cls) => {
+    const yearData = activeAcademicYearId
+      ? cls.academicYears?.[activeAcademicYearId]
+      : Object.values(cls.academicYears || {})[0];
+    if (!yearData) return false;
+    const misters = (yearData.MistersIds || yearData.servants || []).map((e) =>
+      e.toLowerCase().trim()
+    );
+    return misters.includes(emailKey);
+  });
 
   const calculatedAge = formatAge(mister.personalInfo?.dob);
 
@@ -100,6 +100,20 @@ export const ServantDetailsModal: React.FC<ServantDetailsModalProps> = ({
         >
           <div className="w-12 h-1.5 bg-zinc-300 dark:bg-zinc-700 rounded-full" />
         </div>
+
+        {/* Back Button Navigation if opened from another entity */}
+        {onBack && (
+          <div className="pb-2">
+            <button
+              type="button"
+              onClick={onBack}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition cursor-pointer touch-manipulation"
+            >
+              <ChevronLeft className={`w-4 h-4 ${isRtl ? 'rotate-180' : ''}`} />
+              <span>{backLabel ? `Back to ${backLabel}` : 'Back'}</span>
+            </button>
+          </div>
+        )}
 
         {/* Modal Header */}
         <div className="flex items-start justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800 gap-3 shrink-0">
@@ -165,34 +179,12 @@ export const ServantDetailsModal: React.FC<ServantDetailsModalProps> = ({
         </div>
 
         {/* Quick Actions Strip */}
-        <div className="py-3 flex flex-wrap items-center gap-2 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
-          {phone && (
-            <a
-              href={`tel:${phone}`}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 active:scale-95 transition min-h-[44px] touch-manipulation"
-              title={translate('phone')}
-            >
-              <Phone className="w-3.5 h-3.5" />
-              <span>Call ({phone})</span>
-            </a>
-          )}
-          {phone && (
-            <a
-              href={`https://wa.me/${phone.replace(/\+/g, '')}`}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 active:scale-95 transition min-h-[44px] touch-manipulation"
-              title="WhatsApp"
-            >
-              <MessageSquare className="w-3.5 h-3.5" />
-              <span>WhatsApp</span>
-            </a>
-          )}
+        <div className="py-2.5 flex flex-wrap items-center gap-2 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
           {mister.email && (
             <a
               href={`mailto:${mister.email}`}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 hover:bg-teal-100 active:scale-95 transition min-h-[44px] touch-manipulation"
-              title="Email"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 hover:bg-teal-100 active:scale-95 transition min-h-[40px] touch-manipulation"
+              title="Send Email"
             >
               <Mail className="w-3.5 h-3.5" />
               <span>Email</span>
@@ -200,9 +192,9 @@ export const ServantDetailsModal: React.FC<ServantDetailsModalProps> = ({
           )}
         </div>
 
-        {/* Scrollable Information Body */}
-        <div className="overflow-y-auto flex-1 min-h-0 space-y-4 py-3 pr-1 text-xs">
-          {/* Section: Ministry Assignments */}
+        {/* Scrollable Information Body with Phone Actions & Copy Fields */}
+        <div className="overflow-y-auto flex-1 min-h-0 space-y-3.5 py-3 pr-1 text-xs">
+          {/* Section: Ministry Assignments with Cross-Entity Drill Down */}
           <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/70 dark:border-zinc-700/70 space-y-3">
             <h3 className="font-bold text-xs text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
               <Shield className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
@@ -216,13 +208,16 @@ export const ServantDetailsModal: React.FC<ServantDetailsModalProps> = ({
               </span>
               {adminGroups.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
-                  {adminGroups.map((g, i) => (
-                    <span
-                      key={i}
-                      className="px-2.5 py-0.5 rounded-lg bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[11px] font-semibold"
+                  {adminGroups.map((g) => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => onSelectGroup?.(g)}
+                      className="px-2.5 py-1 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[11px] font-semibold hover:underline cursor-pointer flex items-center gap-1"
                     >
-                      {g}
-                    </span>
+                      <span>{g.displayName}</span>
+                      <span className="text-[10px]">➔</span>
+                    </button>
                   ))}
                 </div>
               ) : (
@@ -237,13 +232,16 @@ export const ServantDetailsModal: React.FC<ServantDetailsModalProps> = ({
                   Servant in Groups:
                 </span>
                 <div className="flex flex-wrap gap-1.5">
-                  {servantGroups.map((g, i) => (
-                    <span
-                      key={i}
-                      className="px-2.5 py-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 text-[11px] font-semibold"
+                  {servantGroups.map((g) => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => onSelectGroup?.(g)}
+                      className="px-2.5 py-1 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 text-[11px] font-semibold hover:underline cursor-pointer flex items-center gap-1"
                     >
-                      {g}
-                    </span>
+                      <span>{g.displayName}</span>
+                      <span className="text-[10px]">➔</span>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -256,15 +254,24 @@ export const ServantDetailsModal: React.FC<ServantDetailsModalProps> = ({
               </span>
               {assignedClasses.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
-                  {assignedClasses.map((c, i) => (
-                    <span
-                      key={i}
-                      className="px-2.5 py-0.5 rounded-lg bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-200 border border-teal-200 dark:border-teal-800 text-[11px] font-semibold"
-                    >
-                      <BookOpen className="w-3 h-3 inline me-1" />
-                      {c}
-                    </span>
-                  ))}
+                  {assignedClasses.map((c) => {
+                    const yearData = activeAcademicYearId
+                      ? c.academicYears?.[activeAcademicYearId]
+                      : Object.values(c.academicYears || {})[0];
+                    const cName = yearData?.displayName || yearData?.name || c.id;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => onSelectClass?.(c)}
+                        className="px-2.5 py-1 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-200 border border-teal-200 dark:border-teal-800 text-[11px] font-semibold hover:underline cursor-pointer flex items-center gap-1"
+                      >
+                        <BookOpen className="w-3 h-3 inline me-1" />
+                        <span>{cName}</span>
+                        <span className="text-[10px]">➔</span>
+                      </button>
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-zinc-400 italic text-[11px]">No active classes assigned</p>
@@ -272,56 +279,58 @@ export const ServantDetailsModal: React.FC<ServantDetailsModalProps> = ({
             </div>
           </div>
 
-          {/* Section: Personal Info */}
-          <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/70 dark:border-zinc-700/70 space-y-2.5">
+          {/* Section: Personal Info (PhoneActionGroup & Copyable Fields) */}
+          <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/70 dark:border-zinc-700/70 space-y-3">
             <h3 className="font-bold text-xs text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
               <Briefcase className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-              <span>Personal Details</span>
+              <span>Contact & Personal Details</span>
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-[11px] pt-1">
+            {/* Phone Action Group */}
+            {phone && (
+              <PhoneActionGroup
+                phone={phone}
+                label="Servant Mobile"
+                personName={mister.displayName}
+              />
+            )}
+
+            {/* Email with 1-Tap Copy */}
+            <CopyableField
+              label="Email Address"
+              value={mister.email}
+              compact
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
               <div>
                 <span className="text-zinc-400 block">Profession / Job</span>
-                <span className="font-semibold text-zinc-800 dark:text-zinc-200">
-                  {mister.personalInfo?.job || '-'}
-                </span>
-              </div>
-              <div>
-                <span className="text-zinc-400 block">Phone</span>
-                <span className="font-semibold text-zinc-800 dark:text-zinc-200 font-mono">
-                  {mister.personalInfo?.phone || '-'}
-                </span>
+                <CopyableField
+                  value={mister.personalInfo?.job}
+                  label="Profession"
+                  compact
+                />
               </div>
               <div>
                 <span className="text-zinc-400 block">Date of Birth</span>
                 <span className="font-semibold text-zinc-800 dark:text-zinc-200">
-                  {safeRender(mister.personalInfo?.dob)}
-                </span>
-              </div>
-              <div>
-                <span className="text-zinc-400 block">Age</span>
-                <span className="font-semibold text-zinc-800 dark:text-zinc-200">
-                  {calculatedAge || '-'}
+                  {safeRender(mister.personalInfo?.dob) || '-'} {calculatedAge && `(${calculatedAge})`}
                 </span>
               </div>
             </div>
 
             {mister.personalInfo?.address && (
-              <div className="pt-2 border-t border-zinc-200/60 dark:border-zinc-700/60">
-                <span className="text-zinc-400 block mb-0.5">Address:</span>
-                <p className="text-[11px] text-zinc-700 dark:text-zinc-300 font-medium">
-                  {mister.personalInfo.address}
-                </p>
-              </div>
+              <CopyableField
+                label="Address"
+                value={mister.personalInfo.address}
+              />
             )}
 
             {mister.personalInfo?.notes && (
-              <div className="pt-2 border-t border-zinc-200/60 dark:border-zinc-700/60">
-                <span className="text-zinc-400 block mb-0.5">Notes:</span>
-                <p className="text-[11px] text-zinc-700 dark:text-zinc-300 italic whitespace-pre-wrap bg-white dark:bg-zinc-900 p-2 rounded-xl border border-zinc-200/50 dark:border-zinc-700/50">
-                  {mister.personalInfo.notes}
-                </p>
-              </div>
+              <CopyableField
+                label="Notes"
+                value={mister.personalInfo.notes}
+              />
             )}
           </div>
         </div>
@@ -347,7 +356,7 @@ export const ServantDetailsModal: React.FC<ServantDetailsModalProps> = ({
               className="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 active:scale-95 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm min-h-[44px] cursor-pointer touch-manipulation"
             >
               <Edit3 className="w-4 h-4" />
-              <span>{translate('edit') || 'Edit Profile'}</span>
+              <span>{translate('edit') || 'Edit'}</span>
             </button>
           )}
         </div>

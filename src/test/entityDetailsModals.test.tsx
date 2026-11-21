@@ -1,11 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, renderHook, act } from '@testing-library/react';
 import { AppProvider } from '../context/AppContext';
 import { KidDetailsModal } from '../components/kids/KidDetailsModal';
 import { ClassDetailsModal } from '../components/classes/ClassDetailsModal';
 import { ServiceGroupDetailsModal } from '../components/groups/ServiceGroupDetailsModal';
 import { ServantDetailsModal } from '../components/servants/ServantDetailsModal';
 import { ChurchDetailsModal } from '../components/churches/ChurchDetailsModal';
+import { PhoneActionGroup } from '../components/common/PhoneActionGroup';
+import { CopyableField } from '../components/common/CopyableField';
+import { useModalHistory } from '../utils/useModalHistory';
 import type { Kid, ClassDoc, ServiceGroup, Mister, Church } from '../types';
 
 describe('Read-Only Entity Details Modals & Role-Gated Transitions', () => {
@@ -410,6 +413,161 @@ describe('Read-Only Entity Details Modals & Role-Gated Transitions', () => {
       expect(editBtn).toBeTruthy();
       fireEvent.click(editBtn);
       expect(handleEdit).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Universal Communications (PhoneActionGroup)', () => {
+    it('renders phone number, call link, whatsapp link, and copy button', () => {
+      render(
+        <PhoneActionGroup
+          phone="+201234567890"
+          label="Father Mobile"
+          personName="Fakhry"
+        />
+      );
+
+      expect(screen.getByText('+201234567890')).toBeTruthy();
+      const callLink = screen.getByRole('link', { name: /Call/i });
+      expect(callLink.getAttribute('href')).toBe('tel:+201234567890');
+
+      const waLink = screen.getByRole('link', { name: /WhatsApp/i });
+      expect(waLink.getAttribute('href')).toContain('https://wa.me/201234567890');
+
+      const copyBtn = screen.getByRole('button', { name: /Copy/i });
+      expect(copyBtn).toBeTruthy();
+    });
+
+    it('copies phone number to clipboard when Copy button is clicked', async () => {
+      const writeTextMock = vi.fn().mockResolvedValue(undefined);
+      Object.assign(navigator, {
+        clipboard: { writeText: writeTextMock },
+      });
+
+      render(
+        <PhoneActionGroup
+          phone="+201098765432"
+          label="Mother"
+        />
+      );
+
+      const copyBtn = screen.getByRole('button', { name: /Copy/i });
+      fireEvent.click(copyBtn);
+
+      expect(writeTextMock).toHaveBeenCalledWith('+201098765432');
+    });
+  });
+
+  describe('Universal 1-Tap Copy (CopyableField)', () => {
+    it('renders label, value, and copies to clipboard on click', async () => {
+      const writeTextMock = vi.fn().mockResolvedValue(undefined);
+      Object.assign(navigator, {
+        clipboard: { writeText: writeTextMock },
+      });
+
+      render(
+        <CopyableField
+          label="Address"
+          value="15 Baghdad Street, Cairo"
+        />
+      );
+
+      expect(screen.getByText('Address')).toBeTruthy();
+      expect(screen.getByText('15 Baghdad Street, Cairo')).toBeTruthy();
+
+      const copyBtn = screen.getByRole('button', { name: /Copy Address/i });
+      fireEvent.click(copyBtn);
+
+      expect(writeTextMock).toHaveBeenCalledWith('15 Baghdad Street, Cairo');
+    });
+  });
+
+  describe('Device Back Button Dismissal (useModalHistory)', () => {
+    it('pushes history state on mount and triggers onClose on popstate', () => {
+      const handleClose = vi.fn();
+      const pushStateSpy = vi.spyOn(window.history, 'pushState');
+
+      const { unmount } = renderHook(() =>
+        useModalHistory('test-modal', true, handleClose)
+      );
+
+      expect(pushStateSpy).toHaveBeenCalledWith({ modalId: 'test-modal' }, '');
+
+      // Simulate device back button (popstate event)
+      act(() => {
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      });
+
+      expect(handleClose).toHaveBeenCalledTimes(1);
+
+      unmount();
+    });
+  });
+
+  describe('Cross-Entity Drill-Down Navigation', () => {
+    it('triggers onSelectKid when an enrolled student is clicked in ClassDetailsModal', () => {
+      const handleSelectKid = vi.fn();
+      render(
+        <AppProvider>
+          <ClassDetailsModal
+            classDoc={mockClassDoc}
+            activeAcademicYearId="ay-2026"
+            allKids={[mockKid]}
+            allMisters={[mockMister]}
+            serviceGroups={[mockGroup]}
+            onClose={vi.fn()}
+            onSelectKid={handleSelectKid}
+          />
+        </AppProvider>
+      );
+
+      const studentNameBtn = screen.getByText('Bishoy Fakhry');
+      fireEvent.click(studentNameBtn);
+
+      expect(handleSelectKid).toHaveBeenCalledWith(mockKid);
+    });
+
+    it('triggers onSelectServant when an assigned servant is clicked in ClassDetailsModal', () => {
+      const handleSelectServant = vi.fn();
+      render(
+        <AppProvider>
+          <ClassDetailsModal
+            classDoc={mockClassDoc}
+            activeAcademicYearId="ay-2026"
+            allKids={[mockKid]}
+            allMisters={[mockMister]}
+            serviceGroups={[mockGroup]}
+            onClose={vi.fn()}
+            onSelectServant={handleSelectServant}
+          />
+        </AppProvider>
+      );
+
+      // Switch to servants tab
+      fireEvent.click(screen.getByText(/Servants/i));
+
+      const servantNameBtn = screen.getByText('Peter Samir');
+      fireEvent.click(servantNameBtn);
+
+      expect(handleSelectServant).toHaveBeenCalledWith(mockMister);
+    });
+
+    it('renders Back button in KidDetailsModal when onBack is provided', () => {
+      const handleBack = vi.fn();
+      render(
+        <AppProvider>
+          <KidDetailsModal
+            kid={mockKid}
+            onClose={vi.fn()}
+            onBack={handleBack}
+            backLabel="5th Primary"
+          />
+        </AppProvider>
+      );
+
+      const backBtn = screen.getByRole('button', { name: /Back to 5th Primary/i });
+      expect(backBtn).toBeTruthy();
+      fireEvent.click(backBtn);
+      expect(handleBack).toHaveBeenCalledTimes(1);
     });
   });
 });

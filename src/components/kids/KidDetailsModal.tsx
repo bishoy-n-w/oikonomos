@@ -2,9 +2,12 @@ import React from 'react';
 import type { Kid } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { useModalEscape } from '../../utils/useModalEscape';
+import { useModalHistory } from '../../utils/useModalHistory';
 import { useBottomSheetDrag } from '../../utils/useBottomSheetDrag';
 import { getUniversalNavigationUrl } from '../../utils/geo';
 import { formatAge, safeRender } from '../../utils/formatters';
+import { PhoneActionGroup } from '../common/PhoneActionGroup';
+import { CopyableField } from '../common/CopyableField';
 import {
   X,
   Edit3,
@@ -18,6 +21,7 @@ import {
   HeartHandshake,
   Users,
   Cross,
+  ChevronLeft,
 } from 'lucide-react';
 
 export interface KidDetailsModalProps {
@@ -25,6 +29,10 @@ export interface KidDetailsModalProps {
   canEdit?: boolean;
   onEdit?: () => void;
   onClose: () => void;
+  onBack?: () => void;
+  backLabel?: string;
+  onSelectClass?: (classId: string) => void;
+  onSelectServiceGroup?: (groupId: string) => void;
   onPrintBadge?: () => void;
   onLogVisit?: () => void;
   classes?: Array<{ id: string; displayName?: string; name?: string }>;
@@ -36,6 +44,10 @@ export const KidDetailsModal: React.FC<KidDetailsModalProps> = ({
   canEdit = false,
   onEdit,
   onClose,
+  onBack,
+  backLabel,
+  onSelectClass,
+  onSelectServiceGroup,
   onPrintBadge,
   onLogVisit,
   classes = [],
@@ -44,22 +56,20 @@ export const KidDetailsModal: React.FC<KidDetailsModalProps> = ({
   const { translate, isRtl } = useApp();
 
   useModalEscape(onClose, true);
+  useModalHistory(`kid-${kid.id}`, true, onClose);
   const { dragHandleProps, sheetStyle } = useBottomSheetDrag({ onClose });
 
   const fatherPhone = kid.contacts?.fatherMob?.trim();
   const motherPhone = kid.contacts?.motherMob?.trim();
   const kidPhone = kid.contacts?.kidMob?.trim();
-  const primaryPhone = fatherPhone || motherPhone || kidPhone;
 
-  const currentClass = classes.find(
-    (c) => c.id === (kid.activeAssignment?.classId || kid.classId)
-  );
-  const className = currentClass?.displayName || currentClass?.name || kid.activeAssignment?.classId || '-';
+  const currentClassId = kid.activeAssignment?.classId || kid.classId;
+  const currentClass = classes.find((c) => c.id === currentClassId);
+  const className = currentClass?.displayName || currentClass?.name || currentClassId || '-';
 
-  const currentGroup = serviceGroups.find(
-    (g) => g.id === (kid.activeAssignment?.serviceGroupId || kid.serviceGroupId)
-  );
-  const groupName = currentGroup?.displayName || kid.activeAssignment?.serviceGroupId || '-';
+  const currentGroupId = kid.activeAssignment?.serviceGroupId || kid.serviceGroupId;
+  const currentGroup = serviceGroups.find((g) => g.id === currentGroupId);
+  const groupName = currentGroup?.displayName || currentGroupId || '-';
 
   const fullAddress = [
     kid.address?.building ? `Bldg ${kid.address.building}` : '',
@@ -93,6 +103,20 @@ export const KidDetailsModal: React.FC<KidDetailsModalProps> = ({
         >
           <div className="w-12 h-1.5 bg-zinc-300 dark:bg-zinc-700 rounded-full" />
         </div>
+
+        {/* Back Button Navigation if opened from another entity */}
+        {onBack && (
+          <div className="pb-2">
+            <button
+              type="button"
+              onClick={onBack}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition cursor-pointer touch-manipulation"
+            >
+              <ChevronLeft className={`w-4 h-4 ${isRtl ? 'rotate-180' : ''}`} />
+              <span>{backLabel ? `Back to ${backLabel}` : 'Back'}</span>
+            </button>
+          </div>
+        )}
 
         {/* Modal Header */}
         <div className="flex items-start justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800 gap-3 shrink-0">
@@ -171,78 +195,95 @@ export const KidDetailsModal: React.FC<KidDetailsModalProps> = ({
           </button>
         </div>
 
-        {/* Quick Contact & Action Strip */}
-        <div className="py-3 flex flex-wrap items-center gap-2 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
+        {/* Quick Contact & Action Strip (Every Phone has Call & WhatsApp) */}
+        <div className="py-2.5 flex flex-wrap items-center gap-1.5 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
           {fatherPhone && (
-            <a
-              href={`tel:${fatherPhone}`}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 active:scale-95 transition min-h-[44px] touch-manipulation"
-              title={translate('call_parent')}
-            >
-              <Phone className="w-3.5 h-3.5" />
-              <span>{translate('father') || 'Father'}</span>
-            </a>
+            <>
+              <a
+                href={`tel:${fatherPhone}`}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 active:scale-95 transition min-h-[40px] touch-manipulation"
+                title="Call Father"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span>Call Father</span>
+              </a>
+              <a
+                href={`https://wa.me/${fatherPhone.replace(/[^\d]/g, '')}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 active:scale-95 transition min-h-[40px] touch-manipulation"
+                title="WhatsApp Father"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>WA Father</span>
+              </a>
+            </>
           )}
+
           {motherPhone && (
-            <a
-              href={`tel:${motherPhone}`}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 active:scale-95 transition min-h-[44px] touch-manipulation"
-              title={translate('mother')}
-            >
-              <Phone className="w-3.5 h-3.5" />
-              <span>{translate('mother') || 'Mother'}</span>
-            </a>
+            <>
+              <a
+                href={`tel:${motherPhone}`}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 active:scale-95 transition min-h-[40px] touch-manipulation"
+                title="Call Mother"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span>Call Mother</span>
+              </a>
+              <a
+                href={`https://wa.me/${motherPhone.replace(/[^\d]/g, '')}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 active:scale-95 transition min-h-[40px] touch-manipulation"
+                title="WhatsApp Mother"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>WA Mother</span>
+              </a>
+            </>
           )}
+
           {kidPhone && (
             <a
               href={`tel:${kidPhone}`}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 hover:bg-teal-100 active:scale-95 transition min-h-[44px] touch-manipulation"
-              title={translate('phone')}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 hover:bg-teal-100 active:scale-95 transition min-h-[40px] touch-manipulation"
+              title="Call Student"
             >
               <Phone className="w-3.5 h-3.5" />
-              <span>{translate('kids') || 'Kid'}</span>
+              <span>Call Kid</span>
             </a>
           )}
-          {primaryPhone && (
-            <a
-              href={`https://wa.me/${primaryPhone.replace(/\+/g, '')}`}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 active:scale-95 transition min-h-[44px] touch-manipulation"
-              title="WhatsApp"
-            >
-              <MessageSquare className="w-3.5 h-3.5" />
-              <span>WhatsApp</span>
-            </a>
-          )}
+
           {navUrl && (
             <a
               href={navUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 active:scale-95 transition min-h-[44px] touch-manipulation"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 active:scale-95 transition min-h-[40px] touch-manipulation"
               title={translate('navigate')}
             >
               <Navigation className="w-3.5 h-3.5" />
               <span>{translate('navigate') || 'Directions'}</span>
             </a>
           )}
+
           {onPrintBadge && (
             <button
               type="button"
               onClick={onPrintBadge}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-95 transition cursor-pointer min-h-[44px] touch-manipulation"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-95 transition cursor-pointer min-h-[40px] touch-manipulation"
               title={translate('print_id_badge')}
             >
               <IdCard className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
               <span>{translate('print_id_badge') || 'ID Card'}</span>
             </button>
           )}
+
           {onLogVisit && (
             <button
               type="button"
               onClick={onLogVisit}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 active:scale-95 transition cursor-pointer min-h-[44px] touch-manipulation"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 active:scale-95 transition cursor-pointer min-h-[40px] touch-manipulation"
               title={translate('log_visit')}
             >
               <HeartHandshake className="w-3.5 h-3.5" />
@@ -251,9 +292,9 @@ export const KidDetailsModal: React.FC<KidDetailsModalProps> = ({
           )}
         </div>
 
-        {/* Scrollable Information Body */}
-        <div className="overflow-y-auto flex-1 min-h-0 space-y-4 py-3 pr-1 text-xs">
-          {/* Section: Academic & Church Life */}
+        {/* Scrollable Information Body with Universal Copy & Action Fields */}
+        <div className="overflow-y-auto flex-1 min-h-0 space-y-3.5 py-3 pr-1 text-xs">
+          {/* Section: Academic & Church Life (Drill-Down Links) */}
           <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/70 dark:border-zinc-700/70 space-y-2">
             <h3 className="font-bold text-xs text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
               <School className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
@@ -262,8 +303,12 @@ export const KidDetailsModal: React.FC<KidDetailsModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] pt-1">
               <div>
                 <span className="text-zinc-400 block">{translate('school')}</span>
-                <div className="flex items-center gap-1.5 flex-wrap font-semibold text-zinc-800 dark:text-zinc-200">
-                  <span>{kid.info.school || '-'}</span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <CopyableField
+                    value={kid.info.school}
+                    label={translate('school')}
+                    compact
+                  />
                   {kid.info.schoolType && (
                     <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
                       {kid.info.schoolType}
@@ -271,18 +316,39 @@ export const KidDetailsModal: React.FC<KidDetailsModalProps> = ({
                   )}
                 </div>
               </div>
+
               <div>
                 <span className="text-zinc-400 block">{translate('class')}</span>
-                <span className="font-semibold text-zinc-800 dark:text-zinc-200">
-                  {className}
-                </span>
+                {onSelectClass && currentClassId ? (
+                  <button
+                    type="button"
+                    onClick={() => onSelectClass(currentClassId)}
+                    className="font-bold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer text-start flex items-center gap-1"
+                  >
+                    <span>{className}</span>
+                    <span className="text-[10px]">➔</span>
+                  </button>
+                ) : (
+                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">{className}</span>
+                )}
               </div>
+
               <div>
                 <span className="text-zinc-400 block">{translate('service_group')}</span>
-                <span className="font-semibold text-zinc-800 dark:text-zinc-200">
-                  {groupName}
-                </span>
+                {onSelectServiceGroup && currentGroupId ? (
+                  <button
+                    type="button"
+                    onClick={() => onSelectServiceGroup(currentGroupId)}
+                    className="font-bold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer text-start flex items-center gap-1"
+                  >
+                    <span>{groupName}</span>
+                    <span className="text-[10px]">➔</span>
+                  </button>
+                ) : (
+                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">{groupName}</span>
+                )}
               </div>
+
               <div>
                 <span className="text-zinc-400 block">{translate('academic_year')}</span>
                 <span className="font-semibold text-zinc-800 dark:text-zinc-200">
@@ -292,120 +358,113 @@ export const KidDetailsModal: React.FC<KidDetailsModalProps> = ({
             </div>
           </div>
 
-          {/* Section: Family & Personal Contact */}
-          <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/70 dark:border-zinc-700/70 space-y-2">
+          {/* Section: Family & Contacts (Full Action Group with Call, WhatsApp, and 1-Tap Copy) */}
+          <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/70 dark:border-zinc-700/70 space-y-3">
             <h3 className="font-bold text-xs text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
               <Users className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
               <span>{translate('family_contacts_group') || 'Family & Contacts'}</span>
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px] pt-1">
-              {/* Father */}
-              <div className="space-y-1">
-                <span className="font-bold text-zinc-500 dark:text-zinc-400 block border-b border-zinc-200/60 dark:border-zinc-700/60 pb-0.5">
-                  👨 {translate('father') || 'Father'}
-                </span>
-                <p className="text-zinc-800 dark:text-zinc-200">
-                  <span className="text-zinc-400">{translate('father_name')}: </span>
-                  <span className="font-semibold">{kid.contacts?.fatherName || '-'}</span>
-                </p>
-                {kid.contacts?.fatherProfession && (
-                  <p className="text-zinc-800 dark:text-zinc-200">
-                    <span className="text-zinc-400">{translate('father_job')}: </span>
-                    <span>{kid.contacts.fatherProfession}</span>
-                  </p>
-                )}
-                {fatherPhone && (
-                  <p className="text-zinc-800 dark:text-zinc-200">
-                    <span className="text-zinc-400">{translate('phone')}: </span>
-                    <a href={`tel:${fatherPhone}`} className="text-blue-600 dark:text-blue-400 font-mono underline">
-                      {fatherPhone}
-                    </a>
-                  </p>
-                )}
-                {kid.contacts?.fatherDOB && (
-                  <p className="text-zinc-800 dark:text-zinc-200">
-                    <span className="text-zinc-400">{translate('father_dob')}: </span>
-                    <span>{safeRender(kid.contacts.fatherDOB)}</span>
-                  </p>
-                )}
-              </div>
 
-              {/* Mother */}
-              <div className="space-y-1">
-                <span className="font-bold text-zinc-500 dark:text-zinc-400 block border-b border-zinc-200/60 dark:border-zinc-700/60 pb-0.5">
-                  👩 {translate('mother') || 'Mother'}
+            {/* Father Actions */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-zinc-700 dark:text-zinc-300 text-xs">
+                  <span>👨 {translate('father') || 'Father'}: </span>
+                  <span>{kid.contacts?.fatherName || '-'}</span>
                 </span>
-                <p className="text-zinc-800 dark:text-zinc-200">
-                  <span className="text-zinc-400">{translate('mother_name')}: </span>
-                  <span className="font-semibold">{kid.contacts?.motherName || '-'}</span>
-                </p>
-                {kid.contacts?.motherProfession && (
-                  <p className="text-zinc-800 dark:text-zinc-200">
-                    <span className="text-zinc-400">{translate('mother_job')}: </span>
-                    <span>{kid.contacts.motherProfession}</span>
-                  </p>
-                )}
-                {motherPhone && (
-                  <p className="text-zinc-800 dark:text-zinc-200">
-                    <span className="text-zinc-400">{translate('phone')}: </span>
-                    <a href={`tel:${motherPhone}`} className="text-purple-600 dark:text-purple-400 font-mono underline">
-                      {motherPhone}
-                    </a>
-                  </p>
-                )}
-                {kid.contacts?.motherDOB && (
-                  <p className="text-zinc-800 dark:text-zinc-200">
-                    <span className="text-zinc-400">{translate('mother_dob')}: </span>
-                    <span>{safeRender(kid.contacts.motherDOB)}</span>
-                  </p>
+                {kid.contacts?.fatherProfession && (
+                  <span className="text-[10px] text-zinc-400">
+                    {kid.contacts.fatherProfession}
+                  </span>
                 )}
               </div>
+              {fatherPhone && (
+                <PhoneActionGroup
+                  phone={fatherPhone}
+                  label="Father Mobile"
+                  personName={kid.contacts?.fatherName}
+                />
+              )}
             </div>
+
+            {/* Mother Actions */}
+            <div className="space-y-1.5 pt-2 border-t border-zinc-200/60 dark:border-zinc-700/60">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-zinc-700 dark:text-zinc-300 text-xs">
+                  <span>👩 {translate('mother') || 'Mother'}: </span>
+                  <span>{kid.contacts?.motherName || '-'}</span>
+                </span>
+                {kid.contacts?.motherProfession && (
+                  <span className="text-[10px] text-zinc-400">
+                    {kid.contacts.motherProfession}
+                  </span>
+                )}
+              </div>
+              {motherPhone && (
+                <PhoneActionGroup
+                  phone={motherPhone}
+                  label="Mother Mobile"
+                  personName={kid.contacts?.motherName}
+                />
+              )}
+            </div>
+
+            {/* Student Actions */}
+            {kidPhone && (
+              <div className="space-y-1.5 pt-2 border-t border-zinc-200/60 dark:border-zinc-700/60">
+                <span className="font-bold text-zinc-700 dark:text-zinc-300 text-xs block">
+                  🧒 Student Mobile:
+                </span>
+                <PhoneActionGroup
+                  phone={kidPhone}
+                  label="Student Mobile"
+                  personName={kid.info.fullName}
+                />
+              </div>
+            )}
 
             {/* Student DOB & Age */}
             <div className="pt-2 border-t border-zinc-200/60 dark:border-zinc-700/60 grid grid-cols-2 gap-2 text-[11px]">
               <div>
                 <span className="text-zinc-400 block">{translate('dob')}</span>
-                <span className="font-semibold text-zinc-800 dark:text-zinc-200">
-                  {safeRender(kid.info?.dob)}
-                </span>
+                <CopyableField
+                  value={safeRender(kid.info?.dob)}
+                  label={translate('dob')}
+                  compact
+                />
               </div>
               <div>
                 <span className="text-zinc-400 block">{translate('age') || 'Age'}</span>
-                <span className="font-semibold text-zinc-800 dark:text-zinc-200">
-                  {calculatedAge || '-'}
-                </span>
+                <CopyableField
+                  value={calculatedAge}
+                  label="Age"
+                  compact
+                />
               </div>
             </div>
           </div>
 
-          {/* Section: Residence & Address */}
+          {/* Section: Residence & Address with 1-Tap Copy */}
           <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/70 dark:border-zinc-700/70 space-y-2">
             <h3 className="font-bold text-xs text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
               <MapPin className="w-3.5 h-3.5 text-rose-500" />
               <span>{translate('address_group') || 'Address & Location'}</span>
             </h3>
-            <p className="text-[11px] text-zinc-800 dark:text-zinc-200 font-medium leading-relaxed">
-              {fullAddress || <span className="text-zinc-400 italic">No address on file</span>}
-            </p>
+            
+            <CopyableField
+              label="Physical Address"
+              value={fullAddress}
+              actionUrl={navUrl}
+              actionLabel="Open in Google / Apple Maps"
+              actionIcon={<Navigation className="w-3.5 h-3.5" />}
+            />
+
             {kid.address?.landmark && (
-              <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
-                <span className="text-zinc-400">Landmark: </span>
-                {kid.address.landmark}
-              </p>
-            )}
-            {navUrl && (
-              <div className="pt-1">
-                <a
-                  href={navUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 text-[11px] font-bold text-teal-600 dark:text-teal-400 hover:underline"
-                >
-                  <Navigation className="w-3 h-3" />
-                  <span>Open Navigation Link (Google / Apple Maps)</span>
-                </a>
-              </div>
+              <CopyableField
+                label="Landmark"
+                value={kid.address.landmark}
+                compact
+              />
             )}
           </div>
 
@@ -418,9 +477,11 @@ export const KidDetailsModal: React.FC<KidDetailsModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
               <div>
                 <span className="text-zinc-400 block">{translate('confession_father') || 'Father of Confession'}</span>
-                <span className="font-semibold text-zinc-800 dark:text-zinc-200">
-                  {kid.info?.fatherOfConfession || '-'}
-                </span>
+                <CopyableField
+                  value={kid.info?.fatherOfConfession}
+                  label="Father of Confession"
+                  compact
+                />
               </div>
               <div>
                 <span className="text-zinc-400 block">Deacon</span>
@@ -430,11 +491,11 @@ export const KidDetailsModal: React.FC<KidDetailsModalProps> = ({
               </div>
             </div>
             {kid.notes && (
-              <div className="pt-1 border-t border-zinc-200/60 dark:border-zinc-700/60">
-                <span className="text-zinc-400 block mb-0.5">{translate('notes') || 'Notes'}</span>
-                <p className="text-[11px] text-zinc-700 dark:text-zinc-300 italic whitespace-pre-wrap bg-white dark:bg-zinc-900 p-2 rounded-xl border border-zinc-200/50 dark:border-zinc-700/50">
-                  {kid.notes}
-                </p>
+              <div className="pt-2">
+                <CopyableField
+                  label={translate('notes') || 'Pastoral Notes'}
+                  value={kid.notes}
+                />
               </div>
             )}
           </div>

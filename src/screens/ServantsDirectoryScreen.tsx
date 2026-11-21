@@ -8,6 +8,8 @@ import { HeaderFilterMatrix, type ColumnFilterConfig } from '../components/commo
 import { ProfilePhotoUploader } from '../components/common/ProfilePhotoUploader';
 import { MobileViewToggle } from '../components/common/MobileViewToggle';
 import { ServantDetailsModal } from '../components/servants/ServantDetailsModal';
+import { ClassDetailsModal } from '../components/classes/ClassDetailsModal';
+import { ServiceGroupDetailsModal } from '../components/groups/ServiceGroupDetailsModal';
 import { normalizeDateStr, safeRender } from '../utils/formatters';
 import { useModalEscape } from '../utils/useModalEscape';
 import type { Mister, ServiceGroup, ClassDoc } from '../types';
@@ -46,6 +48,8 @@ export const ServantsDirectoryScreen: React.FC = () => {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editMister, setEditMister] = useState<Mister | null>(null);
   const [viewingMister, setViewingMister] = useState<Mister | null>(null);
+  const [viewingClass, setViewingClass] = useState<ClassDoc | null>(null);
+  const [viewingGroup, setViewingGroup] = useState<{ id: string; displayName?: string } | null>(null);
 
   const isAdmin = userRole === 'Admin' || userRole === 'owner';
   const currentUserEmail = user?.email?.toLowerCase() || '';
@@ -797,6 +801,35 @@ export const ServantsDirectoryScreen: React.FC = () => {
             setEditMister(target);
           }}
           onClose={() => setViewingMister(null)}
+          onSelectClass={(cls) => setViewingClass(cls)}
+          onSelectGroup={(grp) => setViewingGroup(grp)}
+        />
+      )}
+
+      {/* Child Drill-Down: Class Details Modal */}
+      {viewingClass && (
+        <ClassDetailsModal
+          classDoc={viewingClass}
+          activeAcademicYearId={selectedAcademicYearId}
+          allKids={[]}
+          allMisters={servants}
+          serviceGroups={groups}
+          canEdit={false}
+          onClose={() => setViewingClass(null)}
+          onBack={() => setViewingClass(null)}
+          backLabel={viewingMister?.displayName}
+        />
+      )}
+
+      {/* Child Drill-Down: Service Group Details Modal */}
+      {viewingGroup && (
+        <ServiceGroupDetailsModal
+          group={{ id: viewingGroup.id, displayName: viewingGroup.displayName || '', active: true }}
+          allMisters={servants}
+          canEdit={false}
+          onClose={() => setViewingGroup(null)}
+          onBack={() => setViewingGroup(null)}
+          backLabel={viewingMister?.displayName}
         />
       )}
 

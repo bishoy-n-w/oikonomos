@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import type { ClassDoc, ClassYearData, Kid, Mister, Church } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { useModalEscape } from '../../utils/useModalEscape';
+import { useModalHistory } from '../../utils/useModalHistory';
 import { useBottomSheetDrag } from '../../utils/useBottomSheetDrag';
+import { PhoneActionGroup } from '../common/PhoneActionGroup';
 import {
   X,
   Edit3,
@@ -10,8 +12,7 @@ import {
   Users,
   Info,
   Search,
-  Phone,
-  MessageSquare,
+  ChevronLeft,
 } from 'lucide-react';
 
 export interface ClassDetailsModalProps {
@@ -24,6 +25,11 @@ export interface ClassDetailsModalProps {
   canEdit?: boolean;
   onEdit?: () => void;
   onClose: () => void;
+  onBack?: () => void;
+  backLabel?: string;
+  onSelectKid?: (kid: Kid) => void;
+  onSelectServant?: (servant: Mister) => void;
+  onSelectServiceGroup?: (groupId: string) => void;
 }
 
 export const ClassDetailsModal: React.FC<ClassDetailsModalProps> = ({
@@ -36,12 +42,18 @@ export const ClassDetailsModal: React.FC<ClassDetailsModalProps> = ({
   canEdit = false,
   onEdit,
   onClose,
+  onBack,
+  backLabel,
+  onSelectKid,
+  onSelectServant,
+  onSelectServiceGroup,
 }) => {
   const { translate, isRtl } = useApp();
   const [activeTab, setActiveTab] = useState<'kids' | 'servants' | 'overview'>('kids');
   const [search, setSearch] = useState('');
 
   useModalEscape(onClose, true);
+  useModalHistory(`class-${classDoc.id}`, true, onClose);
   const { dragHandleProps, sheetStyle } = useBottomSheetDrag({ onClose });
 
   const yearData: ClassYearData | null = activeAcademicYearId
@@ -107,6 +119,20 @@ export const ClassDetailsModal: React.FC<ClassDetailsModalProps> = ({
           <div className="w-12 h-1.5 bg-zinc-300 dark:bg-zinc-700 rounded-full" />
         </div>
 
+        {/* Back Button Navigation if opened from another entity */}
+        {onBack && (
+          <div className="pb-2">
+            <button
+              type="button"
+              onClick={onBack}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition cursor-pointer touch-manipulation"
+            >
+              <ChevronLeft className={`w-4 h-4 ${isRtl ? 'rotate-180' : ''}`} />
+              <span>{backLabel ? `Back to ${backLabel}` : 'Back'}</span>
+            </button>
+          </div>
+        )}
+
         {/* Modal Header */}
         <div className="flex items-start justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800 gap-3 shrink-0">
           <div className="min-w-0 flex-1">
@@ -133,9 +159,19 @@ export const ClassDetailsModal: React.FC<ClassDetailsModalProps> = ({
                 </span>
               )}
             </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">
-              {group?.displayName || yearData?.serviceGroupId || 'Service Group'}
-            </p>
+            {onSelectServiceGroup && yearData?.serviceGroupId ? (
+              <button
+                type="button"
+                onClick={() => onSelectServiceGroup(yearData.serviceGroupId)}
+                className="text-xs text-teal-600 dark:text-teal-400 font-semibold hover:underline mt-0.5 truncate block"
+              >
+                {group?.displayName || yearData.serviceGroupId} ➔
+              </button>
+            ) : (
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">
+                {group?.displayName || yearData?.serviceGroupId || 'Service Group'}
+              </p>
+            )}
           </div>
 
           <button
@@ -188,7 +224,7 @@ export const ClassDetailsModal: React.FC<ClassDetailsModalProps> = ({
           </button>
         </div>
 
-        {/* Tab Content Body */}
+        {/* Tab Content Body with Universal Drill-Down Links and Phone Actions */}
         <div className="overflow-y-auto flex-1 min-h-0 space-y-3 pr-1 text-xs">
           {/* TAB: KIDS */}
           {activeTab === 'kids' && (
@@ -213,8 +249,12 @@ export const ClassDetailsModal: React.FC<ClassDetailsModalProps> = ({
                   {filteredKids.map((k) => {
                     const phone = k.contacts?.fatherMob || k.contacts?.motherMob || k.contacts?.kidMob;
                     return (
-                      <div key={k.id} className="p-2.5 flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div key={k.id} className="p-2.5 flex items-center justify-between gap-2 hover:bg-zinc-100/60 dark:hover:bg-zinc-800/60 transition">
+                        {/* Student Name/Avatar with Drill-down click */}
+                        <div
+                          onClick={() => onSelectKid?.(k)}
+                          className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer group"
+                        >
                           <div className="w-8 h-8 rounded-xl overflow-hidden shrink-0 flex items-center justify-center border border-zinc-200 dark:border-zinc-700">
                             {k.info?.photoUrl ? (
                               <img src={k.info.photoUrl} alt="" className="w-full h-full object-cover" />
@@ -229,8 +269,9 @@ export const ClassDetailsModal: React.FC<ClassDetailsModalProps> = ({
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
-                              {k.info?.fullName}
+                            <p className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate group-hover:text-teal-600 group-hover:underline flex items-center justify-between">
+                              <span>{k.info?.fullName}</span>
+                              <span className="text-[10px] text-zinc-400 group-hover:text-teal-600">➔</span>
                             </p>
                             <p className="text-[10px] text-zinc-400 truncate">
                               {k.contacts?.fatherName ? `${k.contacts.fatherName}` : 'Sunday School Student'}
@@ -239,25 +280,16 @@ export const ClassDetailsModal: React.FC<ClassDetailsModalProps> = ({
                           </div>
                         </div>
 
+                        {/* Phone action group (Call, WhatsApp, Copy) */}
                         {phone && (
-                          <div className="flex items-center gap-1 shrink-0">
-                            <a
-                              href={`tel:${phone}`}
-                              className="p-1.5 rounded-lg text-blue-600 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 transition min-h-[36px] min-w-[36px] flex items-center justify-center touch-manipulation"
-                              title={translate('phone')}
-                            >
-                              <Phone className="w-3.5 h-3.5" />
-                            </a>
-                            <a
-                              href={`https://wa.me/${phone.replace(/\+/g, '')}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="p-1.5 rounded-lg text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 transition min-h-[36px] min-w-[36px] flex items-center justify-center touch-manipulation"
-                              title="WhatsApp"
-                            >
-                              <MessageSquare className="w-3.5 h-3.5" />
-                            </a>
-                          </div>
+                          <PhoneActionGroup
+                            phone={phone}
+                            personName={k.info?.fullName}
+                            compact
+                            allowCall
+                            allowWhatsApp
+                            allowCopy
+                          />
                         )}
                       </div>
                     );
@@ -290,8 +322,12 @@ export const ClassDetailsModal: React.FC<ClassDetailsModalProps> = ({
                   {filteredServants.map((m) => {
                     const phone = m.personalInfo?.phone;
                     return (
-                      <div key={m.id} className="p-2.5 flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div key={m.id} className="p-2.5 flex items-center justify-between gap-2 hover:bg-zinc-100/60 dark:hover:bg-zinc-800/60 transition">
+                        {/* Servant Name/Avatar with Drill-down click */}
+                        <div
+                          onClick={() => onSelectServant?.(m)}
+                          className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer group"
+                        >
                           <div className="w-8 h-8 rounded-xl overflow-hidden shrink-0 flex items-center justify-center border border-zinc-200 dark:border-zinc-700">
                             {m.personalInfo?.photoUrl ? (
                               <img src={m.personalInfo.photoUrl} alt="" className="w-full h-full object-cover" />
@@ -302,8 +338,9 @@ export const ClassDetailsModal: React.FC<ClassDetailsModalProps> = ({
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
-                              {m.displayName}
+                            <p className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate group-hover:text-blue-600 group-hover:underline flex items-center justify-between">
+                              <span>{m.displayName}</span>
+                              <span className="text-[10px] text-zinc-400 group-hover:text-blue-600">➔</span>
                             </p>
                             <p className="text-[10px] text-zinc-400 truncate">
                               {m.email}
@@ -312,24 +349,14 @@ export const ClassDetailsModal: React.FC<ClassDetailsModalProps> = ({
                         </div>
 
                         {phone && (
-                          <div className="flex items-center gap-1 shrink-0">
-                            <a
-                              href={`tel:${phone}`}
-                              className="p-1.5 rounded-lg text-blue-600 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 transition min-h-[36px] min-w-[36px] flex items-center justify-center touch-manipulation"
-                              title={translate('phone')}
-                            >
-                              <Phone className="w-3.5 h-3.5" />
-                            </a>
-                            <a
-                              href={`https://wa.me/${phone.replace(/\+/g, '')}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="p-1.5 rounded-lg text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 transition min-h-[36px] min-w-[36px] flex items-center justify-center touch-manipulation"
-                              title="WhatsApp"
-                            >
-                              <MessageSquare className="w-3.5 h-3.5" />
-                            </a>
-                          </div>
+                          <PhoneActionGroup
+                            phone={phone}
+                            personName={m.displayName}
+                            compact
+                            allowCall
+                            allowWhatsApp
+                            allowCopy
+                          />
                         )}
                       </div>
                     );
@@ -345,9 +372,19 @@ export const ClassDetailsModal: React.FC<ClassDetailsModalProps> = ({
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div>
                   <span className="text-zinc-400 block">{translate('service_group')}</span>
-                  <span className="font-bold text-zinc-800 dark:text-zinc-200">
-                    {group?.displayName || yearData?.serviceGroupId || '-'}
-                  </span>
+                  {onSelectServiceGroup && yearData?.serviceGroupId ? (
+                    <button
+                      type="button"
+                      onClick={() => onSelectServiceGroup(yearData.serviceGroupId)}
+                      className="font-bold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer text-start"
+                    >
+                      {group?.displayName || yearData.serviceGroupId} ➔
+                    </button>
+                  ) : (
+                    <span className="font-bold text-zinc-800 dark:text-zinc-200">
+                      {group?.displayName || yearData?.serviceGroupId || '-'}
+                    </span>
+                  )}
                 </div>
                 <div>
                   <span className="text-zinc-400 block">Grade Level</span>

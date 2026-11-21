@@ -7,6 +7,7 @@ import { useFilter } from '../context/FilterContext';
 import { HeaderFilterMatrix, type ColumnFilterConfig } from '../components/common/HeaderFilterMatrix';
 import { MobileViewToggle } from '../components/common/MobileViewToggle';
 import { ServiceGroupDetailsModal } from '../components/groups/ServiceGroupDetailsModal';
+import { ServantDetailsModal } from '../components/servants/ServantDetailsModal';
 import { useModalEscape } from '../utils/useModalEscape';
 import { DEFAULT_EVENT_TYPES, type ServiceGroup, type Mister, type Church, type GroupEventType } from '../types';
 import { 
@@ -39,6 +40,7 @@ export const ServiceGroupsScreen: React.FC = () => {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editGroup, setEditGroup] = useState<ServiceGroup | null>(null);
   const [viewingGroup, setViewingGroup] = useState<ServiceGroup | null>(null);
+  const [viewingServant, setViewingServant] = useState<Mister | null>(null);
   const [eventTypesModalGroup, setEventTypesModalGroup] = useState<ServiceGroup | null>(null);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
 
@@ -675,11 +677,25 @@ export const ServiceGroupsScreen: React.FC = () => {
             setEditGroup(target);
           }}
           onClose={() => setViewingGroup(null)}
+          onSelectServant={(servant) => setViewingServant(servant)}
           onManageEvents={() => {
             const target = viewingGroup;
             setViewingGroup(null);
             setEventTypesModalGroup(target);
           }}
+        />
+      )}
+
+      {/* Child Drill-Down: Servant Details Modal */}
+      {viewingServant && (
+        <ServantDetailsModal
+          mister={viewingServant}
+          allGroups={groups}
+          allClasses={[]}
+          canEdit={false}
+          onClose={() => setViewingServant(null)}
+          onBack={() => setViewingServant(null)}
+          backLabel={viewingGroup?.displayName}
         />
       )}
 
