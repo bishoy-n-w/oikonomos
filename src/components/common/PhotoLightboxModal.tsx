@@ -55,6 +55,7 @@ export const PhotoLightboxModal: React.FC<PhotoLightboxModalProps> = ({
             <img
               src={photoUrl}
               alt={name}
+              referrerPolicy="no-referrer"
               className="w-full h-full object-cover"
             />
           ) : (

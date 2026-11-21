@@ -129,6 +129,7 @@ export const ServantDetailsModal: React.FC<ServantDetailsModalProps> = ({
                 <img
                   src={mister.personalInfo.photoUrl}
                   alt={mister.displayName}
+                  referrerPolicy="no-referrer"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                 />
               ) : (

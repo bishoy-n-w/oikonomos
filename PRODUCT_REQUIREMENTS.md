@@ -1396,6 +1396,18 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   *Whole-Card Clickability:* Tapping anywhere on the surface or background of a student tile/row, servant tile/row, class tile/row, or service group card immediately opens its respective details modal without hunting for small text links.
     *   *Event Propagation Isolation:* Interactive sub-controls (selection checkboxes, photo zoom triggers, phone action groups, edit buttons, and expandable accordions) call `e.stopPropagation()` to preserve discrete actions without unintentionally triggering the parent sheet.
 
+---
+
+## 65. Google CDN 429 Rate-Limit Mitigation & Universal Referrer Policy Protection
+
+*   **Google User Content CDN 429 Rate-Limit Mitigation (`TopAppBar.tsx`):**
+    *   *Root Cause:* Google Authentication user avatar URLs (`https://lh3.googleusercontent.com/a/...`) are subject to strict referrer verification and CDN rate limits when requested with local or cross-origin headers during rapid component re-renders.
+    *   *Resolution:* Added `referrerPolicy="no-referrer"` to eliminate origin/referrer leakage to Google image CDNs.
+    *   *Graceful Monogram Fallback:* Implemented error state fallback (`userImgFailed`) with `onError` event trapping, ensuring any 429 or network image failure seamlessly displays the authenticated user's letter monogram circle with zero broken icons.
+*   **Universal Image Referrer-Policy Hardening across Screens & Modals:**
+    *   Applied `referrerPolicy="no-referrer"` across church logos (`TopAppBar`), student photos (`KidsDirectoryScreen`, `KidDetailsModal`, `PhotoLightboxModal`, and `DashboardScreen`), and servant avatars (`ServantDetailsModal`).
+
+
 
 
 

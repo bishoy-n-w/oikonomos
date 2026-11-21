@@ -45,6 +45,11 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({ activeTab, onOpenMobileFil
   const menuRef = useRef<HTMLDivElement>(null);
   const { isInstallable, hasDeferredPrompt, isIos, triggerInstall } = usePwaInstall();
   const [pwaModalOpen, setPwaModalOpen] = useState(false);
+  const [userImgFailed, setUserImgFailed] = useState(false);
+
+  useEffect(() => {
+    setUserImgFailed(false);
+  }, [user?.photoURL]);
 
   // Context-aware dimming rules as mandated by specs:
   // - Church Admin: dim church, academic year, class group, and class
@@ -79,7 +84,13 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({ activeTab, onOpenMobileFil
       <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
         <div className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-teal-600 text-white font-bold shadow-md shadow-teal-600/20 overflow-hidden shrink-0">
           {activeChurch?.logoUrl ? (
-            <img src={activeChurch.logoUrl} alt={activeChurch.displayName} className="w-full h-full object-cover" />
+            <img 
+              src={activeChurch.logoUrl} 
+              alt={activeChurch.displayName} 
+              referrerPolicy="no-referrer"
+              onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+              className="w-full h-full object-cover" 
+            />
           ) : (
             <ChurchIcon className="w-5 h-5 sm:w-6 sm:h-6" />
           )}
@@ -226,11 +237,17 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({ activeTab, onOpenMobileFil
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setMenuOpen(!menuOpen)}
-            className="flex items-center justify-center w-11 h-11 min-h-[44px] min-w-[44px] rounded-full border-2 border-teal-600/30 overflow-hidden hover:ring-2 hover:ring-teal-500 transition touch-manipulation"
+            className="flex items-center justify-center w-11 h-11 min-h-[44px] min-w-[44px] rounded-full border-2 border-teal-600/30 overflow-hidden hover:ring-2 hover:ring-teal-500 transition touch-manipulation cursor-pointer"
             aria-label="User profile menu"
           >
-            {user?.photoURL ? (
-              <img src={user.photoURL} alt={user.displayName || 'User'} className="w-full h-full object-cover" />
+            {user?.photoURL && !userImgFailed ? (
+              <img 
+                src={user.photoURL} 
+                alt={user.displayName || 'User'} 
+                referrerPolicy="no-referrer"
+                onError={() => setUserImgFailed(true)}
+                className="w-full h-full object-cover" 
+              />
             ) : (
               <div className="w-full h-full bg-teal-100 dark:bg-teal-900 flex items-center justify-center text-teal-700 dark:text-teal-200 font-bold">
                 {user?.email?.charAt(0).toUpperCase() || 'U'}

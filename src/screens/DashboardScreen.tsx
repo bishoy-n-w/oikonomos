@@ -610,6 +610,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
                         <img
                           src={bday.kid.info.photoUrl}
                           alt={bday.kid.info.fullName}
+                          referrerPolicy="no-referrer"
                           className="w-10 h-10 rounded-full object-cover shrink-0 border border-zinc-200 dark:border-zinc-700 shadow-2xs hover:ring-2 hover:ring-pink-400 transition"
                         />
                       ) : (

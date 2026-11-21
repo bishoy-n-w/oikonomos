@@ -183,6 +183,7 @@ export const KidDetailsModal: React.FC<KidDetailsModalProps> = ({
                 <img
                   src={kid.info.photoUrl}
                   alt={kid.info.fullName}
+                  referrerPolicy="no-referrer"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                 />
               ) : (
