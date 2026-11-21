@@ -69,6 +69,7 @@ export const HomeVisitsScreen: React.FC = () => {
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [careFilter, setCareFilter] = useState<'all' | 'overdue' | 'due' | 'recent' | 'never'>('all');
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [timelineTypeFilter, setTimelineTypeFilter] = useState<string>('all');
   const [expandedKidHistories, setExpandedKidHistories] = useState<Record<string, boolean>>({});
 
@@ -383,6 +384,20 @@ export const HomeVisitsScreen: React.FC = () => {
     });
   }, [enrolledKids, visitsByKid]);
 
+  // Available Neighborhood Regions for grouped pastoral visits
+  const availableRegions = useMemo(() => {
+    const map = new Map<string, number>();
+    enrolledKids.forEach((k) => {
+      const reg = k.address?.region?.trim();
+      if (reg) {
+        map.set(reg, (map.get(reg) || 0) + 1);
+      }
+    });
+    return Array.from(map.entries())
+      .map(([region, count]) => ({ region, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [enrolledKids]);
+
   // Filtered Roster
   const filteredRoster = useMemo(() => {
     return kidsWithCareStatus.filter(({ kid, status }) => {
@@ -391,6 +406,12 @@ export const HomeVisitsScreen: React.FC = () => {
       if (careFilter === 'due' && status !== 'due_for_visit') return false;
       if (careFilter === 'recent' && status !== 'recently_visited') return false;
       if (careFilter === 'never' && status !== 'never_visited') return false;
+
+      // Region filter for grouped pastoral rounds
+      if (selectedRegion) {
+        const kidReg = (kid.address?.region || '').trim().toLowerCase();
+        if (kidReg !== selectedRegion.toLowerCase()) return false;
+      }
 
       // Search query
       if (searchQuery.trim()) {
@@ -407,7 +428,7 @@ export const HomeVisitsScreen: React.FC = () => {
 
       return true;
     });
-  }, [kidsWithCareStatus, careFilter, searchQuery]);
+  }, [kidsWithCareStatus, careFilter, searchQuery, selectedRegion]);
 
   // Filtered Timeline
   const filteredTimeline = useMemo(() => {
@@ -959,6 +980,40 @@ export const HomeVisitsScreen: React.FC = () => {
       {/* MODE 1: STUDENT CARE ROSTER */}
       {viewMode === 'roster' && (
         <div className="space-y-4">
+          {/* Region / Neighborhood Filter Pills for Grouped Pastoral Rounds */}
+          {availableRegions.length > 0 && (
+            <div className="flex items-center gap-1.5 overflow-x-auto py-1 text-xs">
+              <span className="text-zinc-400 font-bold text-[11px] shrink-0 me-1">
+                📍 {translate('region') || 'Area'}:
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedRegion(null)}
+                className={`px-3 py-1 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer ${
+                  !selectedRegion
+                    ? 'bg-teal-600 text-white shadow-2xs'
+                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                }`}
+              >
+                All Areas ({enrolledKids.length})
+              </button>
+              {availableRegions.map(({ region, count }) => (
+                <button
+                  key={region}
+                  type="button"
+                  onClick={() => setSelectedRegion(selectedRegion === region ? null : region)}
+                  className={`px-3 py-1 rounded-xl text-xs font-semibold transition shrink-0 cursor-pointer ${
+                    selectedRegion === region
+                      ? 'bg-teal-600 text-white shadow-2xs'
+                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                  }`}
+                >
+                  {region} ({count})
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Care Status Filter Chips & View Mode Switcher */}
           <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1">
             <div className="flex items-center gap-1.5 shrink-0">

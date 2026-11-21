@@ -1243,6 +1243,26 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   Created `TableSkeleton`, `CardSkeleton`, and `DashboardSkeleton` with smooth CSS pulse animations (`animate-pulse`).
     *   Eliminates jarring layout shifts (Cumulative Layout Shift - CLS) and replaces generic spinner voids during Firestore collection subscription loading.
 
+---
+
+## 56. Phase 3 UI/UX Enhancements: Keyboard-Only Rapid Roll-Call & Pastoral Neighborhood Route Filters
+
+*   **Keyboard-Only Rapid Roll-Call (`AttendanceTrackerScreen.tsx`):**
+    *   Enabled high-speed keyboard shortcuts for Sunday School roll-call on laptops and desktops:
+        *   `ArrowDown` / `j`: Move focus to next student.
+        *   `ArrowUp` / `k`: Move focus to previous student.
+        *   `P` / `p`: Mark student **Present** (`present`) and advance focus to the next student.
+        *   `A` / `a`: Mark student **Absent** (`absent`) and advance focus to the next student.
+        *   `E` / `e`: Mark student **Excused** (`excused`) and advance focus to the next student.
+    *   *Focus Ring & Elevation:* The active student row or card glows with an emerald/teal focus ring (`ring-2 ring-teal-500/80 shadow-md`), ensuring continuous optical clarity.
+    *   *Input Disambiguation:* Keystrokes are ignored when the user is actively typing inside form inputs, textareas, notes fields, or modals.
+    *   *Header Quick Keys Guide:* Pinned keyboard shortcut hint badges in the desktop action toolbar: `[P] Present • [A] Absent • [E] Excused • [↑/↓] Move`.
+*   **Pastoral Neighborhood & Region Filter Pills (`HomeVisitsScreen.tsx`):**
+    *   Introduced an interactive horizontal region filter strip directly beneath the pastoral search bar.
+    *   Aggregates student address neighborhoods (e.g., Heliopolis, Nasr City, Shubra, Maadi) with real-time student counts per region.
+    *   Allows visiting servants to plan geographic visitation rounds in 1 tap, clustering visits by neighborhood to save travel time.
+
+
 
 
 

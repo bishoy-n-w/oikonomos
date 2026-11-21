@@ -120,6 +120,7 @@ export const AttendanceTrackerScreen: React.FC = () => {
   const [notesByKid, setNotesByKid] = useState<Record<string, string>>({});
   const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
   const [rosterSearch, setRosterSearch] = useState('');
+  const [focusedKidIndex, setFocusedKidIndex] = useState<number | null>(null);
 
   // Auto-save state
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
@@ -809,6 +810,58 @@ export const AttendanceTrackerScreen: React.FC = () => {
     );
   });
 
+  const handleSetKidStatusRef = useRef(handleSetKidStatus);
+  const filteredKidsRef = useRef(filteredKids);
+
+  useEffect(() => {
+    handleSetKidStatusRef.current = handleSetKidStatus;
+    filteredKidsRef.current = filteredKids;
+  });
+
+  // Keyboard Roll-Call navigation and instant marking
+  useEffect(() => {
+    if (!selectedEventId || !canEdit || viewMode !== 'checklist') {
+      return;
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      const list = filteredKidsRef.current;
+      if (list.length === 0) return;
+
+      const key = e.key.toLowerCase();
+      if (e.key === 'ArrowDown' || key === 'j') {
+        e.preventDefault();
+        setFocusedKidIndex((prev) => (prev === null || prev >= list.length - 1 ? 0 : prev + 1));
+      } else if (e.key === 'ArrowUp' || key === 'k') {
+        e.preventDefault();
+        setFocusedKidIndex((prev) => (prev === null || prev <= 0 ? list.length - 1 : prev - 1));
+      } else if (key === 'p' || key === 'a' || key === 'e') {
+        const curIdx = focusedKidIndex ?? 0;
+        const targetKid = list[curIdx];
+        if (targetKid) {
+          e.preventDefault();
+          const newStatus: AttendanceStatus = key === 'p' ? 'present' : key === 'a' ? 'absent' : 'excused';
+          handleSetKidStatusRef.current(targetKid.id, newStatus);
+          setFocusedKidIndex((prev) => ((prev ?? 0) + 1 < list.length ? (prev ?? 0) + 1 : prev));
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedEventId, canEdit, viewMode, focusedKidIndex]);
+
   // Filter events by Horizon and by Type for Ribbon & Matrix
   const ribbonEvents = events.filter((evt) => {
     if (horizonFilter === 'past' && evt.eventDate >= todayDateStr) return false;
@@ -941,6 +994,17 @@ export const AttendanceTrackerScreen: React.FC = () => {
                   <span>{translate('stats_view')}</span>
                 </button>
               </div>
+
+              {/* Keyboard Quick Keys Guide (Desktop Checklist) */}
+              {viewMode === 'checklist' && canEdit && selectedEventId && (
+                <div className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 text-[11px] font-medium text-zinc-600 dark:text-zinc-400">
+                  <span className="font-bold">⌨️ Quick Keys:</span>
+                  <span><kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 font-mono font-bold text-emerald-600">P</kbd> Present</span>
+                  <span><kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 font-mono font-bold text-rose-600">A</kbd> Absent</span>
+                  <span><kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 font-mono font-bold text-amber-600">E</kbd> Excused</span>
+                  <span><kbd className="px-1 py-0.5 rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 font-mono font-bold">↑</kbd><kbd className="px-1 py-0.5 rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 font-mono font-bold ms-0.5">↓</kbd></span>
+                </div>
+              )}
 
               {/* 1-Click Excel Export Button */}
               <button
@@ -1828,7 +1892,7 @@ export const AttendanceTrackerScreen: React.FC = () => {
 
                 {mobileViewMode === 'list' ? (
                   <div className="divide-y divide-zinc-100 dark:divide-zinc-800/80 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-xs">
-                    {filteredKids.map((kid) => {
+                    {filteredKids.map((kid, idx) => {
                       const currentStatus = statuses[kid.id];
                       const isPresent = currentStatus === 'present';
                       const isAbsent = currentStatus === 'absent';
@@ -1837,7 +1901,11 @@ export const AttendanceTrackerScreen: React.FC = () => {
                       return (
                         <div
                           key={kid.id}
-                          className="flex items-center justify-between p-2.5 px-3 gap-2.5 transition hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40"
+                          className={`flex items-center justify-between p-2.5 px-3 gap-2.5 transition ${
+                            idx === focusedKidIndex
+                              ? 'ring-2 ring-teal-500/70 dark:ring-teal-400/70 bg-teal-50/50 dark:bg-teal-950/30'
+                              : 'hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40'
+                          }`}
                         >
                           <div
                             onClick={() => setViewingKid(kid)}
@@ -1912,7 +1980,7 @@ export const AttendanceTrackerScreen: React.FC = () => {
                     })}
                   </div>
                 ) : (
-                filteredKids.map((kid) => {
+                filteredKids.map((kid, idx) => {
                   const currentStatus = statuses[kid.id];
                   const isPresent = currentStatus === 'present';
                   const isAbsent = currentStatus === 'absent';
@@ -1934,6 +2002,8 @@ export const AttendanceTrackerScreen: React.FC = () => {
                     <div
                       key={kid.id}
                       className={`p-3.5 sm:p-4 rounded-3xl border shadow-2xs space-y-2 transition ${
+                        idx === focusedKidIndex ? 'ring-2 ring-teal-500/80 dark:ring-teal-400/80 shadow-md ' : ''
+                      }${
                         isPresent
                           ? 'border-s-4 border-s-emerald-500 bg-emerald-50/15 dark:bg-emerald-950/10 border-zinc-200 dark:border-zinc-800'
                           : isAbsent
