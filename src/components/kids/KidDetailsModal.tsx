@@ -9,6 +9,7 @@ import { formatAge, safeRender } from '../../utils/formatters';
 import { PhoneActionGroup } from '../common/PhoneActionGroup';
 import { CopyableField } from '../common/CopyableField';
 import { ContactPickerPopover, type ContactOption } from '../common/ContactPickerPopover';
+import { PhotoLightboxModal } from '../common/PhotoLightboxModal';
 import {
   X,
   Edit3,
@@ -84,6 +85,7 @@ export const KidDetailsModal: React.FC<KidDetailsModalProps> = ({
   const calculatedAge = formatAge(kid.info?.dob);
 
   const [contactPicker, setContactPicker] = React.useState<{ actionType: 'call' | 'whatsapp' | 'copy'; contacts: ContactOption[] } | null>(null);
+  const [lightboxOpen, setLightboxOpen] = React.useState(false);
 
   const allAvailableContacts = React.useMemo<ContactOption[]>(() => {
     const list: ContactOption[] = [];
@@ -172,12 +174,16 @@ export const KidDetailsModal: React.FC<KidDetailsModalProps> = ({
         {/* Modal Header */}
         <div className="flex items-start justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800 gap-3 shrink-0">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center border border-zinc-200 dark:border-zinc-700 shadow-xs">
+            <div
+              onClick={() => setLightboxOpen(true)}
+              className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center border border-zinc-200 dark:border-zinc-700 shadow-xs cursor-pointer hover:ring-2 hover:ring-teal-500/50 transition group"
+              title="Tap to view photo"
+            >
               {kid.info.photoUrl ? (
                 <img
                   src={kid.info.photoUrl}
                   alt={kid.info.fullName}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                 />
               ) : (
                 <span
@@ -585,6 +591,19 @@ export const KidDetailsModal: React.FC<KidDetailsModalProps> = ({
           contacts={contactPicker.contacts}
           isOpen={!!contactPicker}
           onClose={() => setContactPicker(null)}
+        />
+      )}
+
+      {/* Full-Screen Photo Lightbox */}
+      {lightboxOpen && (
+        <PhotoLightboxModal
+          photoUrl={kid.info.photoUrl}
+          name={kid.info.fullName}
+          gender={kid.info.gender}
+          subtitle={`${className} • ${groupName}`}
+          isDeacon={kid.info.deacon}
+          isOpen={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
         />
       )}
     </div>

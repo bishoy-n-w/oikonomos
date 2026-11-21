@@ -458,19 +458,18 @@ export const ClassesScreen: React.FC = () => {
               return (
                 <div
                   key={cls.id}
-                  className="flex items-center justify-between p-3 gap-2 transition hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40"
+                  onClick={() => setViewingClass(cls)}
+                  className="flex items-center justify-between p-3 gap-2 transition hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40 cursor-pointer"
                 >
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <span className={`w-2 h-2 rounded-full shrink-0 ${cls.active !== false ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                        <button
-                          type="button"
-                          onClick={() => setViewingClass(cls)}
-                          className="font-bold text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start break-words"
+                        <span
+                          className="font-bold text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 text-start break-words"
                         >
                           {yearData.displayName || cls.id}
-                        </button>
+                        </span>
                         {gradeItem && (
                           <span className="text-[10px] font-mono font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950 px-1.5 py-0.2 rounded-md border border-teal-200 dark:border-teal-800 shrink-0">
                             #{yearData.gradeId}
@@ -483,7 +482,7 @@ export const ClassesScreen: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                     <button
                       type="button"
                       onClick={() => setRosterPreview({
@@ -546,19 +545,18 @@ export const ClassesScreen: React.FC = () => {
           return (
             <div
               key={cls.id}
-              className="p-4 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-3"
+              onClick={() => setViewingClass(cls)}
+              className="p-4 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-teal-500/40 shadow-xs space-y-3 cursor-pointer"
             >
               {/* Header: Class Name, Status & Group */}
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => setViewingClass(cls)}
-                      className="font-extrabold text-base text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start"
+                    <span
+                      className="font-extrabold text-base text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 text-start"
                     >
                       {yearData.displayName || cls.id}
-                    </button>
+                    </span>
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
                       cls.active !== false
                         ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
@@ -583,7 +581,7 @@ export const ClassesScreen: React.FC = () => {
               </div>
 
               {/* Counts & Badges */}
-              <div className="flex items-center gap-2 pt-1 border-t border-zinc-100 dark:border-zinc-800/80">
+              <div className="flex items-center gap-2 pt-1 border-t border-zinc-100 dark:border-zinc-800/80" onClick={(e) => e.stopPropagation()}>
                 <button
                   type="button"
                   onClick={() => setRosterPreview({
@@ -613,7 +611,7 @@ export const ClassesScreen: React.FC = () => {
               </div>
 
               {/* Actions */}
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/80">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/80" onClick={(e) => e.stopPropagation()}>
                 {canManageClassStructure(cls.id) ? (
                   <>
                     <button

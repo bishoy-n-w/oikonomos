@@ -407,17 +407,16 @@ export const ServiceGroupsScreen: React.FC = () => {
           return (
             <div
               key={group.id}
-              className="p-4 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-3"
+              onClick={() => setViewingGroup(group)}
+              className="p-4 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-teal-500/40 shadow-xs space-y-3 cursor-pointer"
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <button
-                    type="button"
-                    onClick={() => setViewingGroup(group)}
-                    className="font-bold text-sm text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start"
+                  <span
+                    className="font-bold text-sm text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 text-start"
                   >
                     {group.displayName}
-                  </button>
+                  </span>
                   <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
                     group.active
                       ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
@@ -428,7 +427,7 @@ export const ServiceGroupsScreen: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                   {canEditGroup(group) && (
                     <>
                       <button
@@ -483,7 +482,7 @@ export const ServiceGroupsScreen: React.FC = () => {
                   <span>{servantsCount} {translate('servants')}</span>
                 </span>
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                   <button
                     type="button"
                     onClick={() => setEventTypesModalGroup(group)}

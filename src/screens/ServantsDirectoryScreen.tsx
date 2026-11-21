@@ -361,12 +361,12 @@ export const ServantsDirectoryScreen: React.FC = () => {
               return (
                 <div
                   key={mister.id}
-                  className="flex items-center justify-between p-3 gap-2.5 transition hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40"
+                  onClick={() => setViewingMister(mister)}
+                  className="flex items-center justify-between p-3 gap-2.5 transition hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40 cursor-pointer"
                 >
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <div
-                      onClick={() => setViewingMister(mister)}
-                      className="w-9 h-9 rounded-xl overflow-hidden shrink-0 flex items-center justify-center border border-zinc-200 dark:border-zinc-700 shadow-2xs cursor-pointer"
+                      className="w-9 h-9 rounded-xl overflow-hidden shrink-0 flex items-center justify-center border border-zinc-200 dark:border-zinc-700 shadow-2xs"
                     >
                       {mister.personalInfo?.photoUrl ? (
                         <img src={mister.personalInfo.photoUrl} alt="" className="w-full h-full object-cover" />
@@ -377,12 +377,9 @@ export const ServantsDirectoryScreen: React.FC = () => {
                       )}
                     </div>
 
-                    <div
-                      className="min-w-0 flex-1 cursor-pointer"
-                      onClick={() => setViewingMister(mister)}
-                    >
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
+                        <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate hover:text-teal-600">
                           {mister.displayName}
                         </span>
                         <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold uppercase ${
@@ -401,7 +398,7 @@ export const ServantsDirectoryScreen: React.FC = () => {
                   </div>
 
                   {/* Actions Strip */}
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                     {phone && (
                       <a
                         href={`tel:${phone}`}
@@ -447,14 +444,14 @@ export const ServantsDirectoryScreen: React.FC = () => {
           return (
             <div
               key={mister.id}
-              className="p-4 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-3"
+              onClick={() => setViewingMister(mister)}
+              className="p-4 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-teal-500/40 shadow-xs space-y-3 cursor-pointer"
             >
               {/* Top row: Avatar, Name, Role & Status */}
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div
-                    onClick={() => setViewingMister(mister)}
-                    className="w-11 h-11 rounded-2xl overflow-hidden shrink-0 cursor-pointer shadow-xs border border-zinc-200 dark:border-zinc-700 flex items-center justify-center"
+                    className="w-11 h-11 rounded-2xl overflow-hidden shrink-0 shadow-xs border border-zinc-200 dark:border-zinc-700 flex items-center justify-center"
                   >
                     {mister.personalInfo?.photoUrl ? (
                       <img
@@ -470,13 +467,11 @@ export const ServantsDirectoryScreen: React.FC = () => {
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => setViewingMister(mister)}
-                        className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 hover:underline cursor-pointer text-start truncate"
+                      <span
+                        className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 hover:text-teal-600 dark:hover:text-teal-400 text-start truncate"
                       >
                         {mister.displayName}
-                      </button>
+                      </span>
                       {isSelf && (
                         <span className="text-[10px] font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/80 px-1.5 py-0.2 rounded-full border border-teal-200 dark:border-teal-800">
                           You
@@ -554,7 +549,7 @@ export const ServantsDirectoryScreen: React.FC = () => {
               </div>
 
               {/* Quick Contact & Action Buttons */}
-              <div className="flex items-center gap-2 pt-1 border-t border-zinc-100 dark:border-zinc-800/80">
+              <div className="flex items-center gap-2 pt-1 border-t border-zinc-100 dark:border-zinc-800/80" onClick={(e) => e.stopPropagation()}>
                 {phone ? (
                   <>
                     <a

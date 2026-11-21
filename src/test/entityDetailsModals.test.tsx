@@ -205,6 +205,24 @@ describe('Read-Only Entity Details Modals & Role-Gated Transitions', () => {
       expect(screen.getByRole('button', { name: /WhatsApp/i })).toBeTruthy();
       expect(screen.getByRole('button', { name: /ID/i })).toBeTruthy();
     });
+
+    it('opens PhotoLightboxModal when the header photo avatar is clicked', () => {
+      render(
+        <AppProvider>
+          <KidDetailsModal
+            kid={mockKid}
+            canEdit={false}
+            onClose={vi.fn()}
+          />
+        </AppProvider>
+      );
+
+      const avatar = screen.getByTitle(/Tap to view photo/i);
+      expect(avatar).toBeTruthy();
+      fireEvent.click(avatar);
+
+      expect(screen.getByRole('dialog', { name: /Photo of Bishoy Fakhry/i })).toBeTruthy();
+    });
   });
 
   describe('ClassDetailsModal', () => {
@@ -417,6 +435,24 @@ describe('Read-Only Entity Details Modals & Role-Gated Transitions', () => {
       expect(editBtn).toBeTruthy();
       fireEvent.click(editBtn);
       expect(handleEdit).toHaveBeenCalledTimes(1);
+    });
+
+    it('opens PhotoLightboxModal when the servant photo avatar is clicked', () => {
+      render(
+        <AppProvider>
+          <ServantDetailsModal
+            mister={mockMister}
+            canEdit={false}
+            onClose={vi.fn()}
+          />
+        </AppProvider>
+      );
+
+      const avatar = screen.getByTitle(/Tap to view photo/i);
+      expect(avatar).toBeTruthy();
+      fireEvent.click(avatar);
+
+      expect(screen.getByRole('dialog', { name: /Photo of Peter Samir/i })).toBeTruthy();
     });
   });
 

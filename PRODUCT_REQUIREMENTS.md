@@ -1383,6 +1383,20 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   *Structured Trailing Information Column:* Side-by-side with the photo, the card renders selection checkbox, full student name (tapping opens `KidDetailsModal`), deacon badge (`✠ Deacon`), active status, class and group names, and birthday/age and school tags.
     *   *Direct Family Contact Strips:* Preserves dedicated, labeled contact strips for Father, Mother, and Student with direct 1-tap Call, WhatsApp, and Copy actions.
 
+---
+
+## 64. Standardized Mobile Web App Capabilities, Profile Avatar Lightbox Zoom & Card Surface Interaction Pattern
+
+*   **Standardized PWA Mobile Capability Tags (`index.html`):**
+    *   Added `<meta name="mobile-web-app-capable" content="yes" />` per modern Chromium standards, completely eliminating the legacy deprecation warning.
+    *   Retained `<meta name="apple-mobile-web-app-capable" content="yes" />` for compatibility with older iOS Safari devices.
+*   **Universal Profile Avatar Lightbox Integration (`KidDetailsModal.tsx` & `ServantDetailsModal.tsx`):**
+    *   Tapping the profile photo avatar in both `KidDetailsModal` and `ServantDetailsModal` opens `PhotoLightboxModal` (`z-60`), displaying the full-resolution photo with smooth zoom animations, name, deacon insignia, and subtitle.
+*   **Card Surface Touch Target Pattern across Directory Views:**
+    *   *Whole-Card Clickability:* Tapping anywhere on the surface or background of a student tile/row, servant tile/row, class tile/row, or service group card immediately opens its respective details modal without hunting for small text links.
+    *   *Event Propagation Isolation:* Interactive sub-controls (selection checkboxes, photo zoom triggers, phone action groups, edit buttons, and expandable accordions) call `e.stopPropagation()` to preserve discrete actions without unintentionally triggering the parent sheet.
+
+
 
 
 

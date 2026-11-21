@@ -1192,14 +1192,18 @@ export const KidsDirectoryScreen: React.FC = () => {
               return (
                 <div
                   key={kid.id}
-                  className={`flex items-center justify-between p-3 gap-2.5 transition ${
+                  onClick={() => setViewingKid(kid)}
+                  className={`flex items-center justify-between p-3 gap-2.5 transition cursor-pointer ${
                     isSelected ? 'bg-purple-50/40 dark:bg-purple-950/30' : 'hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40'
                   }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <button
                       type="button"
-                      onClick={() => toggleSelectKid(kid.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSelectKid(kid.id);
+                      }}
                       className="p-1 -ms-1 text-zinc-400 hover:text-purple-600 shrink-0 cursor-pointer"
                     >
                       {isSelected ? (
@@ -1318,10 +1322,11 @@ export const KidsDirectoryScreen: React.FC = () => {
           return (
             <div
               key={kid.id}
-              className={`p-3.5 sm:p-4 rounded-3xl bg-white dark:bg-zinc-900 border transition shadow-xs space-y-3 ${
+              onClick={() => setViewingKid(kid)}
+              className={`p-3.5 sm:p-4 rounded-3xl bg-white dark:bg-zinc-900 border transition shadow-xs space-y-3 cursor-pointer ${
                 isSelected 
                   ? 'border-purple-500 ring-2 ring-purple-500/20 bg-purple-50/20 dark:bg-purple-950/20' 
-                  : 'border-zinc-200 dark:border-zinc-800'
+                  : 'border-zinc-200 dark:border-zinc-800 hover:border-teal-500/40 dark:hover:border-teal-500/40'
               }`}
             >
               {/* Split Top Section: Large Square Photo on leading side + Student Header & Metadata */}
@@ -1370,7 +1375,10 @@ export const KidsDirectoryScreen: React.FC = () => {
                       {/* Selection Checkbox */}
                       <button
                         type="button"
-                        onClick={() => toggleSelectKid(kid.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleSelectKid(kid.id);
+                        }}
                         className="p-1 -ms-1 text-zinc-400 hover:text-purple-600 dark:hover:text-purple-400 cursor-pointer shrink-0"
                         title="Select student"
                       >
@@ -1382,13 +1390,11 @@ export const KidsDirectoryScreen: React.FC = () => {
                       </button>
 
                       {/* Student Full Name */}
-                      <button
-                        type="button"
-                        onClick={() => setViewingKid(kid)}
-                        className="font-bold text-sm sm:text-base text-zinc-900 dark:text-zinc-100 hover:text-teal-600 text-start truncate block cursor-pointer"
+                      <span
+                        className="font-bold text-sm sm:text-base text-zinc-900 dark:text-zinc-100 hover:text-teal-600 text-start truncate block"
                       >
                         {kid.info.fullName}
-                      </button>
+                      </span>
                     </div>
 
                     {/* Status & Deacon Badges */}
@@ -1472,7 +1478,10 @@ export const KidsDirectoryScreen: React.FC = () => {
               <div className="pt-0.5">
                 <button
                   type="button"
-                  onClick={() => setExpandedKidDetails((prev) => ({ ...prev, [kid.id]: !prev[kid.id] }))}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpandedKidDetails((prev) => ({ ...prev, [kid.id]: !prev[kid.id] }));
+                  }}
                   className="w-full flex items-center justify-between text-[11px] font-bold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 py-1 transition cursor-pointer"
                 >
                   <span className="flex items-center gap-1">
@@ -1484,7 +1493,10 @@ export const KidsDirectoryScreen: React.FC = () => {
 
                 {/* Expanded Details Body */}
                 {isExpanded && (
-                  <div className="mt-2.5 p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/80 text-xs space-y-2.5 animate-in fade-in duration-150">
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="mt-2.5 p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/80 text-xs space-y-2.5 animate-in fade-in duration-150 cursor-default"
+                  >
                     {/* Education & Spiritual */}
                     <div className="grid grid-cols-2 gap-2 pb-2 border-b border-zinc-200/60 dark:border-zinc-700/60">
                       <div>
