@@ -17,7 +17,9 @@ This document serves as the absolute architectural blueprint and behavioral spec
 
 ### 🎨 C. Dynamic Dark Theme System
 *   **Visual Standard:** Both light and dark themes are seeded with a modern, high-fidelity teal color palette (`Colors.teal`) using Material 3 specifications.
-*   **Persistence:** Theme preferences are stored in the browser's native local storage and loaded synchronously.
+*   **Tailwind CSS v4 Class-Based Scoping:** Tailwind's `dark:` variant is explicitly bound to the `.dark` class (`@custom-variant dark (&:where(.dark, .dark *));`) rather than the default OS media query. This ensures in-app theme toggling reliably overrides the mobile device's system theme without conflicts.
+*   **Persistence & First-Visit Default:** On first-time visits (when no user preference is stored), the app automatically honors the device's system preference (`prefers-color-scheme: dark`). Once the user manually toggles the theme, their explicit selection is persisted in `localStorage` (`'oikonomos_theme'`) and takes strict precedence across sessions.
+*   **Zero Visual Flash:** The root `.dark` class is evaluated synchronously at bundle initialization before React rendering to avoid initial flash of unstyled theme.
 
 ### 👥 D. Google-Style Multi-Account Session Switcher
 *   **Behavior:** The generic, single-action sign-out button is replaced with a polished, circular User Profile Avatar in the top-right of the AppBar.
@@ -1406,6 +1408,20 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   *Graceful Monogram Fallback:* Implemented error state fallback (`userImgFailed`) with `onError` event trapping, ensuring any 429 or network image failure seamlessly displays the authenticated user's letter monogram circle with zero broken icons.
 *   **Universal Image Referrer-Policy Hardening across Screens & Modals:**
     *   Applied `referrerPolicy="no-referrer"` across church logos (`TopAppBar`), student photos (`KidsDirectoryScreen`, `KidDetailsModal`, `PhotoLightboxModal`, and `DashboardScreen`), and servant avatars (`ServantDetailsModal`).
+
+---
+
+## 66. Tailwind CSS v4 Class-Based Dark Theme Scoping & System Preference Harmonization
+
+*   **Class-Based Dark Mode Isolation (`src/index.css`):**
+    *   *Issue:* Tailwind CSS v4 defaults to `@media (prefers-color-scheme: dark)` for `dark:` utility classes. When a user's mobile device was set to system-wide dark mode, the OS media query forced dark styling regardless of whether `.dark` was present on the root element, rendering the in-app switch to light mode ineffective.
+    *   *Resolution:* Added `@custom-variant dark (&:where(.dark, .dark *));` to `src/index.css`. All dark mode styling rules are scoped strictly to the `.dark` DOM class, enabling the in-app toggle to switch seamlessly between light and dark modes regardless of OS-level preferences.
+*   **Intelligent First-Visit Default & Preference Memory (`src/context/AppContext.tsx`):**
+    *   *First-Time Launch:* When no saved preference exists in `localStorage`, the app checks `window.matchMedia('(prefers-color-scheme: dark)')` to match the mobile device's system appearance out of the box. If the device has no preference or is in light mode, it defaults to `'light'`.
+    *   *Dynamic OS Syncing:* While no preference is saved, the app dynamically responds to live system theme changes via `MediaQueryList` event listeners.
+    *   *Explicit Selection Persistence:* As soon as the user selects or toggles their theme in the app, their explicit choice (`'light'` or `'dark'`) is saved to `localStorage` under key `'oikonomos_theme'` and takes permanent priority on subsequent visits.
+*   **Zero-Flash Pre-Render Initialization (`src/main.tsx`):**
+    *   Synchronously checks `localStorage` and system media query to apply or remove `.dark` on `document.documentElement` before React mounts, preventing theme flickering during app load.
 
 
 
