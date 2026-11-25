@@ -1431,9 +1431,10 @@ Enables Sunday School servants and administrators to synchronize church contact 
     *   *Root Cause of Failure:* Running `upload-pages-artifact` and `deploy-pages` sequentially within the same monolithic job causes an API race condition where `deploy-pages` queries the GitHub Pages artifact registry before the asynchronous tarball artifact (`github-pages`) is finalized and indexed by GitHub's backend.
     *   *Resolution:* Decomposed CI/CD workflow into two discrete, dependent jobs:
         1.  `build` job: Handles checkout, Node.js 22 setup, dependency installation, Firebase configuration extraction, linter (`oxlint`), test suite (`vitest`), production Vite compilation, 404 SPA fallback generation, and artifact packaging via `actions/upload-pages-artifact@v3`.
-        2.  `deploy` job: Declares explicit `needs: build` dependency, binds to the `github-pages` deployment environment, and executes `actions/deploy-pages@v4` only after the `build` runner has successfully completed and closed its artifact stream.
-*   **Upgraded GitHub Actions Runner Components:**
+        2.  `deploy` job: Declares explicit `needs: build` dependency, binds to the `github-pages` deployment environment with explicit `pages: write` and `id-token: write` permissions, and executes `actions/deploy-pages@v4` only after the `build` runner has successfully completed and closed its artifact stream.
+*   **Upgraded GitHub Actions Runner Components & Permissions Hardening:**
     *   Updated `actions/configure-pages` to `v5` to ensure runner compatibility and resolve Node.js 20 runtime deprecation notices.
+    *   Hardened OIDC token permissions directly on the `deploy` job level to ensure Octokit `createPagesDeployment` API receives unconstrained tokens.
 *   **Repository Configuration Standard:**
     *   Requires GitHub repository setting **Settings ➔ Pages ➔ Build and deployment ➔ Source** to be explicitly set to **GitHub Actions**.
 
